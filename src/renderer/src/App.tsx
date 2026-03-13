@@ -88,9 +88,10 @@ function App(): JSX.Element {
       const data = await response.json()
       console.log('Connected to Jellyfin:', data.ServerName)
       
-      // Try to get current user ID - fallback to empty if not available
+      // Try to get current user ID - with robust fallback
       let currentUserId = ''
       try {
+        // Primary: try /Users/Me endpoint
         const userRes = await fetch(`${normalizedUrl}/Users/Me`, {
           method: 'GET',
           headers: { 
@@ -102,9 +103,35 @@ function App(): JSX.Element {
         if (userRes.ok) {
           const userData = await userRes.json()
           currentUserId = userData.Id || ''
+        } else if (userRes.status === 400) {
+          // /Users/Me failed (400) - try fallback: get user list and use first user
+          console.warn('/Users/Me returned 400, trying /Users fallback')
+          try {
+            const usersRes = await fetch(`${normalizedUrl}/Users`, {
+              method: 'GET',
+              headers: { 
+                'X-MediaBrowser-Token': apiKey,
+                'Content-Type': 'application/json'
+              }
+            })
+            if (usersRes.ok) {
+              const usersData = await usersRes.json()
+              if (usersData.Users && usersData.Users.length > 0) {
+                currentUserId = usersData.Users[0].Id
+                console.log('Using fallback user ID:', currentUserId)
+              }
+            }
+          } catch (fallbackErr) {
+            console.warn('Fallback /Users also failed:', fallbackErr)
+          }
         }
       } catch (e) {
         console.warn('Could not get user ID, using fallback:', e)
+      }
+      
+      // Final validation: ensure userId is not empty
+      if (!currentUserId) {
+        console.error('CRITICAL: Unable to obtain userId - library features may be limited')
       }
       
       // Save config with user ID (may be empty)
@@ -126,6 +153,14 @@ function App(): JSX.Element {
     }
   }
 
+  // Helper to build URL without double slashes (except for https://)
+  const buildUrl = (base: string, path: string): string => {
+    // Remove trailing slash from base, ensure path starts with /
+    const cleanBase = base.replace(/\/$/, '')
+    const cleanPath = path.startsWith('/') ? path : `/${path}`
+    return `${cleanBase}${cleanPath}`
+  }
+
   // Load library data
   const loadLibrary = async (url: string, apiKey: string, userId: string): Promise<void> => {
     const headers = { 
@@ -134,9 +169,12 @@ function App(): JSX.Element {
     }
     const baseUrl = url.replace(/\/$/, '')
     
+    // Validate userId exists and is not empty before using in URLs
+    const safeUserId = userId && userId.trim() !== '' ? userId.trim() : null
+    
     // Load artists - increase limit to 6000
     try {
-      const artistsRes = await fetch(`${baseUrl}/Artists?SortBy=Name&Limit=6000`, { headers })
+      const artistsRes = await fetch(buildUrl(baseUrl, '/Artists?SortBy=Name&Limit=6000'), { headers })
       if (!artistsRes.ok) throw new Error(`HTTP ${artistsRes.status}`)
       const artistsData = await artistsRes.json()
       setArtists(artistsData.Items || [])
@@ -146,26 +184,36 @@ function App(): JSX.Element {
       setArtists([])
     }
     
-    // Load albums - use user items with music folder parent
+    // Load albums - use user items with music folder parent (only if userId is valid)
     try {
-      const albumsRes = await fetch(`${baseUrl}/Users/${userId}/Items?ParentId=4a5c7dd78f12a0180afbf37067b6211a&IncludeItemTypes=Album&Limit=500`, { headers })
-      if (!albumsRes.ok) throw new Error(`HTTP ${albumsRes.status}`)
-      const albumsData = await albumsRes.json()
-      setAlbums(albumsData.Items || [])
+      if (safeUserId) {
+        const albumsRes = await fetch(buildUrl(baseUrl, `/Users/${safeUserId}/Items?ParentId=4a5c7dd78f12a0180afbf37067b6211a&IncludeItemTypes=Album&Limit=500`), { headers })
+        if (!albumsRes.ok) throw new Error(`HTTP ${albumsRes.status}`)
+        const albumsData = await albumsRes.json()
+        setAlbums(albumsData.Items || [])
+      } else {
+        // Fallback: use generic albums endpoint if no userId
+        console.warn('No userId available, using generic albums endpoint')
+        const albumsRes = await fetch(buildUrl(baseUrl, '/Items?ParentId=4a5c7dd78f12a0180afbf37067b6211a&IncludeItemTypes=Album&Limit=500'), { headers })
+        if (albumsRes.ok) {
+          const albumsData = await albumsRes.json()
+          setAlbums(albumsData.Items || [])
+        }
+      }
     } catch (e) {
       console.error('Failed to load albums:', e)
       setError('Error cargando álbumes')
       setAlbums([])
     }
     
-    // Load playlists - try multiple endpoints
+    // Load playlists - try user-specific endpoint first, then fallback to generic
     try {
       let playlistsData = { Items: [] as any[] }
       
-      if (userId) {
+      if (safeUserId) {
         // Try user-specific endpoint first
         try {
-          const playlistsRes = await fetch(`${baseUrl}/Users/${userId}/Items?IncludeItemTypes=Playlist&Limit=500`, { headers })
+          const playlistsRes = await fetch(buildUrl(baseUrl, `/Users/${safeUserId}/Items?IncludeItemTypes=Playlist&Limit=500`), { headers })
           if (playlistsRes.ok) {
             playlistsData = await playlistsRes.json()
           }
@@ -174,9 +222,9 @@ function App(): JSX.Element {
         }
       }
       
-      // If no user ID or user endpoint failed, try generic endpoint
+      // If no user ID or user endpoint returned no results, try generic endpoint
       if (!playlistsData.Items || playlistsData.Items.length === 0) {
-        const genericRes = await fetch(`${baseUrl}/Items?IncludeItemTypes=Playlist&Limit=500`, { headers })
+        const genericRes = await fetch(buildUrl(baseUrl, '/Items?IncludeItemTypes=Playlist&Limit=500'), { headers })
         if (genericRes.ok) {
           playlistsData = await genericRes.json()
         }
