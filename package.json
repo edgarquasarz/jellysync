@@ -13,9 +13,9 @@
     "preview": "electron-vite preview",
     "start": "electron .",
     "package": "npm run build && electron-builder",
-    "test:bdd": "pnpm build && cucumber-js --config tests/bdd/cucumber.js",
-    "test:bdd:dev": "pnpm build && cucumber-js --config tests/bdd/cucumber.js --profile dev",
-    "test:bdd:ci": "pnpm build && cucumber-js --config tests/bdd/cucumber.js --profile ci",
+    "test:bdd": "pnpm build && pnpm exec tsc --project tests/bdd/tsconfig.json --outDir tests/bdd/dist --declaration false && cucumber-js --config tests/bdd/cucumber.js",
+    "test:bdd:dev": "pnpm build && pnpm exec tsc --project tests/bdd/tsconfig.json --outDir tests/bdd/dist --declaration false && cucumber-js --config tests/bdd/cucumber.js --profile dev",
+    "test:bdd:ci": "pnpm build && pnpm exec tsc --project tests/bdd/tsconfig.json --outDir tests/bdd/dist --declaration false && cucumber-js --config tests/bdd/cucumber.js --profile ci",
     "test:bdd:report": "open tests/bdd/reports/cucumber-report.html"
   },
   "dependencies": {

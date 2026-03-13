@@ -1,49 +1,36 @@
-import { Given, When, Then, Before, After } from '@cucumber/cucumber';
+import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { ElectronApplication, Page } from 'playwright';
-import { launchApp, closeApp, getMainWindow } from '../support/app-launcher';
-
-let electronApp: ElectronApplication;
-let page: Page;
-
-Before(async () => {
-  electronApp = await launchApp();
-  page = await getMainWindow(electronApp);
-});
-
-After(async () => {
-  await closeApp(electronApp);
-});
+import { ICustomWorld } from '../support/world';
 
 // Given steps
-Given('la aplicación Jellysync está iniciada', async () => {
-  const title = await page.title();
+Given('la aplicación Jellysync está iniciada', async function(this: ICustomWorld) {
+  const title = await this.page!.title();
   expect(title).toContain('Jellysync');
 });
 
-Given('el usuario tiene una URL de servidor Jellyfin válida', async () => {
-  // Setup mock o verificación de configuración
+Given('el usuario tiene una URL de servidor Jellyfin válida', async function(this: ICustomWorld) {
+  this.testData!.validUrl = 'https://jellyfin.example.com';
 });
 
-Given('el usuario tiene una API key válida', async () => {
-  // Setup mock o verificación de configuración
+Given('el usuario tiene una API key válida', async function(this: ICustomWorld) {
+  this.testData!.validApiKey = 'valid-api-key-123';
 });
 
-Given('el usuario tiene una URL de servidor inválida', async () => {
-  // Setup para simular URL inválida
+Given('el usuario tiene una URL de servidor inválida', async function(this: ICustomWorld) {
+  this.testData!.invalidUrl = 'https://invalid-server.com';
 });
 
-Given('el usuario tiene una API key inválida', async () => {
-  // Setup para simular API key inválida
+Given('el usuario tiene una API key inválida', async function(this: ICustomWorld) {
+  this.testData!.invalidApiKey = 'invalid-key';
 });
 
-Given('el usuario está en la pantalla de autenticación', async () => {
-  await page.waitForSelector('[data-testid="auth-screen"]');
+Given('el usuario está en la pantalla de autenticación', async function(this: ICustomWorld) {
+  await this.page!.waitForSelector('[data-testid="auth-screen"]');
 });
 
-Given('el usuario ha ingresado credenciales válidas', async () => {
-  await page.fill('[data-testid="server-url-input"]', 'https://jellyfin.example.com');
-  await page.fill('[data-testid="api-key-input"]', 'valid-api-key-123');
+Given('el usuario ha ingresado credenciales válidas', async function(this: ICustomWorld) {
+  await this.page!.fill('[data-testid="server-url-input"]', 'https://jellyfin.example.com');
+  await this.page!.fill('[data-testid="api-key-input"]', 'valid-api-key-123');
 });
 
 // When steps

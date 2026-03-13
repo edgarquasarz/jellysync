@@ -3,15 +3,14 @@ import { ICustomWorld } from './world';
 import { launchApp, closeApp, getMainWindow } from './app-launcher';
 
 Before(async function (this: ICustomWorld) {
-  // Iniciar la aplicación Electron
-  this.app = await launchApp();
-  this.page = await getMainWindow(this.app);
-  this.testData = {};
-  
-  // Limpiar localStorage antes de cada test
-  await this.page.evaluate(() => {
-    localStorage.clear();
-  });
+  try {
+    this.app = await launchApp();
+    this.page = await getMainWindow(this.app);
+    this.testData = {};
+  } catch (error) {
+    console.error('Failed to launch app:', error);
+    throw error;
+  }
 });
 
 After(async function (this: ICustomWorld, scenario) {

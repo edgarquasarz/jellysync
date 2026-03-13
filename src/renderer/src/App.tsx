@@ -36,6 +36,15 @@ interface Playlist {
   TrackCount: number
 }
 
+interface JellyfinUser {
+  Id: string
+  Name: string
+  PrimaryImageTag?: string
+  Policy?: {
+    IsAdministrator: boolean
+  }
+}
+
 interface Track {
   Id: string
   Name: string
@@ -62,6 +71,9 @@ function App(): JSX.Element {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+  const [users, setUsers] = useState<JellyfinUser[]>([])
+  const [showUserSelector, setShowUserSelector] = useState(false)
+  const [pendingConfig, setPendingConfig] = useState<{url: string, apiKey: string} | null>(null)
 
   // Connect to Jellyfin
   const connectToJellyfin = async (url: string, apiKey: string): Promise<boolean> => {
@@ -99,6 +111,27 @@ function App(): JSX.Element {
         if (userRes.ok) {
           const userData = await userRes.json()
           currentUserId = userData.Id || currentUserId
+          // Success - use this user and continue
+          setJellyfinConfig({ url, apiKey, userId: currentUserId })
+          setUserId(currentUserId)
+          setIsConnected(true)
+          await loadLibrary(url, apiKey, currentUserId)
+          return true
+        } else if (userRes.status === 400 || userRes.status === 401) {
+          // /Users/Me doesn't work with API keys - fetch all users and let user choose
+          console.warn('/Users/Me failed with API key, fetching user list...')
+          const usersRes = await fetch(`${normalizedUrl}/Users`, {
+            headers: { 'X-MediaBrowser-Token': apiKey }
+          })
+          
+          if (usersRes.ok) {
+            const usersData = await usersRes.json()
+            setUsers(usersData || [])
+            setPendingConfig({ url, apiKey })
+            setShowUserSelector(true)
+            setIsConnecting(false)
+            return false // Don't set isConnected yet, wait for user selection
+          }
         } else {
           console.warn('/Users/Me failed, using default user ID:', currentUserId)
         }
@@ -125,6 +158,31 @@ function App(): JSX.Element {
     } finally {
       setIsConnecting(false)
     }
+  }
+
+  // Handle user selection from the selector modal
+  const handleUserSelect = async (selectedUser: JellyfinUser): Promise<void> => {
+    if (!pendingConfig) return
+    
+    const { url, apiKey } = pendingConfig
+    const currentUserId = selectedUser.Id
+    
+    setJellyfinConfig({ url, apiKey, userId: currentUserId })
+    setUserId(currentUserId)
+    setShowUserSelector(false)
+    setIsConnected(true)
+    setPendingConfig(null)
+    
+    // Load library data with selected user
+    await loadLibrary(url, apiKey, currentUserId)
+  }
+
+  // Cancel user selection and go back to login
+  const handleUserSelectorCancel = (): void => {
+    setShowUserSelector(false)
+    setPendingConfig(null)
+    setUsers([])
+    setIsConnecting(false)
   }
 
   // Helper to build URL without double slashes (except for https://)

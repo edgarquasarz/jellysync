@@ -5,8 +5,7 @@ const config = {
       snippetInterface: 'async-await',
     },
     paths: ['tests/bdd/features/**/*.feature'],
-    require: ['tests/bdd/steps/**/*.ts', 'tests/bdd/support/**/*.ts'],
-    requireModule: ['ts-node/register/transpile-only'],
+    require: ['tests/bdd/dist/steps/**/*.js', 'tests/bdd/dist/support/**/*.js'],
     publishQuiet: true,
     worldParameters: {
       headless: true,

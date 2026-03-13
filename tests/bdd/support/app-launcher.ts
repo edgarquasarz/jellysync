@@ -6,32 +6,47 @@ let electronApp: ElectronApplication | null = null;
 
 // Función para encontrar el ejecutable de Electron
 function getElectronPath(): string {
-  // Intentar encontrar electron en node_modules/.bin
   const projectPath = path.resolve(__dirname, '../../../');
-  const electronBin = path.join(projectPath, 'node_modules/.bin/electron');
   
+  // Check for packaged app first
+  const macAppPath = path.join(projectPath, 'release/mac/Jellysync.app/Contents/MacOS/Jellysync');
+  if (fs.existsSync(macAppPath)) {
+    return macAppPath;
+  }
+  
+  // Check for electron in node_modules
+  const electronBin = path.join(projectPath, 'node_modules/.bin/electron');
   if (fs.existsSync(electronBin)) {
     return electronBin;
   }
   
-  // Fallback: usar pnpm exec
   return 'electron';
 }
 
 export async function launchApp(): Promise<ElectronApplication> {
-  // Path al directorio raíz del proyecto
   const projectPath = path.resolve(__dirname, '../../../');
-  
   const electronPath = getElectronPath();
+  
+  const isPackaged = electronPath.includes('Jellysync.app');
+  
+  let args: string[] = [];
+  let cwd = projectPath;
+  
+  if (isPackaged) {
+    // For packaged app, don't pass args - it will use its own
+    cwd = path.dirname(electronPath);
+  } else {
+    // For dev, run the dist
+    args = [path.join(projectPath, 'dist/main/index.js')];
+  }
   
   electronApp = await electron.launch({
     executablePath: electronPath !== 'electron' ? electronPath : undefined,
-    args: [path.join(projectPath, 'dist/main/index.js')],
-    cwd: projectPath,
+    args: args.length > 0 ? args : undefined,
+    cwd: cwd,
     env: {
       ...process.env,
       NODE_ENV: 'test',
-      BDD_TEST: 'true',
     },
   });
 
@@ -39,17 +54,13 @@ export async function launchApp(): Promise<ElectronApplication> {
 }
 
 export async function getMainWindow(app: ElectronApplication): Promise<Page> {
-  // Esperar a que se cree la primera ventana
-  await app.firstWindow();
+  // Wait for first window
+  const window = await app.waitForEvent('window', { timeout: 10000 });
   
-  // Obtener todas las ventanas y retornar la primera
-  const windows = app.windows();
-  const mainWindow = windows[0];
+  // Wait for DOM to be ready
+  await window.waitForLoadState('domcontentloaded');
   
-  // Esperar a que la ventana esté lista
-  await mainWindow.waitForLoadState('domcontentloaded');
-  
-  return mainWindow;
+  return window;
 }
 
 export async function closeApp(app: ElectronApplication): Promise<void> {

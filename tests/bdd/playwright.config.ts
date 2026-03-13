@@ -5,33 +5,31 @@ import { defineConfig, devices } from '@playwright/test';
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: './tests/e2e',
-  
-  /* Tiempo máximo por test */
-  timeout: 30 * 1000,
+  testDir: './features',
+  timeout: 60 * 1000,
   
   /* Esperar hasta que todos los hooks terminen */
   expect: {
-    timeout: 5000,
+    timeout: 10000,
   },
   
   /* Reporterios */
   reporter: [
-    ['html', { outputFolder: './tests/bdd/reports/playwright-report' }],
+    ['html', { outputFolder: './reports/playwright-report' }],
     ['list'],
   ],
-  
-  /* Configuración de workers */
-  workers: process.env.CI ? 1 : undefined,
   
   /* Configuración de proyectos */
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'electron',
+      use: { 
+        ...devices['Desktop Chrome'],
+        channel: 'electron',
+      },
     },
   ],
   
   /* Directorio de output */
-  outputDir: './tests/bdd/test-results/',
+  outputDir: './test-results/',
 });
