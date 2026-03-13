@@ -134,9 +134,9 @@ function App(): JSX.Element {
     }
     const baseUrl = url.replace(/\/$/, '')
     
-    // Load artists
+    // Load artists - increase limit to 6000
     try {
-      const artistsRes = await fetch(`${baseUrl}/Artists?SortBy=Name&Limit=200`, { headers })
+      const artistsRes = await fetch(`${baseUrl}/Artists?SortBy=Name&Limit=6000`, { headers })
       if (!artistsRes.ok) throw new Error(`HTTP ${artistsRes.status}`)
       const artistsData = await artistsRes.json()
       setArtists(artistsData.Items || [])
@@ -146,9 +146,9 @@ function App(): JSX.Element {
       setArtists([])
     }
     
-    // Load albums
+    // Load albums - use user items with music folder parent
     try {
-      const albumsRes = await fetch(`${baseUrl}/Items?IncludeItemTypes=Album&Limit=200`, { headers })
+      const albumsRes = await fetch(`${baseUrl}/Users/${userId}/Items?ParentId=4a5c7dd78f12a0180afbf37067b6211a&IncludeItemTypes=Album&Limit=500`, { headers })
       if (!albumsRes.ok) throw new Error(`HTTP ${albumsRes.status}`)
       const albumsData = await albumsRes.json()
       setAlbums(albumsData.Items || [])
@@ -165,7 +165,7 @@ function App(): JSX.Element {
       if (userId) {
         // Try user-specific endpoint first
         try {
-          const playlistsRes = await fetch(`${baseUrl}/Users/${userId}/Items?IncludeItemTypes=Playlist&Limit=100`, { headers })
+          const playlistsRes = await fetch(`${baseUrl}/Users/${userId}/Items?IncludeItemTypes=Playlist&Limit=500`, { headers })
           if (playlistsRes.ok) {
             playlistsData = await playlistsRes.json()
           }
@@ -176,7 +176,7 @@ function App(): JSX.Element {
       
       // If no user ID or user endpoint failed, try generic endpoint
       if (!playlistsData.Items || playlistsData.Items.length === 0) {
-        const genericRes = await fetch(`${baseUrl}/Items?IncludeItemTypes=Playlist&Limit=100`, { headers })
+        const genericRes = await fetch(`${baseUrl}/Items?IncludeItemTypes=Playlist&Limit=500`, { headers })
         if (genericRes.ok) {
           playlistsData = await genericRes.json()
         }
