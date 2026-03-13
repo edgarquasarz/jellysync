@@ -1,161 +1,154 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { Page } from 'playwright';
-
-declare let page: Page;
+import { ICustomWorld } from '../support/world';
 
 // Given steps
-Given('la biblioteca está cargada', async () => {
-  await page.waitForSelector('[data-testid="library-content"]');
+Given('la biblioteca está cargada', async function(this: ICustomWorld) {
+  await this.page!.waitForSelector('[data-testid="library-content"]');
 });
 
-Given('el usuario está viendo canciones de un álbum', async () => {
-  await page.click('[data-testid="album-item"]:first-child');
-  await page.waitForSelector('[data-testid="tracks-list"]');
+Given('hay un dispositivo USB conectado', async function(this: ICustomWorld) {
+  // Simular dispositivo conectado o verificar que existe
+  const devices = await this.page!.locator('[data-testid="usb-device"]').count();
+  expect(devices).toBeGreaterThan(0);
 });
 
-Given('un dispositivo USB es conectado', async () => {
-  // Simular evento de dispositivo conectado
-  await page.evaluate(() => {
-    window.dispatchEvent(new CustomEvent('usb-device-connected', {
-      detail: { name: 'USB Drive', availableSpace: 1024 * 1024 * 1024 }
-    }));
-  });
-});
-
-Given('hay un dispositivo USB conectado', async () => {
-  await page.waitForSelector('[data-testid="usb-device-connected"]');
-});
-
-Given('el usuario ha seleccionado {int} canciones', async (count: number) => {
-  // Seleccionar N canciones
-  for (let i = 0; i < count; i++) {
-    await page.click(`[data-testid="track-item"]:nth-child(${i + 1}) [data-testid="track-checkbox"]`);
+Given('el usuario ha seleccionado 5 canciones', async function(this: ICustomWorld) {
+  // Seleccionar 5 canciones
+  const checkboxes = this.page!.locator('[data-testid="track-checkbox"]');
+  for (let i = 0; i < 5; i++) {
+    await checkboxes.nth(i).check();
   }
 });
 
-Given('la sincronización está en progreso', async () => {
-  await page.click('[data-testid="sync-button"]');
-  await page.waitForSelector('[data-testid="sync-progress"]');
+Given('la sincronización está en progreso', async function(this: ICustomWorld) {
+  await this.page!.waitForSelector('[data-testid="sync-progress"]');
 });
 
-Given('el usuario ha seleccionado canciones que exceden el espacio disponible', async () => {
-  // Simular selección que excede espacio
-  await page.evaluate(() => {
-    window.dispatchEvent(new CustomEvent('storage-estimate', {
-      detail: { required: 2000000000, available: 500000000 }
-    }));
-  });
+Given('el usuario ha seleccionado canciones que exceden el espacio disponible', async function(this: ICustomWorld) {
+  // Simular selección de muchas canciones
+  const checkboxes = this.page!.locator('[data-testid="track-checkbox"]');
+  const count = await checkboxes.count();
+  for (let i = 0; i < Math.min(count, 100); i++) {
+    await checkboxes.nth(i).check();
+  }
 });
 
 // When steps
-When('el usuario marca la casilla de la canción {string}', async (songTitle: string) => {
-  const trackRow = page.locator(`[data-testid="track-item"]:has-text("${songTitle}")`);
-  await trackRow.locator('[data-testid="track-checkbox"]').check();
+When('un dispositivo USB es conectado', async function(this: ICustomWorld) {
+  // Simular evento de conexión USB
+  await this.page!.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('usb-device-connected'));
+  });
 });
 
-When('el usuario marca la casilla {string}', async (checkboxLabel: string) => {
+When('el usuario marca la casilla de la canción {string}', async function(this: ICustomWorld, songName: string) {
+  const track = this.page!.locator(`[data-testid="track-item"]:has-text("${songName}")`);
+  await track.locator('[data-testid="track-checkbox"]').check();
+});
+
+When('el usuario marca la casilla {string}', async function(this: ICustomWorld, checkboxLabel: string) {
   if (checkboxLabel === 'Seleccionar todo') {
-    await page.click('[data-testid="select-all-checkbox"]');
+    await this.page!.click('[data-testid="select-all-checkbox"]');
   } else {
-    await page.check(`label:has-text("${checkboxLabel}") input[type="checkbox"]`);
+    await this.page!.check(`label:has-text("${checkboxLabel}") input[type="checkbox"]`);
   }
 });
 
-When('el dispositivo USB es desconectado', async () => {
-  await page.evaluate(() => {
+When('el dispositivo USB es desconectado', async function(this: ICustomWorld) {
+  await this.page!.evaluate(() => {
     window.dispatchEvent(new CustomEvent('usb-device-disconnected'));
   });
 });
 
 // Then steps
-Then('debería detectarse el dispositivo automáticamente', async () => {
-  await page.waitForSelector('[data-testid="usb-device-connected"]');
+Then('debería detectarse el dispositivo automáticamente', async function(this: ICustomWorld) {
+  await this.page!.waitForSelector('[data-testid="usb-device"]', { timeout: 5000 });
 });
 
-Then('debería mostrarse el nombre del dispositivo', async () => {
-  await expect(page.locator('[data-testid="device-name"]')).toBeVisible();
+Then('debería mostrarse el nombre del dispositivo', async function(this: ICustomWorld) {
+  await expect(this.page!.locator('[data-testid="device-name"]')).toBeVisible();
 });
 
-Then('debería mostrar el espacio disponible', async () => {
-  await expect(page.locator('[data-testid="available-space"]')).toBeVisible();
+Then('debería mostrar el espacio disponible', async function(this: ICustomWorld) {
+  await expect(this.page!.locator('[data-testid="device-free-space"]')).toBeVisible();
 });
 
-Then('el botón {string} debería habilitarse', async (buttonText: string) => {
-  const button = page.locator(`button:has-text("${buttonText}")`);
+Then('el botón {string} debería habilitarse', async function(this: ICustomWorld, buttonText: string) {
+  const button = this.page!.locator(`button:has-text("${buttonText}")`);
   await expect(button).toBeEnabled();
 });
 
-Then('el contador de canciones seleccionadas debería mostrar {string}', async (count: string) => {
-  const counter = page.locator('[data-testid="selected-count"]');
+Then('el contador de canciones seleccionadas debería mostrar {string}', async function(this: ICustomWorld, count: string) {
+  const counter = this.page!.locator('[data-testid="selected-count"]');
   await expect(counter).toHaveText(count);
 });
 
-Then('el indicador de espacio requerido debería actualizarse', async () => {
-  await expect(page.locator('[data-testid="required-space"]')).toBeVisible();
+Then('el indicador de espacio requerido debería actualizarse', async function(this: ICustomWorld) {
+  await expect(this.page!.locator('[data-testid="required-space"]')).toBeVisible();
 });
 
-Then('todas las canciones del álbum deberían estar marcadas', async () => {
-  const checkboxes = await page.locator('[data-testid="track-checkbox"]').all();
-  for (const checkbox of checkboxes) {
-    await expect(checkbox).toBeChecked();
+Then('todas las canciones del álbum deberían estar marcadas', async function(this: ICustomWorld) {
+  const checkboxes = this.page!.locator('[data-testid="track-checkbox"]');
+  const count = await checkboxes.count();
+  for (let i = 0; i < count; i++) {
+    await expect(checkboxes.nth(i)).toBeChecked();
   }
 });
 
-Then('el contador debería mostrar el total de canciones del álbum', async () => {
-  const trackCount = await page.locator('[data-testid="track-item"]').count();
-  const selectedCount = await page.locator('[data-testid="selected-count"]').textContent();
-  expect(selectedCount).toContain(trackCount.toString());
+Then('el contador debería mostrar el total de canciones del álbum', async function(this: ICustomWorld) {
+  const totalTracks = await this.page!.locator('[data-testid="track-item"]').count();
+  const counter = this.page!.locator('[data-testid="selected-count"]');
+  await expect(counter).toHaveText(String(totalTracks));
 });
 
-Then('debería iniciarse el proceso de sincronización', async () => {
-  await page.waitForSelector('[data-testid="sync-progress"]');
+Then('debería iniciarse el proceso de sincronización', async function(this: ICustomWorld) {
+  await this.page!.waitForSelector('[data-testid="sync-progress"]', { timeout: 5000 });
 });
 
-Then('debería mostrarse una barra de progreso', async () => {
-  await expect(page.locator('[data-testid="sync-progress-bar"]')).toBeVisible();
+Then('debería mostrarse una barra de progreso', async function(this: ICustomWorld) {
+  await expect(this.page!.locator('[data-testid="sync-progress-bar"]')).toBeVisible();
 });
 
-Then('When la sincronización completa', async () => {
-  await page.waitForSelector('[data-testid="sync-complete"]', { timeout: 30000 });
+Then('la sincronización completa', async function(this: ICustomWorld) {
+  // Esperar a que la barra de progreso llegue al 100%
+  await this.page!.waitForFunction(() => {
+    const progressBar = document.querySelector('[data-testid="sync-progress-bar"]');
+    return progressBar && progressBar.getAttribute('aria-valuenow') === '100';
+  }, { timeout: 30000 });
 });
 
-Then('las canciones deberían estar en el dispositivo USB', async () => {
-  // Verificar que se completó exitosamente
-  await expect(page.locator('[data-testid="sync-success-icon"]')).toBeVisible();
+Then('las canciones deberían estar en el dispositivo USB', async function(this: ICustomWorld) {
+  // Verificar que se muestra confirmación
+  await expect(this.page!.locator('[data-testid="sync-completed-message"]')).toBeVisible();
 });
 
-Then('la sincronización debería detenerse', async () => {
-  await page.waitForSelector('[data-testid="sync-cancelled"]');
+Then('la sincronización debería detenerse', async function(this: ICustomWorld) {
+  await this.page!.waitForSelector('[data-testid="sync-cancelled"]', { timeout: 5000 });
 });
 
-Then('los archivos parcialmente copiados deberían eliminarse', async () => {
-  // Verificar limpieza de archivos temporales
-  await expect(page.locator('[data-testid="cleanup-complete"]')).toBeVisible();
+Then('los archivos parcialmente copiados deberían eliminarse', async function(this: ICustomWorld) {
+  // Verificar estado de limpieza
+  await expect(this.page!.locator('[data-testid="cleanup-completed"]')).toBeVisible();
 });
 
-Then('debería mostrarse el mensaje {string}', async (message: string) => {
-  await expect(page.locator(`text=${message}`)).toBeVisible();
+Then('la sincronización debería pausarse', async function(this: ICustomWorld) {
+  const status = this.page!.locator('[data-testid="sync-status"]');
+  await expect(status).toHaveText('Pausada');
 });
 
-Then('debería mostrar cuánto espacio adicional se necesita', async () => {
-  await expect(page.locator('[data-testid="additional-space-needed"]')).toBeVisible();
+Then('el botón {string} debería estar disponible', async function(this: ICustomWorld, buttonText: string) {
+  const button = this.page!.locator(`button:has-text("${buttonText}")`);
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
 });
 
-Then('la sincronización no debería iniciarse', async () => {
-  const progressBar = page.locator('[data-testid="sync-progress"]');
+Then('debería mostrar cuánto espacio adicional se necesita', async function(this: ICustomWorld) {
+  await expect(this.page!.locator('[data-testid="additional-space-needed"]')).toBeVisible();
+});
+
+Then('la sincronización no debería iniciarse', async function(this: ICustomWorld) {
+  // Verificar que no aparece la barra de progreso
+  const progressBar = this.page!.locator('[data-testid="sync-progress"]');
   await expect(progressBar).not.toBeVisible();
-});
-
-Then('debería mostrarse el mensaje {string}', async (message: string) => {
-  await expect(page.locator(`text=${message}`)).toBeVisible();
-});
-
-Then('la sincronización debería pausarse', async () => {
-  const progressBar = page.locator('[data-testid="sync-progress"]');
-  // Verificar que el progreso se detuvo
-  const progress = await progressBar.getAttribute('data-progress');
-  await page.waitForTimeout(1000);
-  const newProgress = await progressBar.getAttribute('data-progress');
-  expect(progress).toBe(newProgress);
 });

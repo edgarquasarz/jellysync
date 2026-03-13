@@ -1,8 +1,11 @@
-import { Before, After, Status } from '@cucumber/cucumber';
+import { Before, After, Status, BeforeAll, AfterAll } from '@cucumber/cucumber';
 import { ICustomWorld } from './world';
 import { launchApp, closeApp, getMainWindow } from './app-launcher';
 
-Before(async function (this: ICustomWorld) {
+// Aumentar el timeout para Electron
+const ELECTRON_TIMEOUT = 60000; // 60 segundos
+
+Before({ timeout: ELECTRON_TIMEOUT }, async function (this: ICustomWorld) {
   try {
     this.app = await launchApp();
     this.page = await getMainWindow(this.app);
