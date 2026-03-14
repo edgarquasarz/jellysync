@@ -3,9 +3,19 @@ import { Music, Search, HardDrive, Settings, User, Disc, Folder, ListMusic, Refr
 
 // Types
 interface UsbDevice {
-  deviceAddress: number
-  vendorId: number
-  productId: number
+  // Format from drivelist
+  device: string
+  displayName: string
+  size: number
+  mountpoints: Array<{ path: string }>
+  isRemovable: boolean
+  vendorName?: string
+  serialNumber?: string
+  deviceInfo?: { total: number; free: number; used: number }
+  // Legacy format from node-usb
+  deviceAddress?: number
+  vendorId?: number
+  productId?: number
   productName?: string
   manufacturerName?: string
 }

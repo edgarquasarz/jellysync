@@ -1,16 +1,64 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 interface UsbDevice {
-  deviceAddress: number
-  vendorId: number
-  productId: number
+  device: string
+  displayName: string
+  size: number
+  mountpoints: Array<{ path: string }>
+  isRemovable: boolean
+  vendorName?: string
+  serialNumber?: string
+  deviceInfo?: { total: number; free: number; used: number }
+}
+
+interface DeviceInfo {
+  total: number
+  free: number
+  used: number
+}
+
+interface TrackInfo {
+  id: string
+  name: string
+  path: string
+  size: number
+  format: string
+}
+
+interface SyncOptions {
+  tracks: TrackInfo[]
+  targetPath: string
+  convertToMp3: boolean
+  mp3Bitrate: string
+}
+
+interface SyncResult {
+  success: boolean
+  errors: string[]
+  syncedFiles: number
+}
+
+interface SyncProgress {
+  current: number
+  total: number
+  currentFile: string
+  status: 'syncing' | 'completed' | 'cancelled'
 }
 
 interface Api {
   listUsbDevices: () => Promise<UsbDevice[]>
-  onUsbAttach: (callback: (device: unknown) => void) => void
-  onUsbDetach: (callback: (device: unknown) => void) => void
+  getDeviceInfo: (devicePath: string) => Promise<DeviceInfo>
+  getTrackSize: (trackPath: string) => Promise<number>
+  getTrackFormat: (trackPath: string) => Promise<string>
+  onUsbAttach: (callback: () => void) => (() => void) | undefined
+  onUsbDetach: (callback: () => void) => (() => void) | undefined
+  startSync: (options: SyncOptions) => Promise<SyncResult>
+  cancelSync: () => Promise<{ cancelled: boolean }>
+  onSyncProgress: (callback: (progress: SyncProgress) => void) => (() => void) | undefined
+  isFfmpegAvailable: () => Promise<boolean>
   getVersion: () => Promise<string>
+  selectFolder: () => Promise<string | null>
+  getFolderStats: (path: string) => Promise<{exists: boolean, isDirectory?: boolean, size?: number, modified?: string, error?: string}>
 }
 
 declare global {

@@ -1,30 +1,97 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// USB device type
-interface UsbDeviceInfo {
-  deviceAddress: number
-  vendorId: number
-  productId: number
-  productName?: string
-  manufacturerName?: string
+interface UsbDevice {
+  device: string
+  displayName: string
+  size: number
+  mountpoints: Array<{ path: string }>
+  isRemovable: boolean
+  vendorName?: string
+  serialNumber?: string
 }
 
-// Custom APIs for renderer
+interface DeviceInfo {
+  total: number
+  free: number
+  used: number
+}
+
+interface TrackInfo {
+  id: string
+  name: string
+  path: string
+  size: number
+  format: string
+}
+
+interface SyncOptions {
+  tracks: TrackInfo[]
+  targetPath: string
+  convertToMp3: boolean
+  mp3Bitrate: string
+}
+
+interface SyncResult {
+  success: boolean
+  errors: string[]
+  syncedFiles: number
+}
+
+interface SyncProgress {
+  current: number
+  total: number
+  currentFile: string
+  status: 'syncing' | 'completed' | 'cancelled'
+}
+
 const api = {
-  // USB
-  listUsbDevices: (): Promise<UsbDeviceInfo[]> =>
+  listUsbDevices: (): Promise<UsbDevice[]> =>
     ipcRenderer.invoke('usb:list'),
-  onUsbAttach: (callback: (device: UsbDeviceInfo) => void) =>
-    ipcRenderer.on('usb:attach', (_, device) => callback(device as UsbDeviceInfo)),
-  onUsbDetach: (callback: (device: UsbDeviceInfo) => void) =>
-    ipcRenderer.on('usb:detach', (_, device) => callback(device as UsbDeviceInfo)),
+  
+  getDeviceInfo: (devicePath: string): Promise<DeviceInfo> =>
+    ipcRenderer.invoke('usb:getDeviceInfo', devicePath),
+  
+  getTrackSize: (trackPath: string): Promise<number> =>
+    ipcRenderer.invoke('usb:getTrackSize', trackPath),
+  
+  getTrackFormat: (trackPath: string): Promise<string> =>
+    ipcRenderer.invoke('usb:getTrackFormat', trackPath),
+  
+  onUsbAttach: (callback: () => void) => {
+    ipcRenderer.on('usb:attach', () => callback())
+    return () => ipcRenderer.removeAllListeners('usb:attach')
+  },
+  
+  onUsbDetach: (callback: () => void) => {
+    ipcRenderer.on('usb:detach', () => callback())
+    return () => ipcRenderer.removeAllListeners('usb:detach')
+  },
 
-  // App
-  getVersion: (): Promise<string> => ipcRenderer.invoke('app:version')
+  startSync: (options: SyncOptions): Promise<SyncResult> =>
+    ipcRenderer.invoke('sync:start', options),
+  
+  cancelSync: (): Promise<{ cancelled: boolean }> =>
+    ipcRenderer.invoke('sync:cancel'),
+  
+  onSyncProgress: (callback: (progress: SyncProgress) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: SyncProgress) => callback(progress)
+    ipcRenderer.on('sync:progress', handler)
+    return () => ipcRenderer.removeListener('sync:progress', handler)
+  },
+
+  isFfmpegAvailable: (): Promise<boolean> =>
+    ipcRenderer.invoke('ffmpeg:isAvailable'),
+  
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  
+  selectFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:selectFolder'),
+  
+  getFolderStats: (folderPath: string): Promise<{exists: boolean, isDirectory?: boolean, size?: number, modified?: string, error?: string}> =>
+    ipcRenderer.invoke('fs:getFolderStats', folderPath)
 }
 
-// Expose APIs to renderer
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
