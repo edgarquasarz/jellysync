@@ -564,26 +564,28 @@ function App(): JSX.Element {
       
       console.log(`Loaded more ${type}: ${newItems.length} items (startIndex: ${startIndex})`)
       
-      // Update state (preserve scrollPos)
+      // Deduplicate new items against existing ones to avoid duplicates
+      const existingIds = new Set(currentPagination.items.map(item => item.Id))
+      const uniqueNewItems = newItems.filter(item => !existingIds.has(item.Id))
+      
+      if (uniqueNewItems.length < newItems.length) {
+        console.warn(`Filtered out ${newItems.length - uniqueNewItems.length} duplicate items`)
+      }
+      
+      // Update state - only update pagination (useEffect will sync to main state)
+      // Remove duplicate update to setArtists/setAlbums/setPlaylists to avoid double-adding
       setPagination(prev => ({
         ...prev,
         [type]: {
-          items: [...prev[type].items, ...newItems],
+          items: [...prev[type].items, ...uniqueNewItems],
           total: data.TotalRecordCount || prev[type].total,
-          startIndex: startIndex + newItems.length,
-          hasMore: (startIndex + newItems.length) < (data.TotalRecordCount || prev[type].total),
+          startIndex: startIndex + uniqueNewItems.length,
+          hasMore: (startIndex + uniqueNewItems.length) < (data.TotalRecordCount || prev[type].total),
           scrollPos: prev[type].scrollPos
         }
       }))
       
-      // Also update the main state arrays
-      if (type === 'artists') {
-        setArtists(prev => [...prev, ...newItems as Artist[]])
-      } else if (type === 'albums') {
-        setAlbums(prev => [...prev, ...newItems as Album[]])
-      } else if (type === 'playlists') {
-        setPlaylists(prev => [...prev, ...newItems as Playlist[]])
-      }
+      // Removed redundant direct state updates - useEffect handles sync
       
     } catch (e) {
       console.error(`Failed to load more ${type}:`, e)
@@ -643,6 +645,18 @@ function App(): JSX.Element {
     window.api?.onUsbAttach(() => window.api?.listUsbDevices().then(setDevices))
     window.api?.onUsbDetach(() => window.api?.listUsbDevices().then(setDevices))
   }, [])
+
+  // Deduplicate items before rendering to prevent React key warnings
+  // This handles edge cases where API might return duplicates
+  const uniqueArtists = artists.filter((item, index, self) => 
+    index === self.findIndex((t) => t.Id === item.Id)
+  )
+  const uniqueAlbums = albums.filter((item, index, self) => 
+    index === self.findIndex((t) => t.Id === item.Id)
+  )
+  const uniquePlaylists = playlists.filter((item, index, self) => 
+    index === self.findIndex((t) => t.Id === item.Id)
+  )
 
   // Login screen if not connected and not showing user selector
   if (!isConnected && !isConnecting && !showUserSelector) {
@@ -945,7 +959,7 @@ function App(): JSX.Element {
           {/* Content Grid */}
           {activeSection === 'library' && (
             <div data-testid="library-content" className="grid gap-4">
-              {activeLibrary === 'artists' && artists
+              {activeLibrary === 'artists' && uniqueArtists
                 .filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((artist, idx) => (
                   <div key={artist.Id || `artist-${idx}`} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
@@ -963,7 +977,7 @@ function App(): JSX.Element {
                 ))
               }
               
-              {activeLibrary === 'albums' && albums
+              {activeLibrary === 'albums' && uniqueAlbums
                 .filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((album, idx) => (
                   <div key={album.Id || `album-${idx}`} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
@@ -981,7 +995,7 @@ function App(): JSX.Element {
                 ))
               }
               
-              {activeLibrary === 'playlists' && playlists
+              {activeLibrary === 'playlists' && uniquePlaylists
                 .filter(p => !searchQuery || p.Name.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((playlist, idx) => (
                   <div key={playlist.Id || `playlist-${idx}`} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
