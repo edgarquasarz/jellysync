@@ -18,7 +18,8 @@
     "test:bdd:ci": "pnpm build && TS_NODE_PROJECT=tests/bdd/tsconfig.json cucumber-js --config tests/bdd/cucumber.js --profile ci",
     "test:bdd:report": "open tests/bdd/reports/cucumber-report.html",
     "test:unit": "vitest run",
-    "test:unit:watch": "vitest"
+    "test:unit:watch": "vitest",
+    "test": "pnpm run test:unit"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -33,6 +34,7 @@
     "@cucumber/cucumber": "^10.0.1",
     "@cucumber/pretty-formatter": "^1.0.1",
     "@playwright/test": "^1.40.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
@@ -43,6 +45,7 @@
     "electron": "^33.3.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "jsdom": "^28.1.0",
     "playwright": "^1.40.1",
     "postcss": "^8.4.49",
     "tailwind-merge": "^2.6.0",
