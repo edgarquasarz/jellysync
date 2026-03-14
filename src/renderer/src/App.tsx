@@ -391,21 +391,25 @@ function App(): JSX.Element {
     try {
       let playlistsData = { Items: [] as any[], TotalRecordCount: 0 }
       
+      // Use /Playlists endpoint which returns user playlists directly
       if (safeUserId) {
         try {
-          const playlistsRes = await fetch(buildUrl(baseUrl, `/Users/${safeUserId}/Items?IncludeItemTypes=Playlist&Limit=${PAGE_SIZE}&StartIndex=0`), { headers })
+          const playlistsRes = await fetch(buildUrl(baseUrl, `/Playlists?UserId=${safeUserId}&Limit=${PAGE_SIZE}&StartIndex=0`), { headers })
           if (playlistsRes.ok) {
             playlistsData = await playlistsRes.json()
+            console.log('Playlists from /Playlists endpoint:', playlistsData.TotalRecordCount, 'playlists')
           }
         } catch (e) {
-          console.warn('User playlists endpoint failed, trying generic:', e)
+          console.warn('/Playlists endpoint failed, trying Items:', e)
         }
       }
       
+      // Fallback to Items endpoint with Playlist type
       if (!playlistsData.Items || playlistsData.Items.length === 0) {
-        const genericRes = await fetch(buildUrl(baseUrl, `/Items?IncludeItemTypes=Playlist&Limit=${PAGE_SIZE}&StartIndex=0&Recursive=true`), { headers })
-        if (genericRes.ok) {
-          playlistsData = await genericRes.json()
+        const itemsRes = await fetch(buildUrl(baseUrl, `/Items?IncludeItemTypes=Playlist&Limit=${PAGE_SIZE}&StartIndex=0&Recursive=true`), { headers })
+        if (itemsRes.ok) {
+          playlistsData = await itemsRes.json()
+          console.log('Playlists from /Items fallback:', playlistsData.TotalRecordCount, 'items')
         }
       }
       
@@ -454,7 +458,7 @@ function App(): JSX.Element {
           break
         case 'playlists':
           if (safeUserId) {
-            endpoint = `/Users/${safeUserId}/Items?IncludeItemTypes=Playlist&Limit=${PAGE_SIZE}&StartIndex=${startIndex}`
+            endpoint = `/Playlists?UserId=${safeUserId}&Limit=${PAGE_SIZE}&StartIndex=${startIndex}`
           } else {
             endpoint = `/Items?IncludeItemTypes=Playlist&Limit=${PAGE_SIZE}&StartIndex=${startIndex}&Recursive=true`
           }
@@ -831,8 +835,8 @@ function App(): JSX.Element {
             <div data-testid="library-content" className="grid gap-4">
               {activeLibrary === 'artists' && artists
                 .filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map(artist => (
-                  <div key={artist.Id} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
+                .map((artist, idx) => (
+                  <div key={artist.Id || `artist-${idx}`} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
                     <div className="w-12 h-12 bg-zinc-800 rounded-lg flex items-center justify-center">
                       <User className="w-6 h-6 text-zinc-500" />
                     </div>
@@ -849,8 +853,8 @@ function App(): JSX.Element {
               
               {activeLibrary === 'albums' && albums
                 .filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map(album => (
-                  <div key={album.Id} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
+                .map((album, idx) => (
+                  <div key={album.Id || `album-${idx}`} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
                     <div className="w-12 h-12 bg-zinc-800 rounded-lg flex items-center justify-center">
                       <Disc className="w-6 h-6 text-zinc-500" />
                     </div>
@@ -867,8 +871,8 @@ function App(): JSX.Element {
               
               {activeLibrary === 'playlists' && playlists
                 .filter(p => !searchQuery || p.Name.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map(playlist => (
-                  <div key={playlist.Id} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
+                .map((playlist, idx) => (
+                  <div key={playlist.Id || `playlist-${idx}`} className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
                     <div className="w-12 h-12 bg-zinc-800 rounded-lg flex items-center justify-center">
                       <ListMusic className="w-6 h-6 text-zinc-500" />
                     </div>
