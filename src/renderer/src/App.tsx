@@ -114,6 +114,28 @@ function App(): JSX.Element {
   // Library statistics (from /Users/{userId}/Items/Counts)
   const [stats, setStats] = useState<LibraryStats | null>(null)
   
+  // Item type index for O(1) lookup during sync
+  // useRef para mantener referencia actualizada inmediatamente (evita timing issues del closure)
+  const itemTypeIndexRef = useRef<{
+    artists: Set<string>
+    albums: Set<string>
+    playlists: Set<string>
+  }>({
+    artists: new Set(),
+    albums: new Set(),
+    playlists: new Set()
+  })
+  
+  const [itemTypeIndex, setItemTypeIndex] = useState<{
+    artists: Set<string>
+    albums: Set<string>
+    playlists: Set<string>
+  }>({
+    artists: new Set(),
+    albums: new Set(),
+    playlists: new Set()
+  })
+  
   // Pagination state - independent per tab
   const [pagination, setPagination] = useState<PaginationState>({
     artists: { items: [], total: 0, startIndex: 0, hasMore: true, scrollPos: 0 },
@@ -404,6 +426,15 @@ function App(): JSX.Element {
         const artistsData = await artistsRes.json()
         const artistsItems = artistsData.Items || []
         setArtists(artistsItems)
+        // Populate artist index (also update ref for immediate access)
+        console.log('[INDEX] Populating artist index with', artistsItems.length, 'artists')
+        itemTypeIndexRef.current.artists = new Set([...itemTypeIndexRef.current.artists, ...artistsItems.map((a: Artist) => a.Id)])
+        console.log('[INDEX] Artist index now has', itemTypeIndexRef.current.artists.size, 'entries')
+        setItemTypeIndex(prev => {
+          const newSet = new Set(prev.artists)
+          artistsItems.forEach((a: Artist) => newSet.add(a.Id))
+          return { ...prev, artists: newSet }
+        })
         setPagination(prev => ({
           ...prev,
           artists: {
@@ -421,6 +452,15 @@ function App(): JSX.Element {
         const albumsItems = albumsData.Items || []
         console.log(`Loaded first page: ${albumsItems.length} albums`)
         setAlbums(albumsItems)
+        // Populate album index (also update ref for immediate access)
+        console.log('[INDEX] Populating album index with', albumsItems.length, 'albums')
+        itemTypeIndexRef.current.albums = new Set([...itemTypeIndexRef.current.albums, ...albumsItems.map((a: Album) => a.Id)])
+        console.log('[INDEX] Album index now has', itemTypeIndexRef.current.albums.size, 'entries')
+        setItemTypeIndex(prev => {
+          const newSet = new Set(prev.albums)
+          albumsItems.forEach((a: Album) => newSet.add(a.Id))
+          return { ...prev, albums: newSet }
+        })
         setPagination(prev => ({
           ...prev,
           albums: {
@@ -441,6 +481,15 @@ function App(): JSX.Element {
         console.log('Playlists from /Items endpoint:', playlistsData.TotalRecordCount, 'items')
         
         setPlaylists(playlistsItems)
+        // Populate playlist index (also update ref for immediate access)
+        console.log('[INDEX] Populating playlist index with', playlistsItems.length, 'playlists')
+        itemTypeIndexRef.current.playlists = new Set([...itemTypeIndexRef.current.playlists, ...playlistsItems.map((p: Playlist) => p.Id)])
+        console.log('[INDEX] Playlist index now has', itemTypeIndexRef.current.playlists.size, 'entries')
+        setItemTypeIndex(prev => {
+          const newSet = new Set(prev.playlists)
+          playlistsItems.forEach((p: Playlist) => newSet.add(p.Id))
+          return { ...prev, playlists: newSet }
+        })
         setPagination(prev => ({
           ...prev,
           playlists: {
@@ -525,10 +574,13 @@ function App(): JSX.Element {
     }
   }
 
-  // Fetch tracks for sync from Jellyfin
-  // Fetch tracks for sync from Jellyfin - simplified approach
+  // Fetch tracks for sync from Jellyfin using index-based type detection
   const fetchTracksForSync = async (ids: string[]): Promise<Array<{id: string, name: string, path: string, format: string}>> => {
     console.log('[DEBUG] fetchTracksForSync called with IDs:', ids)
+    // Use ref for immediate access to latest index values
+    const currentIndex = itemTypeIndexRef.current
+    console.log('[DEBUG] Using index ref - artists:', currentIndex.artists.size, 'albums:', currentIndex.albums.size, 'playlists:', currentIndex.playlists.size)
+    console.log('[DEBUG] State index - artists:', itemTypeIndex.artists.size, 'albums:', itemTypeIndex.albums.size, 'playlists:', itemTypeIndex.playlists.size)
     
     if (!jellyfinConfig || !userId) {
       console.warn('[DEBUG] No jellyfinConfig or userId')
@@ -558,46 +610,55 @@ function App(): JSX.Element {
     }
     
     for (const id of validIds) {
-      console.log('[DEBUG] Processing ID:', id)
+      // Use index to determine item type - O(1) lookup, no fallbacks needed
+      // Check in ref first for immediate access, then fall back to state
+      const inArtistIndex = currentIndex.artists.has(id) || itemTypeIndex.artists.has(id)
+      const inAlbumIndex = currentIndex.albums.has(id) || itemTypeIndex.albums.has(id)
+      const inPlaylistIndex = currentIndex.playlists.has(id) || itemTypeIndex.playlists.has(id)
       
-      // Try 1: As album (direct children)
-      try {
-        const albumRes = await fetch(`${baseUrl}/users/${userId}/items?parentId=${id}&includeItemTypes=Audio&recursive=true`, { headers })
-        if (albumRes.ok) {
-          const data = await albumRes.json()
-          console.log(`[DEBUG] As album: found ${data.Items?.length || 0} tracks`)
-          for (const track of data.Items || []) addTrack(track)
-        }
-      } catch (e) { console.warn('[DEBUG] Album error:', e) }
+      console.log(`[DEBUG] Checking index for ID ${id}: artist=${inArtistIndex}, album=${inAlbumIndex}, playlist=${inPlaylistIndex}`)
       
-      if (tracks.length > 0) { console.log('[DEBUG] Found tracks as album'); continue }
-      
-      // Try 2: As artist
-      try {
-        const artistRes = await fetch(`${baseUrl}/users/${userId}/items?artistIds=${id}&includeItemTypes=MusicAlbum`, { headers })
-        if (artistRes.ok) {
-          const albums = await artistRes.json()
-          console.log(`[DEBUG] As artist: found ${albums.Items?.length || 0} albums`)
-          for (const album of albums.Items || []) {
-            const tracksRes = await fetch(`${baseUrl}/users/${userId}/items?parentId=${album.Id}&includeItemTypes=Audio`, { headers })
-            if (tracksRes.ok) {
-              const tracksData = await tracksRes.json()
-              for (const track of tracksData.Items || []) addTrack(track)
+      if (inArtistIndex) {
+        // ES ARTISTA → obtener álbumes y luego tracks
+        console.log('[DEBUG] Found in artist index, processing:', id)
+        try {
+          const artistRes = await fetch(`${baseUrl}/users/${userId}/items?artistIds=${id}&includeItemTypes=MusicAlbum`, { headers })
+          if (artistRes.ok) {
+            const albums = await artistRes.json()
+            console.log(`[DEBUG] Artist ${id}: found ${albums.Items?.length || 0} albums`)
+            for (const album of albums.Items || []) {
+              const tracksRes = await fetch(`${baseUrl}/users/${userId}/items?parentId=${album.Id}&includeItemTypes=Audio`, { headers })
+              if (tracksRes.ok) {
+                const tracksData = await tracksRes.json()
+                for (const track of tracksData.Items || []) addTrack(track)
+              }
             }
           }
-        }
-      } catch (e) { console.warn('[DEBUG] Artist error:', e) }
-      
-      // Try 3: As playlist
-      if (tracks.length === 0) {
+        } catch (e) { console.warn('[DEBUG] Artist error:', e) }
+      } else if (inAlbumIndex) {
+        // ES ÁLBUM → obtener tracks directamente
+        console.log('[DEBUG] Found in album index, processing:', id)
+        try {
+          const albumRes = await fetch(`${baseUrl}/users/${userId}/items?parentId=${id}&includeItemTypes=Audio&recursive=true`, { headers })
+          if (albumRes.ok) {
+            const data = await albumRes.json()
+            console.log(`[DEBUG] Album ${id}: found ${data.Items?.length || 0} tracks`)
+            for (const track of data.Items || []) addTrack(track)
+          }
+        } catch (e) { console.warn('[DEBUG] Album error:', e) }
+      } else if (inPlaylistIndex) {
+        // ES PLAYLIST → obtener tracks de playlist
+        console.log('[DEBUG] Found in playlist index, processing:', id)
         try {
           const playlistRes = await fetch(`${baseUrl}/playlists/${id}/items`, { headers })
           if (playlistRes.ok) {
             const items = await playlistRes.json()
-            console.log(`[DEBUG] As playlist: found ${items.Items?.length || 0} items`)
+            console.log(`[DEBUG] Playlist ${id}: found ${items.Items?.length || 0} items`)
             for (const item of items.Items || []) addTrack(item)
           }
         } catch (e) { console.warn('[DEBUG] Playlist error:', e) }
+      } else {
+        console.warn('[DEBUG] Unknown item type for ID:', id, '- not found in any index')
       }
       
       console.log(`[DEBUG] After ${id}: total tracks = ${tracks.length}`)
@@ -678,6 +739,12 @@ function App(): JSX.Element {
       albums: { items: [], total: 0, startIndex: 0, hasMore: true, scrollPos: 0 },
       playlists: { items: [], total: 0, startIndex: 0, hasMore: true, scrollPos: 0 }
     })
+    // Reset index ref as well
+    itemTypeIndexRef.current = {
+      artists: new Set(),
+      albums: new Set(),
+      playlists: new Set()
+    }
     setLoadedTabs(new Set(['artists', 'albums', 'playlists'])) // Precargar todas las secciones
     
     // Load first page of ALL sections (precarga para sidebar)
@@ -688,6 +755,15 @@ function App(): JSX.Element {
       const artistsData = await artistsRes.json()
       const artistsItems = artistsData.Items || []
       setArtists(artistsItems)
+      // Populate artist index (also update ref for immediate access)
+      console.log('[INDEX] Preloading artist index with', artistsItems.length, 'artists')
+      itemTypeIndexRef.current.artists = new Set([...artistsItems.map((a: Artist) => a.Id)])
+      console.log('[INDEX] Preloaded artist index:', itemTypeIndexRef.current.artists.size, 'entries')
+      setItemTypeIndex(prev => {
+        const newSet = new Set(prev.artists)
+        artistsItems.forEach((a: Artist) => newSet.add(a.Id))
+        return { ...prev, artists: newSet }
+      })
       setPagination(prev => ({
         ...prev,
         artists: {
@@ -712,6 +788,15 @@ function App(): JSX.Element {
       const albumsItems = albumsData.Items || []
       console.log(`Preloaded first page: ${albumsItems.length} albums`)
       setAlbums(albumsItems)
+      // Populate album index (also update ref for immediate access)
+      console.log('[INDEX] Preloading album index with', albumsItems.length, 'albums')
+      itemTypeIndexRef.current.albums = new Set([...albumsItems.map((a: Album) => a.Id)])
+      console.log('[INDEX] Preloaded album index:', itemTypeIndexRef.current.albums.size, 'entries')
+      setItemTypeIndex(prev => {
+        const newSet = new Set(prev.albums)
+        albumsItems.forEach((a: Album) => newSet.add(a.Id))
+        return { ...prev, albums: newSet }
+      })
       setPagination(prev => ({
         ...prev,
         albums: {
@@ -735,6 +820,15 @@ function App(): JSX.Element {
       const playlistsItems = playlistsData.Items || []
       console.log(`Preloaded first page: ${playlistsItems.length} playlists`)
       setPlaylists(playlistsItems)
+      // Populate playlist index (also update ref for immediate access)
+      console.log('[INDEX] Preloading playlist index with', playlistsItems.length, 'playlists')
+      itemTypeIndexRef.current.playlists = new Set([...playlistsItems.map((p: Playlist) => p.Id)])
+      console.log('[INDEX] Preloaded playlist index:', itemTypeIndexRef.current.playlists.size, 'entries')
+      setItemTypeIndex(prev => {
+        const newSet = new Set(prev.playlists)
+        playlistsItems.forEach((p: Playlist) => newSet.add(p.Id))
+        return { ...prev, playlists: newSet }
+      })
       setPagination(prev => ({
         ...prev,
         playlists: {
