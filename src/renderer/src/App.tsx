@@ -277,21 +277,22 @@ function App(): JSX.Element {
       setArtists([])
     }
     
-    // Load albums - use user items with music folder parent (only if userId is valid)
+    // Load albums - use generic endpoint to get ALL albums in the library
+    // Use /Items endpoint (not /Users/{id}/Items) to get all albums regardless of user access
+    // Use MusicAlbum instead of Album to specifically get music albums
+    // IMPORTANT: Use high limit (20000) to fetch all albums
     try {
-      if (safeUserId) {
-        const albumsRes = await fetch(buildUrl(baseUrl, `/Users/${safeUserId}/Items?ParentId=4a5c7dd78f12a0180afbf37067b6211a&IncludeItemTypes=Album&Limit=500`), { headers })
-        if (!albumsRes.ok) throw new Error(`HTTP ${albumsRes.status}`)
-        const albumsData = await albumsRes.json()
-        setAlbums(albumsData.Items || [])
-      } else {
-        // Fallback: use generic albums endpoint if no userId
-        console.warn('No userId available, using generic albums endpoint')
-        const albumsRes = await fetch(buildUrl(baseUrl, '/Items?ParentId=4a5c7dd78f12a0180afbf37067b6211a&IncludeItemTypes=Album&Limit=500'), { headers })
-        if (albumsRes.ok) {
-          const albumsData = await albumsRes.json()
-          setAlbums(albumsData.Items || [])
-        }
+      const albumsRes = await fetch(buildUrl(baseUrl, '/Items?IncludeItemTypes=MusicAlbum&Limit=20000&Recursive=true'), { headers })
+      if (!albumsRes.ok) throw new Error(`HTTP ${albumsRes.status}`)
+      const albumsData = await albumsRes.json()
+      const allAlbums = albumsData.Items || []
+      console.log(`Loaded ${allAlbums.length} albums`)
+      
+      setAlbums(allAlbums)
+      
+      // Warn if we might have hit the limit
+      if (allAlbums.length >= 20000) {
+        console.warn('Album limit (20000) reached - there may be more albums not loaded')
       }
     } catch (e) {
       console.error('Failed to load albums:', e)
@@ -306,7 +307,7 @@ function App(): JSX.Element {
       if (safeUserId) {
         // Try user-specific endpoint first
         try {
-          const playlistsRes = await fetch(buildUrl(baseUrl, `/Users/${safeUserId}/Items?IncludeItemTypes=Playlist&Limit=500`), { headers })
+          const playlistsRes = await fetch(buildUrl(baseUrl, `/Users/${safeUserId}/Items?IncludeItemTypes=Playlist&Limit=1000`), { headers })
           if (playlistsRes.ok) {
             playlistsData = await playlistsRes.json()
           }
@@ -317,7 +318,7 @@ function App(): JSX.Element {
       
       // If no user ID or user endpoint returned no results, try generic endpoint
       if (!playlistsData.Items || playlistsData.Items.length === 0) {
-        const genericRes = await fetch(buildUrl(baseUrl, '/Items?IncludeItemTypes=Playlist&Limit=500'), { headers })
+        const genericRes = await fetch(buildUrl(baseUrl, '/Items?IncludeItemTypes=Playlist&Limit=1000&Recursive=true'), { headers })
         if (genericRes.ok) {
           playlistsData = await genericRes.json()
         }
