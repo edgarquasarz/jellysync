@@ -736,6 +736,20 @@ function App(): JSX.Element {
     index === self.findIndex((t) => t.Id === item.Id)
   )
 
+  // Calculate selection summary (count by type)
+  const selectedArtistsCount = uniqueArtists.filter(a => selectedTracks.has(a.Id)).length
+  const selectedAlbumsCount = uniqueAlbums.filter(a => selectedTracks.has(a.Id)).length
+  const selectedPlaylistsCount = uniquePlaylists.filter(p => selectedTracks.has(p.Id)).length
+  
+  // Format selection summary text
+  const getSelectionSummary = (): string => {
+    const parts: string[] = []
+    if (selectedArtistsCount > 0) parts.push(`${selectedArtistsCount} artist${selectedArtistsCount !== 1 ? 's' : ''}`)
+    if (selectedAlbumsCount > 0) parts.push(`${selectedAlbumsCount} album${selectedAlbumsCount !== 1 ? 's' : ''}`)
+    if (selectedPlaylistsCount > 0) parts.push(`${selectedPlaylistsCount} playlist${selectedPlaylistsCount !== 1 ? 's' : ''}`)
+    return parts.length > 0 ? parts.join(', ') : 'None selected'
+  }
+
   // Login screen if not connected and not showing user selector
   if (!isConnected && !isConnecting && !showUserSelector) {
     return (
@@ -1046,7 +1060,10 @@ function App(): JSX.Element {
               {activeSection === 'devices' && 'USB Devices'}
             </h2>
             {selectedTracks.size > 0 && (
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm">
+              <button 
+                onClick={() => setActiveSection('sync')}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm"
+              >
                 <RefreshCw className="w-4 h-4" />
                 Sync ({selectedTracks.size})
               </button>
@@ -1057,7 +1074,7 @@ function App(): JSX.Element {
           {activeSection === 'library' && (
             <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
               <span className="text-sm text-zinc-400">
-                {selectedTracks.size} selected
+                {selectedTracks.size > 0 ? getSelectionSummary() : 'None selected'}
               </span>
               <div className="flex gap-2">
                 <button
@@ -1179,6 +1196,13 @@ function App(): JSX.Element {
               <h2 className="text-xl font-semibold mb-6">Sync to Device</h2>
               
               <div className="max-w-lg">
+                {/* Selection Summary */}
+                <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 mb-6">
+                  <h3 className="text-sm font-medium text-zinc-400 mb-2">Items to sync:</h3>
+                  <p className="text-lg font-semibold">{getSelectionSummary()}</p>
+                  <p className="text-sm text-zinc-500 mt-1">Total: {selectedTracks.size} item{selectedTracks.size !== 1 ? 's' : ''}</p>
+                </div>
+
                 <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800 mb-6">
                   <h3 className="font-medium mb-4">Select Destination</h3>
                   
