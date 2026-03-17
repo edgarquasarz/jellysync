@@ -207,7 +207,7 @@ class SyncApiImpl implements SyncApi {
 
   async getPlaylistTracks(playlistId: string): Promise<TrackInfo[]> {
     const data = await this.request<{ Items: JellyfinTrackItem[] }>(
-      `/Playlists/${playlistId}/Items?Fields=Path,MediaSources,AlbumId,ParentId`
+      `/Playlists/${playlistId}/Items?UserId=${this.userId}&Fields=Path,MediaSources,AlbumId,ParentId`
     );
 
     return (data.Items ?? [])

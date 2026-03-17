@@ -260,7 +260,13 @@ class SyncCoreImpl {
       
       // 6. Complete
       phaseManager.complete(stats);
-      
+
+      // 7. Generate M3U8 files for playlist items
+      const playlistIds = input.itemIds.filter(id => input.itemTypes.get(id) === 'playlist');
+      if (playlistIds.length > 0 && this.serverRootPath) {
+        await this.generateM3u8Files(playlistIds, input.destinationPath, resolveSyncOptions(input.options));
+      }
+
       return {
         success: errors.length === 0,
         tracksCopied: stats.itemsProcessed,
@@ -507,6 +513,50 @@ class SyncCoreImpl {
     return convertible.includes(format.toLowerCase());
   }
   
+  /**
+   * Generate M3U8 playlist files in the destination root.
+   * Each file uses relative paths to audio files under lib/.
+   */
+  private async generateM3u8Files(
+    playlistIds: string[],
+    destinationPath: string,
+    options: ReturnType<typeof resolveSyncOptions>
+  ): Promise<void> {
+    for (const playlistId of playlistIds) {
+      try {
+        const [info, tracks] = await Promise.all([
+          this.deps.api.getItem(playlistId),
+          this.deps.api.getPlaylistTracks(playlistId),
+        ]);
+
+        const playlistName = info?.name ?? `Playlist_${playlistId.slice(0, 8)}`;
+        const safeName = playlistName.replace(/[<>:"/\\|?*]/g, '_');
+        const m3u8Path = `${destinationPath}/${safeName}.m3u8`;
+
+        const lines = ['#EXTM3U'];
+        for (const track of tracks) {
+          if (!track.path || !this.serverRootPath) continue;
+          let relativePath = getRelativePath(track.path, this.serverRootPath);
+          if (!relativePath) continue;
+
+          // Adjust extension if tracks were converted to MP3
+          if (options.convertToMp3 && !relativePath.toLowerCase().endsWith('.mp3')) {
+            relativePath = relativePath.replace(/\.[^.]+$/, '.mp3');
+          }
+
+          const artistLabel = track.artists?.join(', ') ?? track.albumArtist ?? '';
+          const displayName = artistLabel ? `${artistLabel} - ${track.name}` : track.name;
+          lines.push(`#EXTINF:-1,${displayName}`);
+          lines.push(relativePath);
+        }
+
+        await this.deps.fs.writeFile(m3u8Path, Buffer.from(lines.join('\n') + '\n', 'utf8'));
+      } catch {
+        // M3U8 generation is non-fatal
+      }
+    }
+  }
+
   private async cleanEmptyDir(dir: string, basePath: string): Promise<void> {
     if (dir === basePath || !dir.startsWith(basePath + '/')) return;
     try {
