@@ -1,5 +1,6 @@
-import { HardDrive, Loader2 } from 'lucide-react'
-import type { Bitrate, SyncProgressInfo } from '../appTypes'
+import { Loader2 } from 'lucide-react'
+import type { Bitrate, SyncProgressInfo, UsbDevice } from '../appTypes'
+import { DestinationPicker } from './DestinationPicker'
 
 interface SyncPanelProps {
   syncFolder: string | null
@@ -10,10 +11,13 @@ interface SyncPanelProps {
   syncProgress: SyncProgressInfo | null
   selectionSummary: string
   selectedCount: number
-  onSelectFolder: () => void
+  devices: UsbDevice[]
+  recentFolders: string[]
+  onSelectFolder: (path?: string) => void
   onToggleConvert: () => void
   onBitrateChange: (b: Bitrate) => void
   onStartSync: () => void
+  onRemoveRecentFolder: (path: string) => void
 }
 
 export function SyncPanel({
@@ -25,10 +29,13 @@ export function SyncPanel({
   syncProgress,
   selectionSummary,
   selectedCount,
+  devices,
+  recentFolders,
   onSelectFolder,
   onToggleConvert,
   onBitrateChange,
   onStartSync,
+  onRemoveRecentFolder,
 }: SyncPanelProps): JSX.Element {
   return (
     <div className="p-8">
@@ -45,25 +52,14 @@ export function SyncPanel({
         {/* Destination */}
         <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800 mb-6">
           <h3 className="font-medium mb-4">Select Destination</h3>
-
-          {syncFolder ? (
-            <div className="p-4 bg-zinc-800 rounded-lg mb-4">
-              <p className="text-sm text-zinc-400 mb-1">Selected folder:</p>
-              <p className="text-sm font-mono break-all">{syncFolder}</p>
-              <button onClick={onSelectFolder} className="mt-3 text-sm text-blue-500 hover:text-blue-400">
-                Change folder
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onSelectFolder}
-              className="w-full p-4 border-2 border-dashed border-zinc-700 rounded-lg hover:border-zinc-600 transition-colors text-left"
-            >
-              <HardDrive className="w-8 h-8 text-zinc-500 mb-2" />
-              <p className="text-zinc-400">Click to select a folder</p>
-              <p className="text-xs text-zinc-500 mt-1">Choose where to sync your music</p>
-            </button>
-          )}
+          <DestinationPicker
+            currentFolder={syncFolder}
+            devices={devices}
+            recentFolders={recentFolders}
+            onSelect={onSelectFolder}
+            onBrowse={() => onSelectFolder()}
+            onRemoveRecent={onRemoveRecentFolder}
+          />
         </div>
 
         {/* Convert to MP3 */}

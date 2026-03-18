@@ -20,11 +20,13 @@ import { useSelection } from './hooks/useSelection'
 import { useLibrary } from './hooks/useLibrary'
 import { useSync } from './hooks/useSync'
 import { useJellyfinConnection } from './hooks/useJellyfinConnection'
+import { useRecentFolders } from './hooks/useRecentFolders'
 
 function App(): JSX.Element {
   const [activeSection, setActiveSection] = useState<ActiveSection>('library')
 
   const devices = useDevices()
+  const { recentFolders, addRecentFolder, removeRecentFolder } = useRecentFolders()
 
   const connection = useJellyfinConnection((_url, _apiKey, _userId) => {
     // loading is triggered by useEffect below once isConnected becomes true
@@ -64,6 +66,12 @@ function App(): JSX.Element {
     connection.jellyfinConfig,
     connection.userId
   )
+
+  // Save to recent folders when destination changes
+  useEffect(() => {
+    if (sync.syncFolder) addRecentFolder(sync.syncFolder)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sync.syncFolder])
 
   // Load previously synced items when destination changes
   useEffect(() => {
@@ -209,10 +217,13 @@ function App(): JSX.Element {
                 syncProgress={sync.syncProgress}
                 selectionSummary={getSelectionSummary()}
                 selectedCount={selection.selectedTracks.size}
+                devices={devices}
+                recentFolders={recentFolders}
                 onSelectFolder={sync.handleSelectSyncFolder}
                 onToggleConvert={() => sync.setConvertToMp3(v => !v)}
                 onBitrateChange={sync.setBitrate}
                 onStartSync={sync.handleStartSync}
+                onRemoveRecentFolder={removeRecentFolder}
               />
             </main>
           ) : (

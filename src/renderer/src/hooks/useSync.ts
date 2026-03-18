@@ -32,7 +32,11 @@ export function useSync({
   const [previewData, setPreviewData] = useState<PreviewData | null>(null)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
 
-  const handleSelectSyncFolder = async (): Promise<void> => {
+  const handleSelectSyncFolder = async (path?: string): Promise<void> => {
+    if (path) {
+      setSyncFolder(path)
+      return
+    }
     const folder = await window.api.selectFolder()
     if (folder) setSyncFolder(folder)
   }

@@ -1,7 +1,9 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
 import { LibraryItem } from './LibraryItem'
 import type { LibraryTab, Artist, Album, Playlist, PaginationState } from '../appTypes'
+
+type SyncFilter = 'all' | 'synced' | 'unsynced'
 
 interface LibraryContentProps {
   activeLibrary: LibraryTab
@@ -42,10 +44,17 @@ export function LibraryContent({
   contentScrollRef,
 }: LibraryContentProps): JSX.Element {
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const [syncFilter, setSyncFilter] = useState<SyncFilter>('all')
 
-  const filteredArtists = artists.filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase()))
-  const filteredAlbums = albums.filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase()))
-  const filteredPlaylists = playlists.filter(p => !searchQuery || p.Name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const applySyncFilter = <T extends { Id: string }>(items: T[]) => {
+    if (syncFilter === 'synced') return items.filter(i => previouslySyncedItems.has(i.Id))
+    if (syncFilter === 'unsynced') return items.filter(i => !previouslySyncedItems.has(i.Id))
+    return items
+  }
+
+  const filteredArtists = applySyncFilter(artists.filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase())))
+  const filteredAlbums = applySyncFilter(albums.filter(a => !searchQuery || a.Name.toLowerCase().includes(searchQuery.toLowerCase())))
+  const filteredPlaylists = applySyncFilter(playlists.filter(p => !searchQuery || p.Name.toLowerCase().includes(searchQuery.toLowerCase())))
 
   return (
     <main ref={contentScrollRef} className="flex-1 p-6 overflow-auto">
@@ -55,6 +64,19 @@ export function LibraryContent({
           {activeLibrary === 'albums' && 'Albums'}
           {activeLibrary === 'playlists' && 'Playlists'}
         </h2>
+        {previouslySyncedItems.size > 0 && (
+          <div className="flex gap-1 text-xs bg-zinc-800 rounded-lg p-1">
+            {(['all', 'synced', 'unsynced'] as SyncFilter[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setSyncFilter(f)}
+                className={`px-3 py-1 rounded-md capitalize transition-colors ${syncFilter === f ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+              >
+                {f === 'all' ? 'All' : f === 'synced' ? 'Synced' : 'Not synced'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Selection Controls */}
