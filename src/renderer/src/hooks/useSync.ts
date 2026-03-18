@@ -135,8 +135,19 @@ export function useSync({
 
   const handleStartSync = async (): Promise<void> => {
     if (!syncFolder) { alert('Please select a sync destination folder first'); return }
-    if (selectedTracks.size === 0) { alert('Please select at least one item to sync'); return }
     if (!jellyfinConfig || !userId) { alert('Not connected to Jellyfin'); return }
+
+    const toDeleteIds = buildToDeleteIds()
+    if (selectedTracks.size === 0 && toDeleteIds.length === 0) {
+      alert('Please select at least one item to sync')
+      return
+    }
+
+    // Delete-only: skip estimate and go straight to sync
+    if (selectedTracks.size === 0) {
+      executeSyncNow()
+      return
+    }
 
     setIsLoadingPreview(true)
     try {
