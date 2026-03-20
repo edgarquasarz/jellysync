@@ -31,7 +31,7 @@ function ItemThumbnail({ item, type, serverUrl }: { item: Artist | Album | Playl
   const Icon = type === 'artist' ? User : type === 'album' ? Disc : ListMusic
   const rounded = type === 'artist' ? 'rounded-full' : 'rounded'
   return (
-    <div className={`w-10 h-10 bg-zinc-800 flex items-center justify-center flex-shrink-0 ${rounded}`}>
+    <div className={`w-10 h-10 bg-jf-bg-mid flex items-center justify-center flex-shrink-0 ${rounded}`}>
       <Icon className="w-5 h-5 text-zinc-500" />
     </div>
   )

@@ -159,7 +159,7 @@ function App(): JSX.Element {
   if (connection.isConnecting) return <ConnectingScreen serverUrl={connection.urlInput || undefined} />
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-950 text-zinc-100">
+    <div className="h-screen flex flex-col bg-jf-bg-dark text-zinc-100">
       <AppHeader isConnected={connection.isConnected} serverUrl={connection.jellyfinConfig?.url} onDisconnect={connection.disconnect} />
 
       <div className="flex-1 flex overflow-hidden">

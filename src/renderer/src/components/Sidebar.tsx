@@ -48,7 +48,7 @@ export function Sidebar({
   const hasAnyDestination = mountedUsb.length > 0 || savedDestinations.length > 0
 
   return (
-    <aside className="w-64 border-r border-zinc-800 p-4 flex flex-col">
+    <aside className="w-64 border-r border-jf-border p-4 flex flex-col">
       {/* Library */}
       <div className="mb-6">
         <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Library</h3>
@@ -127,7 +127,7 @@ export function Sidebar({
           ))}
 
           {/* Separator + Add folder */}
-          {hasAnyDestination && <div className="border-t border-zinc-800 my-1" />}
+          {hasAnyDestination && <div className="border-t border-jf-border my-1" />}
           <button
             onClick={onAddFolder}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"

@@ -27,7 +27,7 @@ export function FooterStats({
   const DeviceIcon = isUsbDevice ? HardDrive : Folder
 
   return (
-    <footer className="h-10 border-t border-zinc-800 flex items-center justify-between px-4 text-xs text-zinc-500">
+    <footer className="h-10 border-t border-jf-border flex items-center justify-between px-4 text-xs text-zinc-500">
       <span>{libraryText}</span>
       {activeDeviceName ? (
         <span className="flex items-center gap-1.5 text-jf-purple-light">

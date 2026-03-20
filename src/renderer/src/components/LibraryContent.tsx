@@ -101,7 +101,7 @@ export function LibraryContent({
     <main className="flex-1 flex flex-col overflow-hidden">
 
       {/* ── Sticky header ─────────────────────────────────── */}
-      <div className="flex-shrink-0 border-b border-zinc-800">
+      <div className="flex-shrink-0 border-b border-jf-border">
 
         {/* Device context banner */}
         {activeDeviceName && (
@@ -123,7 +123,7 @@ export function LibraryContent({
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold capitalize">{activeLibrary}</h2>
             {previouslySyncedItems.size > 0 && (
-              <div className="flex gap-1 text-xs bg-zinc-800 rounded-lg p-1">
+              <div className="flex gap-1 text-xs bg-[#1e2836] rounded-lg p-1">
                 {(['all', 'synced', 'unsynced'] as SyncFilter[]).map(f => (
                   <button
                     key={f}
@@ -145,7 +145,7 @@ export function LibraryContent({
               placeholder={`Search ${tabLabel}...`}
               value={searchQuery}
               onChange={e => onSearchChange(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-10 pr-9 py-1.5 text-sm focus:outline-none focus:border-jf-purple"
+              className="w-full bg-[#1a2232] border border-jf-border rounded-lg pl-10 pr-9 py-1.5 text-sm focus:outline-none focus:border-jf-purple"
             />
             {searchQuery && (
               <button

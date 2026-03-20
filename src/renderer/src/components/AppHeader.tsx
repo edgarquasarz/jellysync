@@ -10,7 +10,7 @@ export function AppHeader({ isConnected, serverUrl, onDisconnect }: AppHeaderPro
   const hostname = serverUrl ? (() => { try { return new URL(serverUrl).hostname } catch { return serverUrl } })() : null
 
   return (
-    <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-4">
+    <header className="h-14 border-b border-jf-border flex items-center justify-between px-4">
       <div className="flex items-center gap-2">
         <Music className="w-6 h-6 text-jf-purple" />
         <h1 className="text-lg font-semibold">Jellysync</h1>

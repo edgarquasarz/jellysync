@@ -6,11 +6,14 @@ export default {
     extend: {
       colors: {
         jf: {
-          purple: '#AA5CC3',
-          'purple-dark': '#8B3FA8',
-          'purple-light': '#C47BD6',
-          cyan: '#00A4DC',
-          'cyan-dark': '#0083B0',
+          purple: '#775BF4',
+          'purple-dark': '#5B42D4',
+          'purple-light': '#9B8CF7',
+          cyan: '#756FE2',
+          'cyan-dark': '#5B55C8',
+          'bg-dark': '#111827',
+          'bg-mid': '#1d2635',
+          'border': '#3a4a5c',
         }
       }
     }

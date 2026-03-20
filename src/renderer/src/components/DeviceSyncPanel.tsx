@@ -146,7 +146,7 @@ export function DeviceSyncPanel({
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-jf-bg-mid rounded-xl flex items-center justify-center">
               <Icon className="w-6 h-6 text-jf-cyan" />
             </div>
             <div>
@@ -178,14 +178,14 @@ export function DeviceSyncPanel({
 
         {/* Space bar */}
         {loadingInfo ? (
-          <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 mb-4 h-16 animate-pulse" />
+          <div className="bg-jf-bg-mid rounded-xl p-4 border border-jf-border mb-4 h-16 animate-pulse" />
         ) : deviceInfo ? (
-          <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 mb-4">
+          <div className="bg-jf-bg-mid rounded-xl p-4 border border-jf-border mb-4">
             <div className="flex justify-between text-sm mb-2">
               <span className="text-zinc-400">Storage</span>
               <span className="text-zinc-300">{formatBytes(deviceInfo.free)} free of {formatBytes(deviceInfo.total)}</span>
             </div>
-            <div className="w-full bg-zinc-700 rounded-full h-2">
+            <div className="w-full bg-[#2a3a4d] rounded-full h-2">
               <div
                 className={`h-2 rounded-full transition-all ${usedPct! > 90 ? 'bg-red-500' : usedPct! > 70 ? 'bg-yellow-500' : 'bg-jf-purple'}`}
                 style={{ width: `${usedPct}%` }}
@@ -195,7 +195,7 @@ export function DeviceSyncPanel({
         ) : null}
 
         {/* Sync items — grouped, each toggleable */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 mb-4 overflow-hidden">
+        <div className="bg-jf-bg-mid rounded-xl border border-jf-border mb-4 overflow-hidden">
           {syncItems.length === 0 ? (
             <div className="p-6 text-center text-zinc-500 text-sm">
               <Music className="w-8 h-8 mx-auto mb-2 opacity-40" />
@@ -245,7 +245,7 @@ export function DeviceSyncPanel({
         </div>
 
         {/* Convert to MP3 */}
-        <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 mb-4">
+        <div className="bg-jf-bg-mid rounded-xl p-4 border border-jf-border mb-4">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm font-medium">Convert to MP3</span>
@@ -292,12 +292,12 @@ export function DeviceSyncPanel({
         </button>
 
         {syncProgress && (
-          <div className="mt-4 p-4 bg-zinc-900 rounded-xl border border-zinc-800">
+          <div className="mt-4 p-4 bg-jf-bg-mid rounded-xl border border-jf-border">
             <div className="flex justify-between text-sm mb-2">
               <span className="text-zinc-400">Progress</span>
               <span>{syncProgress.current} / {syncProgress.total}</span>
             </div>
-            <div className="w-full bg-zinc-700 rounded-full h-1.5 mb-2">
+            <div className="w-full bg-[#2a3a4d] rounded-full h-1.5 mb-2">
               <div
                 className="bg-jf-purple h-1.5 rounded-full transition-all"
                 style={{ width: `${syncProgress.total > 0 ? (syncProgress.current / syncProgress.total) * 100 : 0}%` }}
