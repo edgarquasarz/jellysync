@@ -53,7 +53,7 @@ export function LibraryItem({ item, type, isSelected, wasSynced, onToggle, serve
   return (
     <div
       onClick={() => onToggle(item.Id)}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors hover:bg-zinc-800 ${willDelete ? 'border border-red-800/40' : ''} ${isSelected ? 'bg-zinc-900' : ''}`}
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-jf-purple/15 border border-jf-purple/30 hover:bg-jf-purple/20' : willDelete ? 'border border-red-800/40 hover:bg-[#1e2836]' : 'border border-transparent hover:bg-[#1e2836]'}`}
     >
       <input
         type="checkbox"
