@@ -31,7 +31,6 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
   })
 
   const contentScrollRef = useRef<HTMLDivElement>(null)
-  const loadMoreRef = useRef<HTMLDivElement>(null)
 
   const loadStats = async (url: string, apiKey: string, uid: string): Promise<void> => {
     const headers = jellyfinHeaders(apiKey)
@@ -267,23 +266,6 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     if (loadedTabs.has('playlists')) setPlaylists(pagination.playlists.items)
   }, [loadedTabs, pagination.artists.items, pagination.albums.items, pagination.playlists.items])
 
-  // Infinite scroll observer
-  useEffect(() => {
-    if (!loadMoreRef.current) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isLoadingMore) {
-          if (activeLibrary === 'artists' && pagination.artists.hasMore && loadedTabs.has('artists')) loadMore('artists')
-          else if (activeLibrary === 'albums' && pagination.albums.hasMore && loadedTabs.has('albums')) loadMore('albums')
-          else if (activeLibrary === 'playlists' && pagination.playlists.hasMore && loadedTabs.has('playlists')) loadMore('playlists')
-        }
-      },
-      { threshold: 0.1 }
-    )
-    observer.observe(loadMoreRef.current)
-    return () => observer.disconnect()
-  }, [activeLibrary, pagination, isLoadingMore, loadMore, loadedTabs])
-
   const uniqueArtists = artists.filter((item, i, self) => i === self.findIndex(t => t.Id === item.Id))
   const uniqueAlbums = albums.filter((item, i, self) => i === self.findIndex(t => t.Id === item.Id))
   const uniquePlaylists = playlists.filter((item, i, self) => i === self.findIndex(t => t.Id === item.Id))
@@ -302,7 +284,6 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     itemTypeIndex,
     itemTypeIndexRef,
     contentScrollRef,
-    loadMoreRef,
     loadLibrary,
     loadStats,
     loadTab,
