@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react'
 import type { ActiveSection, LibraryTab } from './appTypes'
 
 import { AppHeader } from './components/AppHeader'
-import { SearchBar } from './components/SearchBar'
 import { Sidebar } from './components/Sidebar'
 import { LibraryContent } from './components/LibraryContent'
-import { SearchResults } from './components/SearchResults'
 import { DeviceSyncPanel } from './components/DeviceSyncPanel'
 import { FooterStats } from './components/FooterStats'
 import { ConnectingScreen } from './components/ConnectingScreen'
@@ -164,10 +162,6 @@ function App(): JSX.Element {
     <div className="h-screen flex flex-col bg-zinc-950 text-zinc-100">
       <AppHeader isConnected={connection.isConnected} onDisconnect={connection.disconnect} />
 
-      {activeSection === 'library' && (
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
-      )}
-
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
           activeSection={activeSection}
@@ -187,20 +181,7 @@ function App(): JSX.Element {
         />
 
         <div className="flex-1 overflow-hidden flex flex-col">
-          {activeSection === 'library' && searchQuery.length >= 2 ? (
-            <main className="flex-1 p-6 overflow-auto">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Search Results</h2>
-              </div>
-              <SearchResults
-                query={searchQuery}
-                isSearching={isSearching}
-                results={searchResults}
-                selectedTracks={deviceSelections.selectedTracks}
-                onToggle={deviceSelections.toggleItem}
-              />
-            </main>
-          ) : activeSection === 'library' ? (
+          {activeSection === 'library' ? (
             <LibraryContent
               activeLibrary={lib.activeLibrary}
               artists={lib.artists}
@@ -210,7 +191,6 @@ function App(): JSX.Element {
               selectedTracks={deviceSelections.selectedTracks}
               previouslySyncedItems={deviceSelections.previouslySyncedItems}
               isLoadingMore={lib.isLoadingMore}
-              searchQuery={searchQuery}
               error={lib.error}
               onToggle={deviceSelections.toggleItem}
               onSelectAll={selectAllInCurrentView}
@@ -222,6 +202,10 @@ function App(): JSX.Element {
               activeDeviceName={deviceSelections.activeDevicePath ? getDestinationName(deviceSelections.activeDevicePath) : null}
               isUsbDevice={deviceSelections.activeDevicePath ? isUsbDevice(deviceSelections.activeDevicePath) : false}
               onGoToDevice={() => setActiveSection('device')}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchResults={searchResults}
+              isSearching={isSearching}
             />
           ) : activeSection === 'device' && deviceSelections.activeDevicePath ? (
             <main className="flex-1 overflow-auto flex flex-col p-6">
