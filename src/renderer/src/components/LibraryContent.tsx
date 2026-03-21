@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Loader2, X, HardDrive, Folder, Search } from 'lucide-react'
 import { LibraryItem } from './LibraryItem'
 import type { LibraryTab, Artist, Album, Playlist, PaginationState } from '../appTypes'
@@ -67,17 +67,24 @@ export function LibraryContent({
 }: LibraryContentProps): JSX.Element {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [syncFilter, setSyncFilter] = useState<SyncFilter>('all')
-
-  // Reset filter when selection is cleared
-  useEffect(() => {
-    if (selectedTracks.size === 0) setSyncFilter('all')
-  }, [selectedTracks.size])
+  // Snapshot of selectedTracks IDs taken when the filter is applied — prevents items from
+  // disappearing live as the user selects/deselects them within the filtered view
+  const [filterSnapshot, setFilterSnapshot] = useState<Set<string>>(new Set())
   const [noDeviceHint, setNoDeviceHint] = useState(false)
 
   const isSearchActive = searchQuery.length >= 2
 
-  // Intersection observer — disabled when search active or sync filter applied (client-side filter
-  // reduces visible rows, sentinel would immediately trigger cascade loads)
+  // Take a snapshot when filter changes, reset to 'all' when selection is cleared
+  useEffect(() => {
+    if (selectedTracks.size === 0) { setSyncFilter('all'); return }
+  }, [selectedTracks.size])
+
+  const applyFilter = (f: SyncFilter) => {
+    setSyncFilter(f)
+    setFilterSnapshot(new Set(selectedTracks))
+  }
+
+  // Intersection observer — disabled when search active or sync filter applied
   useEffect(() => {
     const sentinel = sentinelRef.current
     if (!sentinel || isSearchActive || syncFilter !== 'all') return
@@ -89,18 +96,19 @@ export function LibraryContent({
     return () => observer.disconnect()
   }, [activeLibrary, isLoadingMore, isSearchActive, syncFilter, onLoadMore])
 
-  const handleToggle = useCallback((id: string) => {
+  const handleToggle = (id: string) => {
     if (!activeDeviceName) {
       setNoDeviceHint(true)
       setTimeout(() => setNoDeviceHint(false), 2500)
       return
     }
     onToggle(id)
-  }, [activeDeviceName, onToggle])
+  }
 
+  // Filter uses snapshot so items don't vanish mid-interaction
   const applySyncFilter = <T extends { Id: string }>(items: T[]) => {
-    if (syncFilter === 'selected') return items.filter(i => selectedTracks.has(i.Id))
-    if (syncFilter === 'unselected') return items.filter(i => !selectedTracks.has(i.Id))
+    if (syncFilter === 'selected') return items.filter(i => filterSnapshot.has(i.Id))
+    if (syncFilter === 'unselected') return items.filter(i => !filterSnapshot.has(i.Id))
     return items
   }
 
@@ -150,7 +158,7 @@ export function LibraryContent({
                 {(['all', 'selected', 'unselected'] as SyncFilter[]).map(f => (
                   <button
                     key={f}
-                    onClick={() => setSyncFilter(f)}
+                    onClick={() => applyFilter(f)}
                     className={`px-3 py-1 rounded-md transition-colors ${syncFilter === f ? 'bg-jf-purple/40 text-jf-purple-light' : 'text-zinc-400 hover:text-zinc-200'}`}
                   >
                     {f === 'all' ? 'All' : f === 'selected' ? 'Selected' : 'Not selected'}
