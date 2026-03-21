@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="icon-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#775BF4" />
+      <stop offset="100%" stop-color="#00A4DC" />
+    </linearGradient>
+  </defs>
+  <!-- macOS-style rounded rect background (~50px transparent margin each side) -->
+  <rect x="50" y="50" width="924" height="924" rx="207" fill="#111827" />
+  <!-- Lucide Music icon, centered in 560×560 area at (232,232) -->
+  <g transform="translate(232,232) scale(23.33)" fill="none" stroke="url(#icon-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5l12-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="16" r="3" />
+  </g>
+</svg>
