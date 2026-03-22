@@ -61,6 +61,14 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
           >
             View on GitHub
           </a>
+
+          <a
+            href="#"
+            onClick={e => { e.preventDefault(); window.open('https://ko-fi.com/oriaflowlabs') }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+          >
+            Support on Ko-fi ☕
+          </a>
         </div>
 
         <button
