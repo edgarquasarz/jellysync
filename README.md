@@ -44,7 +44,14 @@ Open the installer and follow the prompts. No additional setup is required — F
 
 ## Screenshots
 
-> _Coming soon._
+<p align="center">
+  <a href="assets/screenshot-albums.png"><img src="assets/screenshot-albums.png" alt="Browse your Jellyfin library" width="400" /></a>
+  &nbsp;&nbsp;
+  <a href="assets/screenshot-sync.png"><img src="assets/screenshot-sync.png" alt="Sync to device with MP3 conversion" width="400" /></a>
+</p>
+<p align="center">
+  <em>Browse your library &nbsp;·&nbsp; Sync to any device with optional MP3 conversion</em>
+</p>
 
 ---
 
