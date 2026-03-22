@@ -37,6 +37,7 @@ interface LibraryContentProps {
   onSearchChange: (q: string) => void
   searchResults: SearchResults | null
   isSearching: boolean
+  searchError?: string | null
 }
 
 export function LibraryContent({
@@ -64,6 +65,7 @@ export function LibraryContent({
   onSearchChange,
   searchResults,
   isSearching,
+  searchError,
 }: LibraryContentProps): JSX.Element {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [syncFilter, setSyncFilter] = useState<SyncFilter>('all')
@@ -226,6 +228,10 @@ export function LibraryContent({
             <Loader2 className="w-4 h-4 animate-spin" />
             Searching {tabLabel}...
           </div>
+        ) : isSearchActive && searchError ? (
+          <p className="text-red-400 text-sm py-8 text-center">
+            Search failed: {searchError}
+          </p>
         ) : isSearchActive && !hasResults ? (
           <p className="text-zinc-500 text-sm py-8 text-center">
             No {tabLabel} found for "{searchQuery}"

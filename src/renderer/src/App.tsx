@@ -38,7 +38,7 @@ function App(): JSX.Element {
 
   const deviceSelections = useDeviceSelections()
 
-  const { searchQuery, setSearchQuery, searchResults, isSearching } = useSearch(
+  const { searchQuery, setSearchQuery, searchResults, isSearching, searchError } = useSearch(
     connection.jellyfinConfig,
     connection.userId
   )
@@ -245,6 +245,7 @@ function App(): JSX.Element {
               onSearchChange={setSearchQuery}
               searchResults={searchResults}
               isSearching={isSearching}
+              searchError={searchError}
             />
           ) : effectiveSection === 'device' && effectiveDevicePath ? (
             <main className="flex-1 overflow-auto flex flex-col p-6">

@@ -386,7 +386,14 @@ function cancelSync(): void {
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1200, height: 800, minWidth: 900, minHeight: 600, show: false, autoHideMenuBar: false,
-    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, contextIsolation: true, nodeIntegration: false }
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      // sandbox: false required for native modules (better-sqlite3, @ffmpeg-installer/ffmpeg)
+      // contextIsolation + no nodeIntegration still enforced for renderer security
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+    }
   })
   mainWindow.on('ready-to-show', () => { mainWindow?.show(); log.info('Window ready') })
   mainWindow.webContents.setWindowOpenHandler((details) => { shell.openExternal(details.url); return { action: 'deny' } })
@@ -428,11 +435,28 @@ ipcMain.handle('session:clear', () => {
   } catch (e) { log.error('Failed to clear session:', e) }
 })
 
+// ---------------------------------------------------------------------------
+// IPC path validation helper
+// Ensures renderer-supplied paths are absolute and contain no null bytes or
+// shell metacharacters that could be misused if a path ever reaches a shell.
+// ---------------------------------------------------------------------------
+function isValidPath(p: unknown): p is string {
+  if (typeof p !== 'string' || p.length === 0) return false
+  if (p.includes('\0')) return false // null byte
+  // Must be absolute: starts with / (unix) or X:\ or \\ (windows)
+  const isAbsolute = p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p) || p.startsWith('\\\\')
+  return isAbsolute
+}
+
 ipcMain.handle('usb:list', async () => { try { return await listUsbDevices() } catch (error) { log.error('Error in usb:list handler:', error); return [] } })
-ipcMain.handle('usb:getDeviceInfo', async (_event, devicePath: string) => { try { return await getDeviceInfo(devicePath) } catch (error) { log.error('Error getting device info:', error); return { total: 0, free: 0, used: 0 } } })
+ipcMain.handle('usb:getDeviceInfo', async (_event, devicePath: string) => {
+  if (!isValidPath(devicePath)) { log.warn('usb:getDeviceInfo: invalid path', devicePath); return { total: 0, free: 0, used: 0 } }
+  try { return await getDeviceInfo(devicePath) } catch (error) { log.error('Error getting device info:', error); return { total: 0, free: 0, used: 0 } }
+})
 ipcMain.handle('usb:getTrackSize', async (_event, trackPath: string) => getTrackSize(trackPath))
 ipcMain.handle('usb:getTrackFormat', async (_event, trackPath: string) => detectAudioFormat(trackPath))
 ipcMain.handle('device:getFilesystem', async (_event, devicePath: string) => {
+  if (!isValidPath(devicePath)) { log.warn('device:getFilesystem: invalid path', devicePath); return 'unknown' }
   try { return await detectFilesystem(devicePath) } catch (e) { return 'unknown' }
 })
 ipcMain.handle('sync:start', async (event, options) => {
@@ -540,7 +564,10 @@ ipcMain.handle('sync:start2', async (event, options) => {
 ipcMain.handle('sync:cancel', () => { cancelSync(); return { cancelled: true } })
 ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('dialog:selectFolder', async () => { const result = await dialog.showOpenDialog({ properties: ['openDirectory'], title: 'Select sync destination folder' }); return result.canceled ? null : result.filePaths[0] })
-ipcMain.handle('fs:getFolderStats', async (_event, folderPath: string) => { try { const stats = fs.statSync(folderPath); return { exists: true, isDirectory: stats.isDirectory(), size: stats.size, modified: stats.mtime.toISOString() } } catch (error) { return { exists: false, error: String(error) } } })
+ipcMain.handle('fs:getFolderStats', async (_event, folderPath: string) => {
+  if (!isValidPath(folderPath)) return { exists: false, error: 'Invalid path' }
+  try { const stats = fs.statSync(folderPath); return { exists: true, isDirectory: stats.isDirectory(), size: stats.size, modified: stats.mtime.toISOString() } } catch (error) { return { exists: false, error: String(error) } }
+})
 ipcMain.handle('ffmpeg:isAvailable', async () => { try { require('child_process').execSync('ffmpeg -version', { stdio: 'ignore' }); return true } catch (e) { try { require('@ffmpeg-installer/ffmpeg'); return true } catch (e2) { return false } } })
 
 // ─── Estimate size (for preview modal) ────────────────────────────────────────

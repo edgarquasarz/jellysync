@@ -81,6 +81,33 @@ export interface SyncApi {
 }
 
 /**
+ * Simple concurrency limiter — caps the number of in-flight promises.
+ * Prevents flooding the Jellyfin server when syncing large libraries.
+ */
+class ConcurrencyLimiter {
+  private running = 0;
+  private readonly queue: Array<() => void> = [];
+
+  constructor(private readonly limit: number) {}
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.running >= this.limit) {
+      await new Promise<void>(resolve => this.queue.push(resolve));
+    }
+    this.running++;
+    try {
+      return await fn();
+    } finally {
+      this.running--;
+      this.queue.shift()?.();
+    }
+  }
+}
+
+/** Max concurrent Jellyfin API requests (avoids saturating the server) */
+const API_CONCURRENCY = 4;
+
+/**
  * API client implementation
  */
 class SyncApiImpl implements SyncApi {
@@ -89,6 +116,7 @@ class SyncApiImpl implements SyncApi {
   private userId: string;
   private timeout: number;
   private fetchFn: typeof fetch;
+  private limiter = new ConcurrencyLimiter(API_CONCURRENCY);
 
   constructor(config: ApiClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
@@ -215,9 +243,9 @@ class SyncApiImpl implements SyncApi {
     itemIds: string[],
     itemTypes: Map<string, ItemType>
   ): Promise<{ tracks: TrackInfo[]; errors: string[] }> {
-    // Fetch all items in parallel instead of sequentially
+    // Fetch all items in parallel, capped at API_CONCURRENCY to avoid server flooding
     const results = await Promise.allSettled(
-      itemIds.map(async (itemId) => {
+      itemIds.map((itemId) => this.limiter.run(async () => {
         const itemType = itemTypes.get(itemId);
         if (!itemType) throw new Error(`Unknown item type for ID: ${itemId}`);
         switch (itemType) {
@@ -226,7 +254,7 @@ class SyncApiImpl implements SyncApi {
           case 'playlist': return await this.getPlaylistTracks(itemId);
           default: throw new Error(`Unsupported item type: ${itemType}`);
         }
-      })
+      }))
     );
 
     const tracks: TrackInfo[] = [];

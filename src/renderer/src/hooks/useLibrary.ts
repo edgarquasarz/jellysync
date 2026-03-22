@@ -244,6 +244,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       }))
     } catch (e) {
       console.error(`Failed to load more ${type}:`, e)
+      setError(e instanceof Error ? e.message : `Failed to load more ${type}`)
     } finally {
       setIsLoadingMore(false)
     }
