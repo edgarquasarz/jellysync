@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
   <!-- macOS-style rounded rect background (~50px transparent margin each side) -->
-  <rect x="50" y="50" width="924" height="924" rx="207" fill="#111827" />
+  <rect x="96" y="96" width="832" height="832" rx="186" fill="#111827" />
   <!-- Lucide Music icon, centered in 560×560 area at (232,232) -->
   <g transform="translate(232,232) scale(23.33)" fill="none" stroke="url(#icon-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M9 18V5l12-2v13" />
