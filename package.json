@@ -13,6 +13,7 @@
     "preview": "electron-vite preview",
     "start": "electron .",
     "package": "npm run build && electron-builder",
+    "package:dir": "npm run build && electron-builder --dir",
     "test:bdd": "pnpm build && TS_NODE_PROJECT=tests/bdd/tsconfig.json cucumber-js --config tests/bdd/cucumber.js",
     "test:bdd:dev": "pnpm build && TS_NODE_PROJECT=tests/bdd/tsconfig.json cucumber-js --config tests/bdd/cucumber.js --profile dev",
     "test:bdd:ci": "pnpm build && TS_NODE_PROJECT=tests/bdd/tsconfig.json cucumber-js --config tests/bdd/cucumber.js --profile ci",
