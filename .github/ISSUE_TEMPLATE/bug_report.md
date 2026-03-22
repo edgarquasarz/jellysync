@@ -2,8 +2,9 @@
 name: Bug report
 about: Report a bug to help us improve JellyTunes
 title: ''
-labels: bug
+labels: ''
 assignees: ''
+
 ---
 
 **Describe the bug**
