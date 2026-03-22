@@ -39,6 +39,7 @@ function ItemThumbnail({ item, type, serverUrl }: { item: Artist | Album | Playl
 
 export function LibraryItem({ item, type, isSelected, wasSynced, onToggle, serverUrl }: LibraryItemProps): JSX.Element {
   const willDelete = wasSynced && !isSelected
+  const pendingSync = isSelected && !wasSynced
 
   const albumCount = (item as Artist).AlbumCount
   const album = item as Album
@@ -68,12 +69,17 @@ export function LibraryItem({ item, type, isSelected, wasSynced, onToggle, serve
       <ItemThumbnail item={item} type={type} serverUrl={serverUrl} />
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${willDelete ? 'line-through opacity-50' : ''}`}>{item.Name}</p>
-        {(subtitle || wasSynced) && (
+        {(subtitle || wasSynced || pendingSync) && (
           <p className="text-xs text-zinc-500 flex items-center gap-1.5 truncate">
             {subtitle && <span>{subtitle}</span>}
             {wasSynced && (
               <span className={`px-1.5 py-0.5 rounded text-xs ${willDelete ? 'bg-red-900/50 text-red-400' : 'bg-green-900/50 text-green-400'}`}>
                 {willDelete ? 'will remove' : 'synced'}
+              </span>
+            )}
+            {pendingSync && (
+              <span className="px-1.5 py-0.5 rounded text-xs bg-jf-purple/20 text-jf-purple">
+                pending sync
               </span>
             )}
           </p>
