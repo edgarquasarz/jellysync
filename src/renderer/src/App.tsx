@@ -80,12 +80,13 @@ function App(): JSX.Element {
     userId: connection.userId,
     selectedTracks: deviceSelections.selectedTracks,
     previouslySyncedItems: deviceSelections.previouslySyncedItems,
+    syncedItemsInfo: deviceSelections.syncedItemsInfo,
     artists: extArtists,
     albums: extAlbums,
     playlists: extPlaylists,
-    setPreviouslySyncedItems: (ids: Set<string>) => {
+    setPreviouslySyncedItems: (items) => {
       if (deviceSelections.activeDevicePath) {
-        deviceSelections.updateSyncedItems(deviceSelections.activeDevicePath, ids)
+        deviceSelections.updateSyncedItems(deviceSelections.activeDevicePath, items)
       }
     },
   })
@@ -258,7 +259,7 @@ function App(): JSX.Element {
                 isLoadingPreview={sync.isLoadingPreview}
                 syncProgress={sync.syncProgress}
                 selectedTracks={deviceSelections.selectedTracks}
-                previouslySyncedItems={deviceSelections.previouslySyncedItems}
+                syncedItemsInfo={deviceSelections.syncedItemsInfo}
                 artists={extArtists}
                 albums={extAlbums}
                 playlists={extPlaylists}

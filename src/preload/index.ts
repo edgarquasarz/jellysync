@@ -81,6 +81,7 @@ const api = {
     userId: string;
     itemIds: string[];
     itemTypes: Record<string, 'artist' | 'album' | 'playlist'>;
+    itemNames?: Record<string, string>;
     destinationPath: string;
     options?: {
       convertToMp3?: boolean;
@@ -126,7 +127,7 @@ const api = {
   }>> =>
     ipcRenderer.invoke('sync:getHistory'),
 
-  getSyncedItems: (mountPoint: string): Promise<string[]> =>
+  getSyncedItems: (mountPoint: string): Promise<Array<{ id: string; name: string; type: 'artist' | 'album' | 'playlist' }>> =>
     ipcRenderer.invoke('sync:getSyncedItems', mountPoint),
 
   removeItems: (options: {

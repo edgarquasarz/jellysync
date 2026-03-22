@@ -29,6 +29,12 @@ export interface DeviceSyncInfo {
   syncCount: number
 }
 
+export interface SyncedItemInfo {
+  id: string
+  name: string
+  type: 'artist' | 'album' | 'playlist'
+}
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
@@ -74,6 +80,10 @@ export function initDatabase(): void {
     );
   `)
 
+  // Migrations: add columns if they don't exist (SQLite has no IF NOT EXISTS for ALTER TABLE)
+  try { db.exec('ALTER TABLE synced_files ADD COLUMN item_name TEXT') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE synced_files ADD COLUMN item_type TEXT') } catch { /* already exists */ }
+
   log.info('Database ready')
 }
 
@@ -118,7 +128,7 @@ export function recordSyncCompleted(
   tracksSynced: number,
   bytesTransferred: number,
   status: 'success' | 'error' | 'cancelled',
-  itemIds: string[]
+  items: SyncedItemInfo[]
 ): void {
   const database = requireDb()
   const deviceId = upsertDevice(mountPoint)
@@ -131,17 +141,20 @@ export function recordSyncCompleted(
     `)
     .run(deviceId, tracksSynced, bytesTransferred, status)
 
-  // Record individual synced files (upsert so we update synced_at on re-sync)
-  if (itemIds.length > 0 && status !== 'error') {
+  // Record individual synced files (upsert so we update synced_at and name/type on re-sync)
+  if (items.length > 0 && status !== 'error') {
     const stmt = database.prepare(`
-      INSERT INTO synced_files (device_id, item_id, destination_path, synced_at)
-      VALUES (?, ?, ?, datetime('now'))
-      ON CONFLICT(device_id, item_id) DO UPDATE SET synced_at = excluded.synced_at
+      INSERT INTO synced_files (device_id, item_id, destination_path, item_name, item_type, synced_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(device_id, item_id) DO UPDATE SET
+        synced_at = excluded.synced_at,
+        item_name = excluded.item_name,
+        item_type = excluded.item_type
     `)
-    const insertMany = database.transaction((ids: string[]) => {
-      for (const id of ids) stmt.run(deviceId, id, mountPoint)
+    const insertMany = database.transaction((infos: SyncedItemInfo[]) => {
+      for (const info of infos) stmt.run(deviceId, info.id, mountPoint, info.name, info.type)
     })
-    insertMany(itemIds)
+    insertMany(items)
   }
 }
 
@@ -156,6 +169,23 @@ export function getSyncedItemIds(mountPoint: string): Set<string> {
     .prepare('SELECT item_id FROM synced_files WHERE device_id = ?')
     .all(device.id) as { item_id: string }[]
   return new Set(rows.map(r => r.item_id))
+}
+
+export function getSyncedItems(mountPoint: string): SyncedItemInfo[] {
+  const database = requireDb()
+  const device = database
+    .prepare('SELECT id FROM devices WHERE mount_point = ?')
+    .get(mountPoint) as { id: number } | undefined
+  if (!device) return []
+
+  const rows = database
+    .prepare('SELECT item_id, item_name, item_type FROM synced_files WHERE device_id = ?')
+    .all(device.id) as { item_id: string; item_name: string | null; item_type: string | null }[]
+  return rows.map(r => ({
+    id: r.item_id,
+    name: r.item_name ?? r.item_id,
+    type: (r.item_type ?? 'artist') as 'artist' | 'album' | 'playlist',
+  }))
 }
 
 export function getDeviceSyncInfo(mountPoint: string): DeviceSyncInfo {

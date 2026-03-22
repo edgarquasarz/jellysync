@@ -239,15 +239,29 @@ export interface AudioConverter {
 /**
  * Create FFmpeg converter using system FFmpeg or bundled binary
  */
-export function createFFmpegConverter(): AudioConverter {
-  let ffmpegPath: string;
-  
+function resolveFFmpegPath(): string {
   try {
     const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-    ffmpegPath = ffmpegInstaller.path;
+    return ffmpegInstaller.path;
   } catch {
-    ffmpegPath = 'ffmpeg'; // bundled binary not available, using system ffmpeg
+    // bundled binary not available, search common system paths
   }
+
+  const { existsSync } = require('fs');
+  const candidates = [
+    '/usr/local/bin/ffmpeg',
+    '/opt/homebrew/bin/ffmpeg',
+    '/usr/bin/ffmpeg',
+    '/opt/local/bin/ffmpeg',
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return 'ffmpeg'; // last resort: rely on PATH
+}
+
+export function createFFmpegConverter(): AudioConverter {
+  const ffmpegPath = resolveFFmpegPath();
   
   return {
     convertToMp3: async (input, output, bitrate) => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HardDrive, Folder, Loader2, Trash2, Music, RefreshCw, X } from 'lucide-react'
 import type { Artist, Album, Playlist, Bitrate, SyncProgressInfo, PreviewData } from '../appTypes'
+import type { SyncedItemInfo } from '../hooks/useDeviceSelections'
 import { SyncPreviewModal } from './SyncPreviewModal'
 
 interface DeviceInfo {
@@ -35,7 +36,7 @@ interface DeviceSyncPanelProps {
   isLoadingPreview: boolean
   syncProgress: SyncProgressInfo | null
   selectedTracks: Set<string>
-  previouslySyncedItems: Set<string>
+  syncedItemsInfo: SyncedItemInfo[]
   artists: Artist[]
   albums: Album[]
   playlists: Playlist[]
@@ -89,7 +90,7 @@ export function DeviceSyncPanel({
   isLoadingPreview,
   syncProgress,
   selectedTracks,
-  previouslySyncedItems,
+  syncedItemsInfo,
   artists,
   albums,
   playlists,
@@ -121,20 +122,28 @@ export function DeviceSyncPanel({
     }).finally(() => setLoadingInfo(false))
   }, [destinationPath])
 
-  // Build sync item list from artists/albums/playlists
+  // Build sync item list
+  // Synced items come from DB (available even if not loaded in library)
+  const syncedIds = new Set(syncedItemsInfo.map(i => i.id))
   const syncItems: SyncItem[] = []
-  const addItems = <T extends { Id: string; Name: string }>(items: T[], type: SyncItem['type']) => {
+
+  // Synced/remove: iterate DB records — always available regardless of library state
+  for (const item of syncedItemsInfo) {
+    const selected = selectedTracks.has(item.id)
+    syncItems.push({ id: item.id, name: item.name, type: item.type, state: selected ? 'synced' : 'remove' })
+  }
+
+  // New: selected but not yet synced — only available if loaded from library
+  const addNewItems = <T extends { Id: string; Name: string }>(items: T[], type: SyncItem['type']) => {
     for (const item of items) {
-      const selected = selectedTracks.has(item.Id)
-      const synced = previouslySyncedItems.has(item.Id)
-      if (selected && synced) syncItems.push({ id: item.Id, name: item.Name, type, state: 'synced' })
-      else if (selected) syncItems.push({ id: item.Id, name: item.Name, type, state: 'new' })
-      else if (synced) syncItems.push({ id: item.Id, name: item.Name, type, state: 'remove' })
+      if (selectedTracks.has(item.Id) && !syncedIds.has(item.Id)) {
+        syncItems.push({ id: item.Id, name: item.Name, type, state: 'new' })
+      }
     }
   }
-  addItems(artists, 'artist')
-  addItems(albums, 'album')
-  addItems(playlists, 'playlist')
+  addNewItems(artists, 'artist')
+  addNewItems(albums, 'album')
+  addNewItems(playlists, 'playlist')
 
   const groups: [ItemState, string][] = [
     ['new', 'New'],

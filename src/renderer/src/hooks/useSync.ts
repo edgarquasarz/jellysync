@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import type { JellyfinConfig, Artist, Album, Playlist, Bitrate, SyncProgressInfo, PreviewData } from '../appTypes'
+import type { SyncedItemInfo } from './useDeviceSelections'
 
 interface UseSyncOptions {
   jellyfinConfig: JellyfinConfig | null
   userId: string | null
   selectedTracks: Set<string>
   previouslySyncedItems: Set<string>
+  syncedItemsInfo: SyncedItemInfo[]
   artists: Artist[]
   albums: Album[]
   playlists: Playlist[]
-  setPreviouslySyncedItems: (items: Set<string>) => void
+  setPreviouslySyncedItems: (items: SyncedItemInfo[]) => void
 }
 
 export function useSync({
@@ -17,6 +19,7 @@ export function useSync({
   userId,
   selectedTracks,
   previouslySyncedItems,
+  syncedItemsInfo,
   artists,
   albums,
   playlists,
@@ -45,19 +48,32 @@ export function useSync({
     const albumIds = albums.filter(a => selectedTracks.has(a.Id)).map(a => a.Id)
     const playlistIds = playlists.filter(p => selectedTracks.has(p.Id)).map(p => p.Id)
     const map: Record<string, 'artist' | 'album' | 'playlist'> = {}
+    const names: Record<string, string> = {}
     artistIds.forEach(id => { if (id) map[id] = 'artist' })
     albumIds.forEach(id => { if (id) map[id] = 'album' })
     playlistIds.forEach(id => { if (id) map[id] = 'playlist' })
-    return { artistIds, albumIds, playlistIds, map }
+    artists.filter(a => selectedTracks.has(a.Id)).forEach(a => { names[a.Id] = a.Name })
+    albums.filter(a => selectedTracks.has(a.Id)).forEach(a => { names[a.Id] = a.Name })
+    playlists.filter(p => selectedTracks.has(p.Id)).forEach(p => { names[p.Id] = p.Name })
+    return { artistIds, albumIds, playlistIds, map, names }
   }
 
+  // Items that are synced but user has deselected → will be removed from device
   const buildToDeleteIds = () => {
-    const visibleIds = new Set([
-      ...artists.map(a => a.Id),
-      ...albums.map(a => a.Id),
-      ...playlists.map(p => p.Id),
-    ])
-    return [...previouslySyncedItems].filter(id => visibleIds.has(id) && !selectedTracks.has(id))
+    return [...previouslySyncedItems].filter(id => !selectedTracks.has(id))
+  }
+
+  // Build a type map for items to delete, using in-memory arrays first then DB info as fallback
+  const buildDeleteTypesMap = (toDeleteIds: string[]): Record<string, 'artist' | 'album' | 'playlist'> => {
+    const syncedInfoMap = new Map(syncedItemsInfo.map(i => [i.id, i]))
+    const map: Record<string, 'artist' | 'album' | 'playlist'> = {}
+    toDeleteIds.forEach(id => {
+      if (artists.find(a => a.Id === id)) map[id] = 'artist'
+      else if (albums.find(a => a.Id === id)) map[id] = 'album'
+      else if (playlists.find(p => p.Id === id)) map[id] = 'playlist'
+      else if (syncedInfoMap.has(id)) map[id] = syncedInfoMap.get(id)!.type
+    })
+    return map
   }
 
   const executeSyncNow = async (): Promise<void> => {
@@ -71,18 +87,13 @@ export function useSync({
     })
 
     try {
-      const { artistIds, albumIds, playlistIds, map } = buildItemTypesMap()
+      const { artistIds, albumIds, playlistIds, map, names } = buildItemTypesMap()
       const selectedIds = [...artistIds, ...albumIds, ...playlistIds].filter(Boolean)
       const toDeleteIds = buildToDeleteIds()
 
       if (toDeleteIds.length > 0) {
         setSyncProgress({ current: 0, total: 0, file: 'Removing deselected items...' })
-        const deleteTypesMap: Record<string, 'artist' | 'album' | 'playlist'> = {}
-        toDeleteIds.forEach(id => {
-          if (artists.find(a => a.Id === id)) deleteTypesMap[id] = 'artist'
-          else if (albums.find(a => a.Id === id)) deleteTypesMap[id] = 'album'
-          else if (playlists.find(p => p.Id === id)) deleteTypesMap[id] = 'playlist'
-        })
+        const deleteTypesMap = buildDeleteTypesMap(toDeleteIds)
         await window.api.removeItems({
           serverUrl: jellyfinConfig.url,
           apiKey: jellyfinConfig.apiKey,
@@ -98,8 +109,8 @@ export function useSync({
         unsubscribe?.()
         setSyncProgress(null)
         setIsSyncing(false)
-        const updatedIds = await window.api.getSyncedItems(syncFolder)
-        setPreviouslySyncedItems(new Set(updatedIds))
+        const updatedItems = await window.api.getSyncedItems(syncFolder)
+        setPreviouslySyncedItems(updatedItems)
         alert(`Sync complete!\n\nRemoved: ${toDeleteIds.length} item(s)\nNothing left to sync.`)
         return
       }
@@ -110,6 +121,7 @@ export function useSync({
         userId,
         itemIds: selectedIds,
         itemTypes: map,
+        itemNames: names,
         destinationPath: syncFolder,
         options: { convertToMp3, bitrate },
       })
@@ -119,8 +131,8 @@ export function useSync({
       setIsSyncing(false)
 
       if (result.success) {
-        const updatedIds = await window.api.getSyncedItems(syncFolder)
-        setPreviouslySyncedItems(new Set(updatedIds))
+        const updatedItems = await window.api.getSyncedItems(syncFolder)
+        setPreviouslySyncedItems(updatedItems)
         const deleteInfo = toDeleteIds.length > 0 ? `\nRemoved: ${toDeleteIds.length} item(s)` : ''
         const skippedInfo = result.tracksSkipped > 0 ? `\nSkipped (already up-to-date): ${result.tracksSkipped}` : ''
         alert(`Sync complete!\n\nTracks copied: ${result.tracksCopied}${skippedInfo}${deleteInfo}\nErrors: ${result.errors.length}\n\n${result.errors.length > 0 ? 'Errors:\n' + result.errors.slice(0, 5).join('\n') : ''}`)
@@ -161,9 +173,9 @@ export function useSync({
         window.api.estimateSize({ serverUrl: jellyfinConfig.url, apiKey: jellyfinConfig.apiKey, userId, itemIds: selectedIds, itemTypes: map }),
         window.api.getSyncedItems(syncFolder),
       ])
-      const alreadySyncedCount = syncedItems.filter((id: string) => selectedIds.includes(id)).length
-      const visibleIds = new Set([...artists.map(a => a.Id), ...albums.map(a => a.Id), ...playlists.map(p => p.Id)])
-      const willRemoveCount = [...previouslySyncedItems].filter(id => visibleIds.has(id) && !selectedTracks.has(id)).length
+      const syncedIdSet = new Set(syncedItems.map(i => i.id))
+      const alreadySyncedCount = selectedIds.filter(id => syncedIdSet.has(id)).length
+      const willRemoveCount = [...previouslySyncedItems].filter(id => !selectedTracks.has(id)).length
       setPreviewData({ ...estimate, alreadySyncedCount, willRemoveCount })
       setShowPreview(true)
     } catch {

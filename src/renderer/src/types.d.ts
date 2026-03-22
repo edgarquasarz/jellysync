@@ -60,6 +60,7 @@ interface Api {
     userId: string;
     itemIds: string[];
     itemTypes: Record<string, 'artist' | 'album' | 'playlist'>;
+    itemNames?: Record<string, string>;
     destinationPath: string;
     options?: {
       convertToMp3?: boolean;
@@ -83,7 +84,7 @@ interface Api {
     id: number; deviceMountPoint: string; startedAt: string; completedAt: string | null
     tracksSynced: number; bytesTransferred: number; status: string
   }>>
-  getSyncedItems: (mountPoint: string) => Promise<string[]>
+  getSyncedItems: (mountPoint: string) => Promise<Array<{ id: string; name: string; type: 'artist' | 'album' | 'playlist' }>>
   removeItems: (options: {
     serverUrl: string; apiKey: string; userId: string
     itemIds: string[]; itemTypes: Record<string, 'artist' | 'album' | 'playlist'>

@@ -1,11 +1,18 @@
 import { useState, useCallback } from 'react'
 
+export interface SyncedItemInfo {
+  id: string
+  name: string
+  type: 'artist' | 'album' | 'playlist'
+}
+
 interface DeviceState {
   selectedItems: Set<string>
   syncedItems: Set<string>
+  syncedItemsInfo: SyncedItemInfo[]
 }
 
-const EMPTY: DeviceState = { selectedItems: new Set(), syncedItems: new Set() }
+const EMPTY: DeviceState = { selectedItems: new Set(), syncedItems: new Set(), syncedItemsInfo: [] }
 
 export function useDeviceSelections() {
   const [deviceStates, setDeviceStates] = useState<Map<string, DeviceState>>(new Map())
@@ -21,27 +28,28 @@ export function useDeviceSelections() {
     setDeviceStates(prev => {
       if (prev.has(path)) return prev
       // Placeholder while loading
-      return new Map(prev).set(path, { selectedItems: new Set(), syncedItems: new Set() })
+      return new Map(prev).set(path, { selectedItems: new Set(), syncedItems: new Set(), syncedItemsInfo: [] })
     })
     try {
-      const ids = await window.api.getSyncedItems(path)
-      const syncedSet = new Set(ids)
+      const items = await window.api.getSyncedItems(path)
+      const syncedSet = new Set(items.map(i => i.id))
       setDeviceStates(prev => {
         const existing = prev.get(path)
         // Only init selectedItems if this is the first load
         const selectedItems = existing && existing.syncedItems.size === 0 && existing.selectedItems.size === 0
           ? new Set(syncedSet)
           : (existing?.selectedItems ?? new Set(syncedSet))
-        return new Map(prev).set(path, { selectedItems, syncedItems: syncedSet })
+        return new Map(prev).set(path, { selectedItems, syncedItems: syncedSet, syncedItemsInfo: items })
       })
     } catch { /* ignore */ }
   }, [])
 
   // Refresh synced items for a device after sync completes
-  const updateSyncedItems = useCallback((path: string, ids: Set<string>) => {
+  const updateSyncedItems = useCallback((path: string, items: SyncedItemInfo[]) => {
     setDeviceStates(prev => {
       const state = prev.get(path) ?? EMPTY
-      return new Map(prev).set(path, { ...state, syncedItems: ids })
+      const syncedItems = new Set(items.map(i => i.id))
+      return new Map(prev).set(path, { ...state, syncedItems, syncedItemsInfo: items })
     })
   }, [])
 
@@ -88,6 +96,7 @@ export function useDeviceSelections() {
     activeDevicePath,
     selectedTracks: activeState.selectedItems,
     previouslySyncedItems: activeState.syncedItems,
+    syncedItemsInfo: activeState.syncedItemsInfo,
     activateDevice,
     updateSyncedItems,
     removeDevice,

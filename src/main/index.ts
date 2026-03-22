@@ -9,7 +9,7 @@ import * as fs from 'fs'
 import { createSyncCore, createValidatedConfig, validateDestination, createNodeFileSystem } from '../sync'
 
 // Import database
-import { initDatabase, recordSyncCompleted, getSyncedItemIds, getDeviceSyncInfo, getRecentSyncHistory, removeSyncedItems } from './database'
+import { initDatabase, recordSyncCompleted, getSyncedItemIds, getSyncedItems, getDeviceSyncInfo, getRecentSyncHistory, removeSyncedItems } from './database'
 
 log.transports.file.level = 'info'
 log.info('JellyTunes starting...')
@@ -408,7 +408,7 @@ ipcMain.handle('sync:start', async (event, options) => {
 // New sync:start2 handler - uses SyncCore for proper path resolution
 ipcMain.handle('sync:start2', async (event, options) => {
   try {
-    const { serverUrl, apiKey, userId, itemIds, itemTypes, destinationPath, options: syncOptions = {} } = options
+    const { serverUrl, apiKey, userId, itemIds, itemTypes, itemNames = {}, destinationPath, options: syncOptions = {} } = options
     log.info(`Starting sync v2 to ${destinationPath} with ${itemIds.length} items`)
     
     // Validate inputs
@@ -470,7 +470,12 @@ ipcMain.handle('sync:start2', async (event, options) => {
     // Record to SQLite
     const status = result.cancelled ? 'cancelled' : result.success ? 'success' : 'error'
     const syncedIds = itemIds.filter((id: string) => !result.tracksFailed.includes(id))
-    try { recordSyncCompleted(destinationPath, result.tracksCopied, result.totalSizeBytes ?? 0, status, syncedIds) }
+    const syncedItems = syncedIds.map((id: string) => ({
+      id,
+      name: (itemNames as Record<string, string>)[id] ?? id,
+      type: (itemTypes as Record<string, 'artist' | 'album' | 'playlist'>)[id] ?? 'artist',
+    }))
+    try { recordSyncCompleted(destinationPath, result.tracksCopied, result.totalSizeBytes ?? 0, status, syncedItems) }
     catch (dbErr) { log.warn('Failed to record sync history:', dbErr) }
 
     return {
@@ -523,7 +528,7 @@ ipcMain.handle('sync:getHistory', () => {
   catch (error) { log.error('getHistory error:', error); return [] }
 })
 ipcMain.handle('sync:getSyncedItems', (_event, mountPoint: string) => {
-  try { return [...getSyncedItemIds(mountPoint)] }
+  try { return getSyncedItems(mountPoint) }
   catch (error) { log.error('getSyncedItems error:', error); return [] }
 })
 

@@ -246,6 +246,9 @@ class SyncCoreImpl {
             // Size differs → fall through and overwrite
           }
 
+          // Remove alternate-format copies of the same track (e.g. .flac when writing .mp3)
+          await this.deleteAlternateFormats(outputDir, outputFilename);
+
           // Copy or convert
           if (willConvert) {
             await this.convertAndCopy(track, outputPath, options.bitrate ?? '192k');
@@ -681,6 +684,24 @@ class SyncCoreImpl {
       }
     } catch {
       // Ignore errors during cleanup
+    }
+  }
+
+  private async deleteAlternateFormats(outputDir: string, targetFilename: string): Promise<void> {
+    const audioExts = ['mp3', 'flac', 'wav', 'm4a', 'aac', 'ogg', 'wma', 'opus'];
+    const baseName = targetFilename.replace(/\.[^.]+$/, '');
+    const targetExt = (targetFilename.match(/\.([^.]+)$/)?.[1] ?? '').toLowerCase();
+
+    for (const ext of audioExts) {
+      if (ext === targetExt) continue;
+      const altPath = `${outputDir}/${baseName}.${ext}`;
+      try {
+        if (await this.deps.fs.exists(altPath)) {
+          await this.deps.fs.unlink(altPath);
+        }
+      } catch {
+        // non-fatal: continue to next extension
+      }
     }
   }
 
