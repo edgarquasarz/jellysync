@@ -1,6 +1,6 @@
 {
   "name": "jellytunes",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Sincronizador de música Jellyfin → dispositivos MP3/FLAC",
   "main": "dist/main/index.js",
   "author": "OriaFlow Labs",
