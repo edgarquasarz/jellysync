@@ -1,6 +1,6 @@
 {
   "name": "jellytunes",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Sincronizador de música Jellyfin → dispositivos MP3/FLAC",
   "main": "dist/main/index.js",
   "author": "OriaFlow Labs",
@@ -85,17 +85,24 @@
     ],
     "writeUpdateInfo": false,
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "assets/icon.icns",
       "compression": "maximum",
       "identity": null
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "assets/icon.ico"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "assets/icon.png"
     }
   }
