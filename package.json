@@ -83,7 +83,6 @@
     "asarUnpack": [
       "**/better-sqlite3/build/Release/*.node"
     ],
-    "writeUpdateInfo": false,
     "mac": {
       "target": [
         "dmg"
