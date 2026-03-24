@@ -33,6 +33,17 @@ JellyTunes is a desktop app for [Jellyfin](https://jellyfin.org) users who want 
 - **Per-device history** — remembers what was synced to each device so you can pick up where you left off
 - **Cancel anytime** — stop a sync mid-progress without corrupting what's already been written
 
+## Screenshots
+
+<p align="center">
+  <a href="assets/screenshot-albums.png"><img src="assets/screenshot-albums.png" alt="Browse your Jellyfin library" width="400" /></a>
+  &nbsp;&nbsp;
+  <a href="assets/screenshot-sync.png"><img src="assets/screenshot-sync.png" alt="Sync to device with MP3 conversion" width="400" /></a>
+</p>
+<p align="center">
+  <em>Browse your library &nbsp;·&nbsp; Sync to any device with optional MP3 conversion</em>
+</p>
+
 ## Installation
 
 Download the latest release for your platform from [GitHub Releases](https://github.com/oriaflow-labs/jellytunes/releases):
@@ -64,17 +75,6 @@ Then open the app normally.
 
 - A [Jellyfin](https://jellyfin.org) server reachable on your network
 - A USB drive, SD card, or any mounted storage device
-
-## Screenshots
-
-<p align="center">
-  <a href="assets/screenshot-albums.png"><img src="assets/screenshot-albums.png" alt="Browse your Jellyfin library" width="400" /></a>
-  &nbsp;&nbsp;
-  <a href="assets/screenshot-sync.png"><img src="assets/screenshot-sync.png" alt="Sync to device with MP3 conversion" width="400" /></a>
-</p>
-<p align="center">
-  <em>Browse your library &nbsp;·&nbsp; Sync to any device with optional MP3 conversion</em>
-</p>
 
 ---
 
