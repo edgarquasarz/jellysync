@@ -79,6 +79,35 @@ function validatePathTraversal(basePath: string, relativePath: string): void {
 const LOSSLESS_FORMATS = new Set(['flac', 'wav', 'aiff', 'aif', 'wv', 'ape', 'alac']);
 
 /**
+ * Max concurrent track operations (download + convert/copy).
+ * 3 slots lets download N+1 overlap with FFmpeg on N while N-1 finishes writing,
+ * without spawning so many FFmpeg processes that they fight for CPU on slow hardware.
+ */
+const TRACK_CONCURRENCY = 3;
+
+/**
+ * Run `fn` over `items` with at most `concurrency` tasks in-flight at once.
+ * Safe for single-threaded JS: index increment and queue pop are synchronous
+ * between awaits, so no actual race conditions occur.
+ */
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  let i = 0;
+  async function worker(): Promise<void> {
+    while (i < items.length) {
+      const item = items[i++];
+      await fn(item);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, worker)
+  );
+}
+
+/**
  * Returns true when a track should be run through FFmpeg conversion.
  *
  * Rules:
@@ -253,20 +282,20 @@ class SyncCoreImpl {
       // 4. Prepare destination
       await ensureDirectory(input.destinationPath, this.deps.fs);
       
-      // 5. Copy/Convert tracks
+      // 5. Copy/Convert tracks (parallel, capped at TRACK_CONCURRENCY)
       phaseManager.startCopying(tracks.length);
-      
-      for (let i = 0; i < tracks.length; i++) {
-        this.cancellation.throwIfCancelled();
-        
-        const track = tracks[i];
-        phaseManager.updateCopying(i + 1, tracks.length, track.name);
-        
+
+      const targetBitrateKbps = bitrateStringToKbps(options.bitrate ?? '192k');
+      let completed = 0;
+
+      await runWithConcurrency(tracks, TRACK_CONCURRENCY, async (track) => {
+        // Bail early if cancelled — don't start new work
+        if (this.cancellation.isCancelled()) return;
+
         try {
           const outputDir = this.getOutputDir(track, input.destinationPath, options.preserveStructure ?? true, options.filesystemType ?? 'unknown');
           await ensureDirectory(outputDir, this.deps.fs);
 
-          const targetBitrateKbps = bitrateStringToKbps(options.bitrate ?? '192k');
           const willConvert = options.convertToMp3 === true && needsConversion(track, targetBitrateKbps);
 
           // Resolve the canonical filename (no uniqueness suffix yet)
@@ -279,13 +308,13 @@ class SyncCoreImpl {
               // Cross-format: can't compare sizes meaningfully, skip if present
               stats.itemsSkipped++;
               this.log.debug(`Skip (convert, exists): ${track.name}`);
-              continue;
+              return;
             }
             if (track.size && (await this.deps.fs.stat(outputPath)).size === track.size) {
               // Same size → unchanged, skip
               stats.itemsSkipped++;
               this.log.debug(`Skip (same size): ${track.name}`);
-              continue;
+              return;
             }
             // Size differs → fall through and overwrite
             this.log.debug(`Overwrite (size changed): ${track.name}`);
@@ -305,8 +334,6 @@ class SyncCoreImpl {
               ? ` (MP3 ${track.bitrate ? Math.round(track.bitrate / 1000) + 'kbps ≤ target' : 'bitrate unknown, skipping re-encode'})`
               : '';
             this.log.debug(`Copy: ${track.name} [${track.format.toUpperCase()}]${reason}`);
-            // Download from Jellyfin server instead of local copy
-            // track.path is a server path that doesn't exist locally
             const data = await this.deps.api.downloadItem(track.id);
             await this.deps.fs.writeFile(outputPath, data);
             stats.bytesTransferred += track.size ?? 0;
@@ -320,8 +347,14 @@ class SyncCoreImpl {
           tracksFailed.push(track.id);
           stats.itemsFailed++;
           this.log.warn(errorMsg);
+        } finally {
+          completed++;
+          phaseManager.updateCopying(completed, tracks.length, track.name);
         }
-      }
+      });
+
+      // Propagate cancellation after parallel tasks drain
+      this.cancellation.throwIfCancelled();
       
       // 6. Complete
       phaseManager.complete(stats);
