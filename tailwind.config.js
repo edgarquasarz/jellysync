@@ -5,17 +5,38 @@ export default {
   theme: {
     extend: {
       colors: {
-        jf: {
-          purple: '#775BF4',
-          'purple-dark': '#5B42D4',
-          'purple-light': '#9B8CF7',
-          cyan: '#756FE2',
-          'cyan-dark': '#5B55C8',
-          'bg-dark': '#111827',
-          'bg-mid': '#1d2635',
-          'border': '#3a4a5c',
-        }
-      }
+        // ── Semantic tokens (Phase 1) ──────────────────────────
+        primary: '#cdbdff',
+        primary_container: '#7c4dff',
+        secondary_container: '#4e3b8c',
+        tertiary_container: '#b55800',
+        surface: '#12121e',
+        surface_container_low: '#1a1a27',
+        surface_container_high: '#252335',
+        surface_container_highest: '#343341',
+        surface_bright: '#383845',
+        on_surface: '#e5e0ef',
+        on_surface_variant: '#cac3d8',
+        on_primary_container: '#ffffff',
+        outline_variant: '#494455',
+        error: '#cf6679',
+        error_container: '#3d1a22',
+        warning: '#e8a328',
+        warning_container: '#2e2006',
+        success: '#4caf82',
+      },
+      backgroundImage: {
+        'gradient-primary': 'linear-gradient(to bottom right, #7c4dff, #4e3b8c)',
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 1.5s ease-in-out infinite',
+      },
     }
   },
   plugins: []

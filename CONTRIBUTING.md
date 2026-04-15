@@ -33,6 +33,44 @@ See the [README](README.md) for all available commands.
 - Keep functions small and files focused
 - Handle errors explicitly — don't swallow them
 
+## Commit Messages
+
+Follow this format:
+
+```
+<type>(<scope>): <subject>
+
+- Bullet points describing what changed and why
+- Keep lines under 72 characters
+
+Closes #<issue>, relates to #<issue>
+```
+
+### Types
+- `feat` — New feature
+- `fix` — Bug fix
+- `refactor` — Code refactoring
+- `test` — Adding/updating tests
+- `docs` — Documentation only
+- `chore` — Maintenance, deps, build config
+
+### Example
+```
+feat(usb-detection): add polling backup to detect mount/unmount without disconnect
+
+- Runs polling backup concurrently with event-based usb-detection
+- Detects volume unmount from Finder/eject without physical device disconnect
+- Uses 15s polling interval with 5s cooldown to avoid duplicate events
+
+Closes JELLY-0005, JELLY-0009
+```
+
+### Rules
+- First line: type(scope): subject (max 50 chars)
+- Body: bullet points explaining what/why (not how)
+- Last line: references to issues/tasks (Closes, Fixes, Relates to)
+- Use imperative mood ("add" not "added")
+
 ## License
 
 By contributing to JellyTunes, you agree that your contributions will be licensed under the [GNU General Public License v3.0](LICENSE).

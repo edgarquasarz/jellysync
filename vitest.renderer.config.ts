@@ -7,19 +7,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: [resolve(__dirname, 'src/renderer/src/__tests__/setup.ts')],
-    include: [
-      'src/sync/**/*.test.ts',
-      'src/main/**/*.test.ts',
-      'tests/unit/**/*.test.ts',
-      'src/renderer/**/*.test.tsx',
-      'src/renderer/**/*.test.ts',
-    ],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      include: ['src/**/*'],
-    },
+    setupFiles: ['src/renderer/src/__tests__/setup.ts'],
+    include: ['src/renderer/src/**/*.test.tsx'],
   },
   resolve: {
     alias: {

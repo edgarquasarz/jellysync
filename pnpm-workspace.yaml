@@ -6,8 +6,8 @@ ignoredBuiltDependencies:
 
 onlyBuiltDependencies:
   - '@ffmpeg-installer/darwin-x64'
-  - '['
-  - ']'
   - better-sqlite3
   - electron
   - esbuild
+  - sharp
+  - usb-detection

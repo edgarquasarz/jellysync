@@ -1,4 +1,5 @@
 node_modules/
+workers/.wrangler/
 dist/
 release/
 *.log
@@ -6,3 +7,5 @@ test-*
 **/.DS_Store
 electron.vite.config.*.mjs
 .claude/
+.brv/
+.opencode/
