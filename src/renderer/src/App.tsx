@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type { ActiveSection, LibraryTab, Artist, Album, Playlist } from './appTypes'
 
 import { AppHeader } from './components/AppHeader'
@@ -21,6 +21,8 @@ import { useSavedDestinations } from './hooks/useSavedDestinations'
 
 function App(): JSX.Element {
   const [activeSection, setActiveSection] = useState<ActiveSection>('library')
+  const [isRemovingDestination, setIsRemovingDestination] = useState(false)
+  const [switchToast, setSwitchToast] = useState<string | null>(null)
 
   const { devices: usbDevices, refresh: refreshDevices } = useDevices()
   const { destinations: savedDestinations, addDestination, removeDestination } = useSavedDestinations()
@@ -85,12 +87,81 @@ function App(): JSX.Element {
     artists: extArtists,
     albums: extAlbums,
     playlists: extPlaylists,
+    cachedEstimatedSizeBytes: deviceSelections.estimatedSizeBytes,
+    revalidateDevice: deviceSelections.revalidateDevice,
     setPreviouslySyncedItems: (items) => {
       if (deviceSelections.activeDevicePath) {
         deviceSelections.updateSyncedItems(deviceSelections.activeDevicePath, items)
       }
     },
   })
+
+  const selectedKey = JSON.stringify([...deviceSelections.selectedTracks].sort())
+
+  // Capture snapshot of previouslySyncedItems at effect-trigger time (before async call)
+  // to avoid stale closure when device switch and recalc race
+  const prevSyncedSnapshotRef = useRef<string[]>([])
+
+  // Recalculate storage estimate when selection changes (without full outOfSync analysis)
+  useEffect(() => {
+    const path = deviceSelections.activeDevicePath
+    if (!path || !connection.jellyfinConfig || !connection.userId) return
+    if (deviceSelections.isActivatingDevice) return // skip during activation — activateDevice already has correct syncedIds
+    const selected = deviceSelections.selectedTracks
+    const itemIds: string[] = []
+    const itemTypes: Record<string, 'artist' | 'album' | 'playlist'> = {}
+    for (const a of extArtists) { if (selected.has(a.Id)) { itemIds.push(a.Id); itemTypes[a.Id] = 'artist' } }
+    for (const a of extAlbums) { if (selected.has(a.Id)) { itemIds.push(a.Id); itemTypes[a.Id] = 'album' } }
+    for (const p of extPlaylists) { if (selected.has(p.Id)) { itemIds.push(p.Id); itemTypes[p.Id] = 'playlist' } }
+    // Snapshot now so the async call always uses the correct syncedIds for this trigger
+    const syncedIdsSnapshot = [...deviceSelections.previouslySyncedItems]
+    prevSyncedSnapshotRef.current = syncedIdsSnapshot
+    deviceSelections.recalculateSize({
+      serverUrl: connection.jellyfinConfig.url,
+      apiKey: connection.jellyfinConfig.apiKey,
+      userId: connection.userId,
+      itemIds,
+      itemTypes,
+      convertToMp3: sync.convertToMp3,
+      bitrate: sync.bitrate,
+      syncedIds: syncedIdsSnapshot,
+    })
+  }, [selectedKey, deviceSelections.activeDevicePath, deviceSelections.isActivatingDevice, sync.convertToMp3, sync.bitrate])
+
+  // Bidirectional sync inference: artist ↔ albums
+  const inferredSyncedItems = useMemo(() => {
+    const artistIds = new Set(extArtists.map(a => a.Id))
+    const albumIds = new Set(extAlbums.map(a => a.Id))
+    const result = new Set(deviceSelections.previouslySyncedItems)
+
+    // Rule 1: If an artist is synced, infer all their albums as synced
+    for (const id of deviceSelections.previouslySyncedItems) {
+      if (artistIds.has(id)) {
+        const artist = extArtists.find(a => a.Id === id)
+        if (artist) {
+          const key = artist.Name.toLowerCase()
+          const albumSet = lib.artistAlbumMap.get(key)
+          if (albumSet) {
+            for (const albumId of albumSet) {
+              if (albumIds.has(albumId)) result.add(albumId)
+            }
+          }
+        }
+      }
+    }
+
+    // Rule 2: If all albums of an artist are synced, infer the artist as synced
+    for (const [artistNameLower, albumSet] of lib.artistAlbumMap) {
+      const artist = extArtists.find(a => a.Name.toLowerCase() === artistNameLower)
+      if (!artist) continue
+      const allAlbumIds = [...albumSet].filter(id => albumIds.has(id))
+      if (allAlbumIds.length === 0) continue
+      const allSynced = allAlbumIds.every(id => deviceSelections.previouslySyncedItems.has(id))
+      if (allSynced) result.add(artist.Id)
+    }
+
+    return result
+  }, [deviceSelections.previouslySyncedItems, extArtists, extAlbums, lib.artistAlbumMap])
 
   useEffect(() => {
     if (activeSection === 'library' && connection.jellyfinConfig && connection.userId) {
@@ -105,9 +176,40 @@ function App(): JSX.Element {
   }
 
   const handleDestinationClick = async (path: string) => {
+    if (!connection.jellyfinConfig || !connection.userId) return
+
+    // Inform the user their pending (unsynced) selections are preserved when switching devices
+    const currentPath = sync.syncFolder
+    if (currentPath && path !== currentPath) {
+      const pendingCount = [...deviceSelections.selectedTracks].filter(
+        id => !deviceSelections.previouslySyncedItems.has(id)
+      ).length
+      if (pendingCount > 0) {
+        const name = getDestinationName(currentPath)
+        setSwitchToast(`${pendingCount} item${pendingCount !== 1 ? 's' : ''} still pending sync on ${name}`)
+        setTimeout(() => setSwitchToast(null), 3000)
+      }
+    }
+
     setActiveSection('device')
     sync.setSyncFolder(path)
-    await deviceSelections.activateDevice(path)
+    // Build itemIds/itemTypes from selected library items
+    const selected = deviceSelections.selectedTracks
+    const itemIds: string[] = []
+    const itemTypes: Record<string, 'artist' | 'album' | 'playlist'> = {}
+    for (const a of extArtists) { if (selected.has(a.Id)) { itemIds.push(a.Id); itemTypes[a.Id] = 'artist' } }
+    for (const a of extAlbums) { if (selected.has(a.Id)) { itemIds.push(a.Id); itemTypes[a.Id] = 'album' } }
+    for (const p of extPlaylists) { if (selected.has(p.Id)) { itemIds.push(p.Id); itemTypes[p.Id] = 'playlist' } }
+    await deviceSelections.activateDevice(path, {
+      serverUrl: connection.jellyfinConfig.url,
+      apiKey: connection.jellyfinConfig.apiKey,
+      userId: connection.userId,
+      itemIds,
+      itemTypes,
+      convertToMp3: sync.convertToMp3,
+      bitrate: sync.bitrate,
+      coverArtMode: 'embed',
+    })
   }
 
   const handleAddFolder = async () => {
@@ -117,7 +219,17 @@ function App(): JSX.Element {
     handleDestinationClick(folder)
   }
 
-  const handleRemoveDestination = (path: string) => {
+  const handleRemoveDestination = async (path: string, deleteFiles: boolean, onDone: () => void) => {
+    if (deleteFiles && connection.jellyfinConfig && connection.userId) {
+      setIsRemovingDestination(true)
+      await window.api.clearDestination({
+        serverUrl: connection.jellyfinConfig.url,
+        apiKey: connection.jellyfinConfig.apiKey,
+        userId: connection.userId,
+        destinationPath: path,
+      })
+      setIsRemovingDestination(false)
+    }
     const dest = savedDestinations.find(d => d.path === path)
     if (dest) removeDestination(dest.id)
     deviceSelections.removeDevice(path)
@@ -125,6 +237,7 @@ function App(): JSX.Element {
       setActiveSection('library')
       sync.setSyncFolder(null)
     }
+    onDone()
   }
 
   const getDestinationName = (path: string): string => {
@@ -163,8 +276,6 @@ function App(): JSX.Element {
     deviceSelections.selectItems(items)
   }
 
-  const totalSelectedCount = deviceSelections.selectedTracks.size
-
   // While a sync is running, lock the view to the syncing device
   const effectiveSection = sync.isSyncing ? 'device' : activeSection
   const effectiveDevicePath = sync.isSyncing && sync.syncFolder
@@ -198,7 +309,7 @@ function App(): JSX.Element {
   if (connection.isConnecting) return <ConnectingScreen serverUrl={connection.urlInput || undefined} />
 
   return (
-    <div className="h-screen flex flex-col bg-jf-bg-dark text-zinc-100">
+    <div className="h-screen flex flex-col bg-surface text-on_surface">
       <AppHeader isConnected={connection.isConnected} serverUrl={connection.jellyfinConfig?.url} onDisconnect={connection.disconnect} />
 
       <div className="flex-1 flex overflow-hidden">
@@ -217,13 +328,23 @@ function App(): JSX.Element {
           onDestinationClick={handleDestinationClick}
           onAddFolder={handleAddFolder}
           onRefreshDevices={refreshDevices}
-          onRemoveDestination={id => {
-            const dest = savedDestinations.find(d => d.id === id)
-            if (dest) handleRemoveDestination(dest.path)
+          onRefreshLibrary={async () => {
+            await lib.refreshLibrary()
+            // Re-run analyzeDiff to detect server-side changes and update out-of-sync indicators
+            await deviceSelections.revalidateDevice()
           }}
+          onRemoveDestination={(path, deleteFiles, onDone) => handleRemoveDestination(path, deleteFiles, onDone)}
+          isRemovingDestination={isRemovingDestination}
         />
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-hidden flex flex-col relative">
+          {switchToast && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 px-4 py-2
+              bg-surface_container_low border border-secondary_container/60 rounded-lg
+              text-body-md text-on_surface_variant shadow-lg pointer-events-none whitespace-nowrap">
+              {switchToast}
+            </div>
+          )}
           {effectiveSection === 'library' ? (
             <LibraryContent
               activeLibrary={lib.activeLibrary}
@@ -232,7 +353,8 @@ function App(): JSX.Element {
               playlists={lib.playlists}
               pagination={lib.pagination}
               selectedTracks={deviceSelections.selectedTracks}
-              previouslySyncedItems={deviceSelections.previouslySyncedItems}
+              previouslySyncedItems={inferredSyncedItems}
+              outOfSyncItems={deviceSelections.outOfSyncItems}
               isLoadingMore={lib.isLoadingMore}
               error={lib.error}
               onToggle={deviceSelections.toggleItem}
@@ -242,9 +364,7 @@ function App(): JSX.Element {
               onLoadMore={lib.loadMore}
               selectionSummary={getSelectionSummary()}
               contentScrollRef={lib.contentScrollRef}
-              activeDeviceName={deviceSelections.activeDevicePath ? getDestinationName(deviceSelections.activeDevicePath) : null}
-              isUsbDevice={deviceSelections.activeDevicePath ? isUsbDevice(deviceSelections.activeDevicePath) : false}
-              onGoToDevice={() => setActiveSection('device')}
+              hasActiveDevice={!!deviceSelections.activeDevicePath}
               serverUrl={connection.jellyfinConfig?.url}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -253,7 +373,7 @@ function App(): JSX.Element {
               searchError={searchError}
             />
           ) : effectiveSection === 'device' && effectiveDevicePath ? (
-            <main className="flex-1 overflow-auto flex flex-col p-6">
+            <main className="flex-1 overflow-hidden">
               <DeviceSyncPanel
                 destinationPath={effectiveDevicePath}
                 destinationName={getDestinationName(effectiveDevicePath)}
@@ -263,14 +383,19 @@ function App(): JSX.Element {
                 bitrate={sync.bitrate}
                 isSyncing={sync.isSyncing}
                 isLoadingPreview={sync.isLoadingPreview}
+                isActivatingDevice={deviceSelections.isActivatingDevice}
+                isCalculatingSize={deviceSelections.isCalculatingSize}
                 syncProgress={sync.syncProgress}
                 selectedTracks={deviceSelections.selectedTracks}
                 syncedItemsInfo={deviceSelections.syncedItemsInfo}
+                outOfSyncItems={deviceSelections.outOfSyncItems}
                 artists={extArtists}
                 albums={extAlbums}
                 playlists={extPlaylists}
                 showPreview={sync.showPreview}
                 previewData={sync.previewData}
+                estimatedSizeBytes={deviceSelections.estimatedSizeBytes ?? undefined}
+                syncedMusicBytes={deviceSelections.syncedMusicBytes ?? undefined}
                 onToggleItem={deviceSelections.toggleItem}
                 onToggleConvert={() => sync.setConvertToMp3(v => !v)}
                 onBitrateChange={sync.setBitrate}
@@ -278,14 +403,14 @@ function App(): JSX.Element {
                 onCancelSync={sync.handleCancelSync}
                 onCancelPreview={() => sync.setShowPreview(false)}
                 onConfirmSync={sync.executeSyncNow}
-                onRemoveDestination={() => handleRemoveDestination(effectiveDevicePath!)}
+                onRemoveDestination={(deleteFiles) => handleRemoveDestination(effectiveDevicePath!, deleteFiles, () => {})}
               />
             </main>
           ) : (
             <main className="flex-1 flex items-center justify-center text-zinc-600">
               <div className="text-center">
-                <p className="text-lg mb-2">Select a device or folder</p>
-                <p className="text-sm">Choose from the sidebar or add a new folder</p>
+                <p className="text-title-md font-semibold mb-2">Select a device or folder</p>
+                <p className="text-body-md">Choose from the sidebar or add a new folder</p>
               </div>
             </main>
           )}
@@ -300,12 +425,14 @@ function App(): JSX.Element {
         playlists={lib.playlists}
         activeDeviceName={deviceSelections.activeDevicePath ? getDestinationName(deviceSelections.activeDevicePath) : null}
         isUsbDevice={deviceSelections.activeDevicePath ? isUsbDevice(deviceSelections.activeDevicePath) : false}
+        onGoToDevice={() => setActiveSection('device')}
       />
 
       {sync.syncSuccessData && (
         <SyncSuccessModal
           tracksCopied={sync.syncSuccessData.tracksCopied}
           tracksSkipped={sync.syncSuccessData.tracksSkipped}
+          tracksRetagged={sync.syncSuccessData.tracksRetagged}
           removed={sync.syncSuccessData.removed}
           errors={sync.syncSuccessData.errors}
           onClose={() => sync.setSyncSuccessData(null)}

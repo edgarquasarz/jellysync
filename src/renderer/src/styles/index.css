@@ -24,3 +24,94 @@ body {
 #root {
   height: 100vh;
 }
+
+@layer base {
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary, #cdbdff);
+    border-radius: 2px;
+  }
+
+  /* Custom scrollbars — thin, subtle, matching dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(73, 68, 85); /* outline_variant */
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(109, 104, 122); /* outline_variant hover */
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(73, 68, 85) transparent;
+  }
+}
+
+@layer components {
+  .text-headline-lg {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  .text-headline-md {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  .text-title-md {
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+  }
+
+  .text-body-sm {
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+  }
+
+  .text-body-md {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+  }
+
+  .text-caption {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 400;
+  }
+
+  .text-label-sm {
+    font-size: 0.625rem;
+    line-height: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .text-mono-sm {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 400;
+    font-family: ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .text-label-md {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    font-weight: 700;
+  }
+}
