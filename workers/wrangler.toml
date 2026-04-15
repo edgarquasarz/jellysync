@@ -1,0 +1,11 @@
+name = "jellytunes-updates"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+routes = [
+  { pattern = "api.oriaflow.dev/jellytunes/*", zone_name = "oriaflow.dev" }
+]
+
+[[kv_namespaces]]
+binding = "STATS"
+id = "dc37dd9894de4343b9901f92a2fabbe7"
