@@ -13,6 +13,9 @@ interface UseSyncOptions {
   albums: Album[]
   playlists: Playlist[]
   setPreviouslySyncedItems: (items: SyncedItemInfo[]) => void
+  /** Cached estimate from activateDevice for already-synced selected items */
+  cachedEstimatedSizeBytes: number | null
+  revalidateDevice: () => Promise<void>
 }
 
 export function useSync({
@@ -25,6 +28,8 @@ export function useSync({
   albums,
   playlists,
   setPreviouslySyncedItems,
+  cachedEstimatedSizeBytes,
+  revalidateDevice,
 }: UseSyncOptions) {
   const [syncFolder, setSyncFolder] = useState<string | null>(null)
   const [convertToMp3, setConvertToMp3] = useState(false)
@@ -35,7 +40,7 @@ export function useSync({
   const [previewData, setPreviewData] = useState<PreviewData | null>(null)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [syncSuccessData, setSyncSuccessData] = useState<{
-    tracksCopied: number; tracksSkipped: number; removed: number; errors: string[]
+    tracksCopied: number; tracksSkipped: number; tracksRetagged: number; removed: number; errors: string[]
   } | null>(null)
 
   const handleSelectSyncFolder = async (path?: string): Promise<void> => {
@@ -84,10 +89,23 @@ export function useSync({
     if (!syncFolder || !jellyfinConfig || !userId) return
     setShowPreview(false)
     setIsSyncing(true)
-    setSyncProgress({ current: 0, total: 0, file: 'Validating...' })
+    setSyncProgress({ current: 0, total: 0, file: 'Validating...', phase: 'fetching' })
 
     const unsubscribe = window.api.onSyncProgress((progress) => {
-      setSyncProgress({ current: progress.current, total: progress.total, file: progress.currentFile })
+      setSyncProgress(prev => prev ? {
+        ...prev,
+        current: progress.current,
+        total: progress.total,
+        file: progress.currentFile,
+        phase: progress.phase,
+        bytesProcessed: progress.bytesProcessed,
+        totalBytes: progress.totalBytes,
+        warning: progress.warning,
+      } : null)
+      // Clean isCancelling when sync ends
+      if (progress.phase === 'complete' || progress.phase === 'error' || progress.phase === 'cancelled') {
+        setSyncProgress(prev => prev ? { ...prev, isCancelling: false } : null)
+      }
     })
 
     try {
@@ -96,7 +114,7 @@ export function useSync({
       const toDeleteIds = buildToDeleteIds()
 
       if (toDeleteIds.length > 0) {
-        setSyncProgress({ current: 0, total: 0, file: 'Removing deselected items...' })
+        setSyncProgress({ current: 0, total: 0, file: 'Removing deselected items...', phase: 'fetching' })
         const deleteTypesMap = buildDeleteTypesMap(toDeleteIds)
         await window.api.removeItems({
           serverUrl: jellyfinConfig.url,
@@ -140,11 +158,14 @@ export function useSync({
         setSyncSuccessData({
           tracksCopied: result.tracksCopied,
           tracksSkipped: result.tracksSkipped ?? 0,
+          tracksRetagged: result.tracksRetagged ?? 0,
           removed: toDeleteIds.length,
           errors: result.errors,
         })
+        // Re-run analyzeDiff in background to update out-of-sync indicators
+        revalidateDevice()
       } else {
-        setSyncSuccessData({ tracksCopied: 0, tracksSkipped: 0, removed: 0, errors: result.errors })
+        setSyncSuccessData({ tracksCopied: 0, tracksSkipped: 0, tracksRetagged: 0, removed: 0, errors: result.errors })
       }
     } catch (error) {
       unsubscribe?.()
@@ -171,11 +192,31 @@ export function useSync({
       return
     }
 
+    const { artistIds, albumIds, playlistIds, map } = buildItemTypesMap()
+    const selectedIds = [...artistIds, ...albumIds, ...playlistIds].filter(Boolean)
+
+    // Optimization: if all selected items are already synced and we have a cached estimate,
+    // skip the network call and use the cache directly
+    const allSelectedAlreadySynced = selectedIds.length > 0 && selectedIds.every(id => previouslySyncedItems.has(id))
+    const hasCachedEstimate = cachedEstimatedSizeBytes !== null && cachedEstimatedSizeBytes > 0
+
+    if (allSelectedAlreadySynced && hasCachedEstimate) {
+      // Use cached estimate - no need to fetch from server
+      const alreadySyncedCount = selectedIds.length
+      const willRemoveCount = [...previouslySyncedItems].filter(id => !selectedTracks.has(id)).length
+      setPreviewData({
+        trackCount: 0, // not available from cache, but not critical for display
+        totalBytes: cachedEstimatedSizeBytes,
+        formatBreakdown: {},
+        alreadySyncedCount,
+        willRemoveCount,
+      })
+      setShowPreview(true)
+      return
+    }
+
     setIsLoadingPreview(true)
     try {
-      const { artistIds, albumIds, playlistIds, map } = buildItemTypesMap()
-      const selectedIds = [...artistIds, ...albumIds, ...playlistIds].filter(Boolean)
-
       const [estimate, syncedItems] = await Promise.all([
         window.api.estimateSize({ serverUrl: jellyfinConfig.url, apiKey: jellyfinConfig.apiKey, userId, itemIds: selectedIds, itemTypes: map }),
         window.api.getSyncedItems(syncFolder),
@@ -194,6 +235,7 @@ export function useSync({
   }
 
   const handleCancelSync = async (): Promise<void> => {
+    setSyncProgress(prev => prev ? { ...prev, isCancelling: true } : null)
     try {
       await window.api.cancelSync()
     } catch (error) {

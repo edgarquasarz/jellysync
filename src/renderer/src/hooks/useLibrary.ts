@@ -33,6 +33,20 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
 
   const contentScrollRef = useRef<HTMLDivElement>(null)
 
+  // Map: lowercased artist name → Set<albumId> for bidirectional sync inference
+  const [artistAlbumMap, setArtistAlbumMap] = useState<Map<string, Set<string>>>(new Map())
+
+  const buildArtistAlbumMap = (_artistList: Artist[], albumList: Album[]) => {
+    const map = new Map<string, Set<string>>()
+    for (const album of albumList) {
+      if (!album.AlbumArtist) continue
+      const key = album.AlbumArtist.toLowerCase()
+      if (!map.has(key)) map.set(key, new Set())
+      map.get(key)!.add(album.Id)
+    }
+    setArtistAlbumMap(map)
+  }
+
   const loadStats = async (url: string, apiKey: string, uid: string): Promise<void> => {
     const headers = jellyfinHeaders(apiKey)
     const baseUrl = url.replace(/\/$/, '')
@@ -84,7 +98,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     })
   }
 
-  const loadLibrary = async (url: string, apiKey: string, uid: string): Promise<void> => {
+  const loadLibrary = async (url: string, apiKey: string, _uid: string): Promise<void> => {
     const headers = jellyfinHeaders(apiKey)
     const baseUrl = url.replace(/\/$/, '')
 
@@ -147,7 +161,15 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       logger.error('Failed to load playlists: ' + (e instanceof Error ? e.message : String(e)))
       setPlaylists([])
     }
+    // Build artist→album map for bidirectional sync inference (called after all tabs loaded via useEffect)
   }
+
+  // Rebuild artist→album map whenever artists or albums change
+  useEffect(() => {
+    if (artists.length > 0 && albums.length > 0) {
+      buildArtistAlbumMap(artists, albums)
+    }
+  }, [artists, albums])
 
   const loadTab = async (tab: LibraryTab): Promise<void> => {
     if (!jellyfinConfig || !userId) return
@@ -276,6 +298,18 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
   const uniqueAlbums = albums.filter((item, i, self) => i === self.findIndex(t => t.Id === item.Id))
   const uniquePlaylists = playlists.filter((item, i, self) => i === self.findIndex(t => t.Id === item.Id))
 
+  const refreshLibrary = useCallback(async () => {
+    if (!jellyfinConfig || !userId) return
+    setLoadedTabs(new Set())
+    setArtists([]); setAlbums([]); setPlaylists([])
+    setPagination({
+      artists: { items: [], total: 0, startIndex: 0, hasMore: true, scrollPos: 0 },
+      albums: { items: [], total: 0, startIndex: 0, hasMore: true, scrollPos: 0 },
+      playlists: { items: [], total: 0, startIndex: 0, hasMore: true, scrollPos: 0 },
+    })
+    await loadLibrary(jellyfinConfig.url, jellyfinConfig.apiKey, userId)
+  }, [jellyfinConfig, userId, loadLibrary])
+
   return {
     artists: uniqueArtists,
     albums: uniqueAlbums,
@@ -289,11 +323,13 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     setError,
     itemTypeIndex,
     itemTypeIndexRef,
+    artistAlbumMap,
     contentScrollRef,
     loadLibrary,
     loadStats,
     loadTab,
     loadMore,
     handleTabChange,
+    refreshLibrary,
   }
 }
