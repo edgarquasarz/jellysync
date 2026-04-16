@@ -69,7 +69,7 @@ export function SyncPreviewModal({ data, convertToMp3, bitrate, onCancel, onConf
             <div className="flex justify-between text-body-md">
               <span className="text-error">Will remove</span>
               <div className="flex items-center gap-2 text-error">
-                <span data-testid="preview-will-remove-count" className="font-medium">−{data.willRemoveCount.toLocaleString()}</span>
+                <span data-testid="preview-will-remove-count" className="font-medium">{data.willRemoveCount.toLocaleString()}</span>
                 {data.willRemoveBytes > 0 && (
                   <span data-testid="preview-will-remove-size" className="opacity-70">(−{formatBytes(data.willRemoveBytes)})</span>
                 )}
@@ -81,7 +81,7 @@ export function SyncPreviewModal({ data, convertToMp3, bitrate, onCancel, onConf
           {(showNew || showUpdated || showAlreadySynced) && (
             <div className="flex justify-between text-body-md border-t border-outline_variant pt-2 mt-2">
               <span className="text-on_surface_variant">Total</span>
-              <span className="font-medium">{formatBytes(data.totalBytes + (data.willRemoveBytes ?? 0))}</span>
+              <span className="font-medium">{formatBytes(data.totalBytes)}</span>
             </div>
           )}
 
