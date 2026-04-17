@@ -174,13 +174,23 @@ export function DeviceSyncPanel({
     ['remove', 'Will remove'],
   ]
 
-  const usedPct = deviceInfo ? Math.round((deviceInfo.used / deviceInfo.total) * 100) : null
   const audioBytes = estimatedSizeBytes ?? syncedMusicBytes ?? 0
   const otherFiles = deviceInfo ? Math.max(0, deviceInfo.used - (syncedMusicBytes ?? 0)) : null
-  const otherPct = deviceInfo ? Math.round((Math.max(0, deviceInfo.used - (syncedMusicBytes ?? 0)) / deviceInfo.total) * 100) : null
-  const rawAudioPct = deviceInfo && audioBytes > 0 ? Math.min(Math.round((audioBytes / deviceInfo.total) * 100), Math.max(0, 100 - (otherPct ?? 0))) : null
+  const otherPct = deviceInfo ? Math.round(((otherFiles ?? 0) / deviceInfo.total) * 100) : null
+  // rawAudioPct is the true proportion — no cap so overflow is detectable
+  const rawAudioPct = deviceInfo && audioBytes > 0 ? Math.round((audioBytes / deviceInfo.total) * 100) : null
   // Always show at least 1% so the bar is visible even when synced content is tiny
   const audioPct = rawAudioPct !== null ? Math.max(rawAudioPct, 1) : null
+  const isOverCapacity = deviceInfo != null && (otherPct ?? 0) + (rawAudioPct ?? 0) > 100
+  // free segment width is clamped to 0 when projected usage exceeds capacity
+  const freeBarPct = Math.max(0, 100 - (otherPct ?? 0) - (rawAudioPct ?? 0))
+  // projected free bytes after sync replaces the current synced audio
+  const projectedFreeBytes = deviceInfo ? Math.max(0, deviceInfo.total - (otherFiles ?? 0) - audioBytes) : null
+  const freeColorClass = isOverCapacity || freeBarPct < 5
+    ? 'bg-error'
+    : freeBarPct < 10
+      ? 'bg-warning'
+      : 'bg-success'
   const isAudioLoading = !!isLoadingSize
   const audioDisplayBytes = estimatedSizeBytes ?? syncedMusicBytes
   const Icon = isUsbDevice ? HardDrive : Folder
@@ -262,17 +272,17 @@ export function DeviceSyncPanel({
                 className="h-2 bg-secondary_container transition-all"
                 style={{ width: `${otherPct ?? 0}%` }}
               />
-              {/* Audio segment — brand purple, most important */}
+              {/* Audio segment — brand purple, most important; capped visually but overflow detected via isOverCapacity */}
               {audioPct != null && audioPct > 0 && (
                 <div
                   className="h-2 bg-primary_container transition-all"
-                  style={{ width: `${audioPct}%` }}
+                  style={{ width: `${Math.min(audioPct, 100 - (otherPct ?? 0))}%` }}
                 />
               )}
-              {/* Free segment */}
+              {/* Free segment — color shifts to warning/error when space is low or over capacity */}
               <div
-                className="h-2 bg-success transition-all"
-                style={{ width: `${Math.max(100 - usedPct!, 0)}%` }}
+                className={`h-2 ${freeColorClass} transition-all`}
+                style={{ width: `${freeBarPct}%` }}
               />
             </div>
             <div className="flex items-center gap-3 text-body-sm text-on_surface_variant mt-1.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -289,8 +299,11 @@ export function DeviceSyncPanel({
                 </span>
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-sm bg-success" />
-                {formatBytes(deviceInfo.free)} Free
+                <span className={`w-2 h-2 rounded-sm ${freeColorClass}`} />
+                {isOverCapacity
+                  ? <span className="text-error">Over capacity</span>
+                  : <>{projectedFreeBytes != null ? formatBytes(projectedFreeBytes) : formatBytes(deviceInfo.free)} Free</>
+                }
               </span>
             </div>
           </div>
