@@ -1,4 +1,4 @@
-## JellyTunes 0.3.0 — Know before you sync
+## JellyTunes 0.3.1 — Know before you sync
 
 This release is all about confidence and clarity. You'll always know what's about to
 happen, how much space it'll take, and whether your device can handle it — before
