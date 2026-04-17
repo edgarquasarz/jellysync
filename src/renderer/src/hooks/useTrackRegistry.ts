@@ -40,10 +40,19 @@ interface TrackRegistryState {
   generation: number
 }
 
-function estimateMp3Size(originalBytes: number, originalBitrate?: number, targetBitrate?: string): number {
+const LOSSLESS_FORMATS = new Set(['flac', 'wav', 'aiff', 'alac', 'wv', 'ape'])
+const FALLBACK_LOSSLESS_BPS = 900000 // ~900kbps for lossless
+const FALLBACK_COMPRESSED_BPS = 192000 // ~192kbps for compressed audio
+
+function estimateMp3Size(originalBytes: number, originalBitrate?: number, targetBitrate?: string, format?: string): number {
   if (!originalBytes) return 0
   const target = targetBitrate === '128k' ? 128000 : targetBitrate === '320k' ? 320000 : 192000
-  const source = originalBitrate ?? 900000 // assume ~900kbps for lossless if unknown
+  if (originalBitrate) {
+    return Math.round(originalBytes * (target / originalBitrate))
+  }
+  // No bitrate available — use format to pick a sensible fallback
+  const isLossless = format ? LOSSLESS_FORMATS.has(format.toLowerCase()) : true
+  const source = isLossless ? FALLBACK_LOSSLESS_BPS : FALLBACK_COMPRESSED_BPS
   return Math.round(originalBytes * (target / source))
 }
 
@@ -173,12 +182,15 @@ export function createTrackRegistry() {
         const info = state.trackMap.get(trackId)
 
         if (synced) {
-          // Already synced - use the DB file size
-          total += synced.fileSize
+          // Already synced - estimate if converting to MP3
+          const info = state.trackMap.get(trackId)
+          total += convertToMp3
+            ? estimateMp3Size(synced.fileSize, info?.bitrate, bitrate, info?.format)
+            : synced.fileSize
         } else if (info?.size) {
           // Not synced yet - use server size
           total += convertToMp3
-            ? estimateMp3Size(info.size, info.bitrate, bitrate)
+            ? estimateMp3Size(info.size, info.bitrate, bitrate, info?.format)
             : info.size
         }
       }
