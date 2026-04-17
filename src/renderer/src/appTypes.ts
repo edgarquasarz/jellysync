@@ -126,4 +126,8 @@ export interface SavedDestination {
   id: string
   name: string
   path: string
+  // Encoding prefs — undefined means original quality (no conversion)
+  convertToMp3?: boolean
+  bitrate?: Bitrate
+  coverArtMode?: 'off' | 'embed' | 'separate'
 }

@@ -25,7 +25,7 @@ function App(): JSX.Element {
   const [switchToast, setSwitchToast] = useState<string | null>(null)
 
   const { devices: usbDevices, refresh: refreshDevices } = useDevices()
-  const { destinations: savedDestinations, addDestination, removeDestination } = useSavedDestinations()
+  const { destinations: savedDestinations, addDestination, removeDestination, updateDestination: saveDestPrefs } = useSavedDestinations()
 
   const connection = useJellyfinConnection((_url, _apiKey, _userId) => {})
 
@@ -168,15 +168,28 @@ function App(): JSX.Element {
     for (const a of extArtists) { if (selected.has(a.Id)) { itemIds.push(a.Id); itemTypes[a.Id] = 'artist' } }
     for (const a of extAlbums) { if (selected.has(a.Id)) { itemIds.push(a.Id); itemTypes[a.Id] = 'album' } }
     for (const p of extPlaylists) { if (selected.has(p.Id)) { itemIds.push(p.Id); itemTypes[p.Id] = 'playlist' } }
+
+    // Load saved prefs for this destination (or use global defaults)
+    const savedDest = savedDestinations.find(d => d.path === path)
+    const savedConvert = savedDest?.convertToMp3 ?? sync.convertToMp3
+    const savedBitrate = savedDest?.bitrate ?? sync.bitrate
+    const savedCover = savedDest?.coverArtMode ?? 'embed'
+
+    // Sync global state to saved prefs so the panel shows correct values on arrival
+    if (savedDest && (savedConvert !== sync.convertToMp3 || savedBitrate !== sync.bitrate)) {
+      sync.setConvertToMp3(savedConvert)
+      sync.setBitrate(savedBitrate)
+    }
+
     await deviceSelections.activateDevice(path, {
       serverUrl: connection.jellyfinConfig.url,
       apiKey: connection.jellyfinConfig.apiKey,
       userId: connection.userId,
       itemIds,
       itemTypes,
-      convertToMp3: sync.convertToMp3,
-      bitrate: sync.bitrate,
-      coverArtMode: 'embed',
+      convertToMp3: savedConvert,
+      bitrate: savedBitrate,
+      coverArtMode: savedCover,
     })
   }
 
@@ -365,14 +378,20 @@ function App(): JSX.Element {
                 isLoadingSize={deviceSelections.isLoadingSize}
                 onToggleItem={deviceSelections.toggleItem}
                 onToggleConvert={() => {
+                  let next = false
                   sync.setConvertToMp3(v => {
-                    deviceSelections.updateConvertOptions(!v, sync.bitrate)
-                    return !v
+                    next = !v
+                    deviceSelections.updateConvertOptions(next, sync.bitrate)
+                    return next
                   })
+                  const destId = savedDestinations.find(d => d.path === deviceSelections.activeDevicePath)?.id
+                  if (destId) saveDestPrefs(destId, { convertToMp3: next })
                 }}
                 onBitrateChange={b => {
                   deviceSelections.updateConvertOptions(sync.convertToMp3, b)
                   sync.setBitrate(b)
+                  const destId = savedDestinations.find(d => d.path === deviceSelections.activeDevicePath)?.id
+                  if (destId) saveDestPrefs(destId, { bitrate: b })
                 }}
                 onStartSync={sync.handleStartSync}
                 onCancelSync={sync.handleCancelSync}
