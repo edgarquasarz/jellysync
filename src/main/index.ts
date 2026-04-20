@@ -774,8 +774,9 @@ let lastUpdateCheck = 0
 let cachedUpdateInfo: { updateAvailable: boolean; latestVersion: string; releaseUrl: string } | null = null
 
 async function performUpdateCheck(force = false): Promise<{ updateAvailable: boolean; latestVersion: string; releaseUrl: string }> {
-  // Skip update checks in development (not packaged) to avoid contaminating stats
-  if (!app.isPackaged) {
+  // Skip update checks in development builds (VITE_DEV_BUILD or unpackaged) to avoid contaminating stats
+  const isDevBuild = !app.isPackaged || process.env.VITE_DEV_BUILD === 'true'
+  if (isDevBuild) {
     log.info('Update check skipped in development mode')
     return { updateAvailable: false, latestVersion: app.getVersion(), releaseUrl: '' }
   }
