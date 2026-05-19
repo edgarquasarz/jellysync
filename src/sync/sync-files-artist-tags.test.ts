@@ -10,16 +10,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSyncCore, type SyncDependencies } from './sync-core';
-import { createMockApiClient, type MockApiClientOptions } from './sync-api';
-import { createMockFileSystem } from './sync-files';
-import { createMockConverter } from './sync-files';
-import type { SyncConfig, TrackInfo } from './types';
-import type { TrackMetadata } from './types';
-import type { AudioConverter } from './types';
+import { createMockApiClient } from './sync-api';
+import { createMockFileSystem, type AudioConverter } from './sync-files';
+import type { SyncConfig, TrackInfo, TrackMetadata, ItemType } from './types';
 
-import { upsertSyncedTrack, getSyncedTracksForDevice } from '../main/database';
-
-// Hoisted mocks
+// Hoisted mocks for database
 const mockUpsertSyncedTrack = vi.hoisted(() => vi.fn());
 const mockGetSyncedTracksForDevice = vi.hoisted(() => vi.fn(() => []));
 
@@ -93,16 +88,14 @@ describe('Artist and AlbumArtist metadata', () => {
         converter: createConverterWithSpy({
           convertStreamToMp3WithMeta: convertStreamToMp3WithMetaSpy,
         }),
-        progress: { emit: vi.fn() },
-        cancellation: { isCancelled: false },
       };
 
       const core = createSyncCore(validConfig, deps);
 
       await core.sync({
-        items: new Map([['album-1', 'album' as const]]),
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
         destinationPath: '/usb',
-        deviceId: 'device-1',
         options: { convertToMp3: true, bitrate: '192k' },
       });
 
@@ -133,16 +126,14 @@ describe('Artist and AlbumArtist metadata', () => {
         converter: createConverterWithSpy({
           convertStreamToMp3WithMeta: convertStreamToMp3WithMetaSpy,
         }),
-        progress: { emit: vi.fn() },
-        cancellation: { isCancelled: false },
       };
 
       const core = createSyncCore(validConfig, deps);
 
       await core.sync({
-        items: new Map([['album-1', 'album' as const]]),
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
         destinationPath: '/usb',
-        deviceId: 'device-1',
         options: { convertToMp3: true, bitrate: '192k' },
       });
 
@@ -173,16 +164,14 @@ describe('Artist and AlbumArtist metadata', () => {
         converter: createConverterWithSpy({
           tagFile: tagFileSpy,
         }),
-        progress: { emit: vi.fn() },
-        cancellation: { isCancelled: false },
       };
 
       const core = createSyncCore(validConfig, deps);
 
       await core.sync({
-        items: new Map([['album-1', 'album' as const]]),
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
         destinationPath: '/usb',
-        deviceId: 'device-1',
         options: { convertToMp3: false }, // Don't convert, just copy and tag
       });
 
@@ -212,16 +201,14 @@ describe('Artist and AlbumArtist metadata', () => {
         converter: createConverterWithSpy({
           tagFile: tagFileSpy,
         }),
-        progress: { emit: vi.fn() },
-        cancellation: { isCancelled: false },
       };
 
       const core = createSyncCore(validConfig, deps);
 
       await core.sync({
-        items: new Map([['album-1', 'album' as const]]),
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
         destinationPath: '/usb',
-        deviceId: 'device-1',
         options: { convertToMp3: false },
       });
 
@@ -250,8 +237,6 @@ describe('Artist and AlbumArtist metadata', () => {
         }),
         fs: createMockFileSystem(),
         converter: createConverterWithSpy(),
-        progress: { emit: vi.fn() },
-        cancellation: { isCancelled: false },
       };
 
       const deps2: SyncDependencies = {
@@ -260,24 +245,22 @@ describe('Artist and AlbumArtist metadata', () => {
         }),
         fs: createMockFileSystem(),
         converter: createConverterWithSpy(),
-        progress: { emit: vi.fn() },
-        cancellation: { isCancelled: false },
       };
 
       const core1 = createSyncCore(validConfig, deps1);
       const core2 = createSyncCore(validConfig, deps2);
 
       await core1.sync({
-        items: new Map([['album-1', 'album' as const]]),
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
         destinationPath: '/usb',
-        deviceId: 'device-1',
         options: { convertToMp3: false },
       });
 
       await core2.sync({
-        items: new Map([['album-1', 'album' as const]]),
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
         destinationPath: '/usb',
-        deviceId: 'device-2', // Different device
         options: { convertToMp3: false },
       });
 
@@ -309,16 +292,14 @@ describe('Artist and AlbumArtist metadata', () => {
         converter: createConverterWithSpy({
           convertStreamToMp3WithMeta: convertStreamToMp3WithMetaSpy,
         }),
-        progress: { emit: vi.fn() },
-        cancellation: { isCancelled: false },
       };
 
       const core = createSyncCore(validConfig, deps);
 
       await core.sync({
-        items: new Map([['album-1', 'album' as const]]),
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
         destinationPath: '/usb',
-        deviceId: 'device-1',
         options: { convertToMp3: true, bitrate: '192k' },
       });
 
