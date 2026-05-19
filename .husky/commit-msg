@@ -1,2 +1,0 @@
-check = "pnpm run lint"
-commit-msg = "pnpm exec commitlint --edit"

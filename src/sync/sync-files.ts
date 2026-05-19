@@ -1,6 +1,6 @@
 /**
  * Filesystem Operations Module
- * 
+ *
  * Handles file copying, conversion, and filesystem operations.
  * Pure functions with dependency injection for testing.
  */
@@ -31,7 +31,8 @@ export function sanitizeNumericField(value: string): string {
 }
 
 /** FFmpeg protocol URI regex — these must be rejected as output paths */
-const FFMPEG_PROTOCOLS = /^(pipe:|concat:|http:|https:|rtmp:|ftp:|data:|cache:|async:|crypto:|subfile:|fd:|md5:|tee:|file:)/i;
+const FFMPEG_PROTOCOLS =
+  /^(pipe:|concat:|http:|https:|rtmp:|ftp:|data:|cache:|async:|crypto:|subfile:|fd:|md5:|tee:|file:)/i;
 
 /**
  * Assert that a path is a safe filesystem path (no FFmpeg protocols, no traversal).
@@ -50,7 +51,7 @@ export function assertFilesystemPath(p: string, label = 'output'): void {
   }
   // Block path traversal
   const segments = p.replace(/\/+/g, '/').split('/');
-  if (segments.some(s => s === '..')) {
+  if (segments.some((s) => s === '..')) {
     throw new Error(`${label} must be a local filesystem path (received: "${p}")`);
   }
 }
@@ -61,28 +62,28 @@ export function assertFilesystemPath(p: string, label = 'output'): void {
 export interface FileSystem {
   /** Check if path exists */
   exists(path: string): Promise<boolean>;
-  
+
   /** Check if path is a directory */
   isDirectory(path: string): Promise<boolean>;
-  
+
   /** Create directory recursively */
   mkdir(path: string): Promise<void>;
-  
+
   /** Copy file */
   copyFile(source: string, destination: string): Promise<void>;
-  
+
   /** Get file stats */
   stat(path: string): Promise<{ size: number; modified: Date; isFile: boolean }>;
-  
+
   /** Delete file */
   unlink(path: string): Promise<void>;
-  
+
   /** Write file */
   writeFile(path: string, data: Buffer): Promise<void>;
-  
+
   /** Read file */
   readFile(path: string): Promise<Buffer>;
-  
+
   /** List directory contents */
   readdir(path: string): Promise<string[]>;
 
@@ -105,7 +106,7 @@ export interface FileSystem {
 export function createNodeFileSystem(): FileSystem {
   const fs = require('fs');
   const { stat, mkdir, unlink, writeFile, readFile, readdir } = require('fs/promises');
-  
+
   return {
     exists: async (path: string) => {
       try {
@@ -115,7 +116,7 @@ export function createNodeFileSystem(): FileSystem {
         return false;
       }
     },
-    
+
     isDirectory: async (path: string) => {
       try {
         const stats = await stat(path);
@@ -124,15 +125,15 @@ export function createNodeFileSystem(): FileSystem {
         return false;
       }
     },
-    
+
     mkdir: async (path: string) => {
       await mkdir(path, { recursive: true });
     },
-    
+
     copyFile: async (source: string, destination: string) => {
       await fs.promises.copyFile(source, destination);
     },
-    
+
     stat: async (path: string) => {
       const stats = await stat(path);
       return {
@@ -141,19 +142,19 @@ export function createNodeFileSystem(): FileSystem {
         isFile: stats.isFile(),
       };
     },
-    
+
     unlink: async (path: string) => {
       await unlink(path);
     },
-    
+
     writeFile: async (path: string, data: Buffer) => {
       await writeFile(path, data);
     },
-    
+
     readFile: async (path: string) => {
       return readFile(path);
     },
-    
+
     readdir: async (path: string) => {
       return readdir(path);
     },
@@ -171,7 +172,10 @@ export function createNodeFileSystem(): FileSystem {
       try {
         if (platform === 'darwin' || platform === 'linux') {
           const result = spawnSync('df', ['-k', path], { encoding: 'utf8' as const });
-          const lines = (result.stdout ?? '').trim().split('\n').filter((l: string) => l.trim());
+          const lines = (result.stdout ?? '')
+            .trim()
+            .split('\n')
+            .filter((l: string) => l.trim());
           const lastLine = lines[lines.length - 1] ?? '';
           const parts = lastLine.trim().split(/\s+/);
           if (parts.length >= 4) {
@@ -181,10 +185,19 @@ export function createNodeFileSystem(): FileSystem {
           const driveLetter = path.charAt(0);
           const result = spawnSync(
             'wmic',
-            ['logicaldisk', 'where', `caption='${driveLetter}:'`, 'get', 'freespace', '/format:csv'],
-            { encoding: 'utf8' as const }
+            [
+              'logicaldisk',
+              'where',
+              `caption='${driveLetter}:'`,
+              'get',
+              'freespace',
+              '/format:csv',
+            ],
+            { encoding: 'utf8' as const },
           );
-          const lines = (result.stdout ?? '').split('\n').filter((l: string) => l.trim() && !l.includes('Node'));
+          const lines = (result.stdout ?? '')
+            .split('\n')
+            .filter((l: string) => l.trim() && !l.includes('Node'));
           if (lines.length > 0) {
             const parts = lines[lines.length - 1].split(',');
             return parseInt(parts[1]) || 0;
@@ -215,22 +228,22 @@ export function createNodeFileSystem(): FileSystem {
 export function createMockFileSystem(overrides?: Partial<FileSystem>): FileSystem {
   const files = new Map<string, Buffer>();
   const directories = new Set<string>();
-  
+
   const defaultFs: FileSystem = {
     exists: async (path: string) => files.has(path) || directories.has(path),
-    
+
     isDirectory: async (path: string) => directories.has(path),
-    
+
     mkdir: async (path: string) => {
       directories.add(path);
     },
-    
+
     copyFile: async (source: string, destination: string) => {
       const data = files.get(source);
       if (!data) throw new Error(`Source file not found: ${source}`);
       files.set(destination, Buffer.from(data));
     },
-    
+
     stat: async (path: string) => {
       const data = files.get(path);
       if (!data) throw new Error(`File not found: ${path}`);
@@ -240,26 +253,26 @@ export function createMockFileSystem(overrides?: Partial<FileSystem>): FileSyste
         isFile: true,
       };
     },
-    
+
     unlink: async (path: string) => {
       files.delete(path);
     },
-    
+
     writeFile: async (path: string, data: Buffer) => {
       files.set(path, Buffer.from(data));
     },
-    
+
     readFile: async (path: string) => {
       const data = files.get(path);
       if (!data) throw new Error(`File not found: ${path}`);
       return Buffer.from(data);
     },
-    
+
     readdir: async (path: string) => {
       const prefix = path.endsWith('/') ? path : `${path}/`;
       return Array.from(files.keys())
-        .filter(f => f.startsWith(prefix))
-        .map(f => f.slice(prefix.length).split('/')[0])
+        .filter((f) => f.startsWith(prefix))
+        .map((f) => f.slice(prefix.length).split('/')[0])
         .filter((v, i, a) => a.indexOf(v) === i);
     },
 
@@ -283,7 +296,7 @@ export function createMockFileSystem(overrides?: Partial<FileSystem>): FileSyste
         write(chunk: Buffer, _encoding: string, callback: () => void) {
           chunks.push(chunk);
           callback();
-        }
+        },
       });
       writeStream.on('finish', () => {
         files.set(path, Buffer.concat(chunks));
@@ -291,21 +304,21 @@ export function createMockFileSystem(overrides?: Partial<FileSystem>): FileSyste
       return writeStream;
     },
   };
-  
+
   // Add helper methods for mock
   const mockFs = { ...defaultFs, ...overrides } as FileSystem & {
     __setFile: (path: string, data: Buffer) => void;
     __getFile: (path: string) => Buffer | undefined;
     __clear: () => void;
   };
-  
+
   mockFs.__setFile = (path: string, data: Buffer) => files.set(path, data);
   mockFs.__getFile = (path: string) => files.get(path);
   mockFs.__clear = () => {
     files.clear();
     directories.clear();
   };
-  
+
   return mockFs;
 }
 
@@ -317,14 +330,14 @@ export interface AudioConverter {
   convertToMp3(
     input: string,
     output: string,
-    bitrate: '128k' | '192k' | '320k'
+    bitrate: '128k' | '192k' | '320k',
   ): Promise<{ success: boolean; error?: string }>;
 
   /** Convert audio stream (Node.js Readable) to MP3 via FFmpeg stdin */
   convertStreamToMp3(
     input: NodeJS.ReadableStream,
     output: string,
-    bitrate: '128k' | '192k' | '320k'
+    bitrate: '128k' | '192k' | '320k',
   ): Promise<{ success: boolean; error?: string }>;
 
   /** Convert audio stream with metadata and optional cover art embeds */
@@ -333,7 +346,7 @@ export interface AudioConverter {
     output: string,
     bitrate: '128k' | '192k' | '320k',
     metadata: TrackMetadata,
-    embedCover?: Buffer
+    embedCover?: Buffer,
   ): Promise<{ success: boolean; error?: string }>;
 
   /** Tag an existing audio file (passthrough, no re-encoding) with metadata and optional cover art */
@@ -341,13 +354,11 @@ export interface AudioConverter {
     inputPath: string,
     outputPath: string,
     metadata: TrackMetadata,
-    embedCover?: Buffer
+    embedCover?: Buffer,
   ): Promise<{ success: boolean; error?: string }>;
 
   /** Read all metadata tags from an audio file using ffprobe */
-  readFileMetadata(
-    filePath: string
-  ): Promise<Record<string, string>>;
+  readFileMetadata(filePath: string): Promise<Record<string, string>>;
 
   /** Check if FFmpeg is available */
   isAvailable(): Promise<boolean>;
@@ -357,38 +368,42 @@ export interface AudioConverter {
     inputPath: string,
     outputPath: string,
     lyrics: string,
-    format: string
+    format: string,
   ): Promise<{ success: boolean; error?: string }>;
 }
 
 export function createFFmpegConverter(): AudioConverter {
   const ffmpegPath = resolveFFmpegPath();
-  
+
   return {
     convertToMp3: async (input, output, bitrate) => {
       assertFilesystemPath(output);
       const { spawn } = require('child_process');
-      
+
       return new Promise((resolve) => {
         const args = [
-          '-i', input,
-          '-vn',         // skip video/cover-art streams
-          '-ab', bitrate,
-          '-ar', '44100',
-          '-ac', '2',
-          '-y',          // overwrite output
+          '-i',
+          input,
+          '-vn', // skip video/cover-art streams
+          '-ab',
+          bitrate,
+          '-ar',
+          '44100',
+          '-ac',
+          '2',
+          '-y', // overwrite output
           output,
         ];
-        
+
         const process = spawn(ffmpegPath, args, { stdio: 'ignore' });
-        
+
         process.on('error', (err: Error) => {
           resolve({
             success: false,
             error: `FFmpeg error: ${err.message}`,
           });
         });
-        
+
         process.on('close', (code: number) => {
           resolve({
             success: code === 0,
@@ -397,18 +412,22 @@ export function createFFmpegConverter(): AudioConverter {
         });
       });
     },
-    
+
     convertStreamToMp3: async (inputStream, output, bitrate) => {
       assertFilesystemPath(output);
       const { spawn } = require('child_process');
 
       return new Promise((resolve) => {
         const args = [
-          '-i', 'pipe:0',  // read from stdin
+          '-i',
+          'pipe:0', // read from stdin
           '-vn',
-          '-ab', bitrate,
-          '-ar', '44100',
-          '-ac', '2',
+          '-ab',
+          bitrate,
+          '-ar',
+          '44100',
+          '-ac',
+          '2',
           '-y',
           output,
         ];
@@ -416,7 +435,9 @@ export function createFFmpegConverter(): AudioConverter {
         const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'ignore', 'pipe'] });
 
         let stderr = '';
-        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+        proc.stderr.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
 
         proc.on('error', (err: Error) => {
           resolve({ success: false, error: `FFmpeg error: ${err.message}` });
@@ -424,7 +445,11 @@ export function createFFmpegConverter(): AudioConverter {
 
         proc.on('close', (code: number) => {
           if (code !== 0) {
-            console.error(`[sync-files] convertStreamToMp3 FFmpeg failed for ${output}: code=${code}`, `\nargs: ${args.join(' ')}`, `\nstderr: ${stderr}`);
+            console.error(
+              `[sync-files] convertStreamToMp3 FFmpeg failed for ${output}: code=${code}`,
+              `\nargs: ${args.join(' ')}`,
+              `\nstderr: ${stderr}`,
+            );
           }
           resolve({
             success: code === 0,
@@ -436,7 +461,11 @@ export function createFFmpegConverter(): AudioConverter {
         proc.stdin.on('error', () => {});
 
         inputStream.on('error', (err: Error) => {
-          try { proc.kill(); } catch { /* already dead */ }
+          try {
+            proc.kill();
+          } catch {
+            /* already dead */
+          }
           resolve({ success: false, error: `Stream error: ${err.message}` });
         });
 
@@ -476,38 +505,65 @@ export function createFFmpegConverter(): AudioConverter {
         }
 
         // Metadata flags — all fields sanitized before passing to FFmpeg
-        if (metadata.title) args.push('-metadata', `title=${sanitizeMetadataField(metadata.title)}`);
-        if (metadata.artist) args.push('-metadata', `artist=${sanitizeMetadataField(metadata.artist)}`);
-        if (metadata.albumArtist) args.push('-metadata', `album_artist=${sanitizeMetadataField(metadata.albumArtist)}`);
-        if (metadata.album) args.push('-metadata', `album=${sanitizeMetadataField(metadata.album)}`);
+        if (metadata.title)
+          args.push('-metadata', `title=${sanitizeMetadataField(metadata.title)}`);
+        if (metadata.artist)
+          args.push('-metadata', `artist=${sanitizeMetadataField(metadata.artist)}`);
+        if (metadata.albumArtist)
+          args.push('-metadata', `album_artist=${sanitizeMetadataField(metadata.albumArtist)}`);
+        if (metadata.album)
+          args.push('-metadata', `album=${sanitizeMetadataField(metadata.album)}`);
         const year = sanitizeNumericField(metadata.year ?? '');
         if (year) args.push('-metadata', `date=${year}`);
         const track = sanitizeNumericField(metadata.trackNumber ?? '');
         if (track) args.push('-metadata', `track=${track}`);
         const disc = sanitizeNumericField(metadata.discNumber ?? '');
         if (disc) args.push('-metadata', `disc=${disc}`);
-        if (metadata.genres?.length) args.push('-metadata', `genre=${metadata.genres.map(g => sanitizeMetadataField(g)).join(';')}`);
-        if (metadata.composer) args.push('-metadata', `composer=${sanitizeMetadataField(metadata.composer)}`);
+        if (metadata.genres?.length)
+          args.push(
+            '-metadata',
+            `genre=${metadata.genres.map((g) => sanitizeMetadataField(g)).join(';')}`,
+          );
+        if (metadata.composer)
+          args.push('-metadata', `composer=${sanitizeMetadataField(metadata.composer)}`);
         if (metadata.isrc) args.push('-metadata', `isrc=${sanitizeMetadataField(metadata.isrc)}`);
-        if (metadata.copyright) args.push('-metadata', `copyright=${sanitizeMetadataField(metadata.copyright)}`);
-        if (metadata.comment) args.push('-metadata', `comment=${sanitizeMetadataField(metadata.comment)}`);
+        if (metadata.copyright)
+          args.push('-metadata', `copyright=${sanitizeMetadataField(metadata.copyright)}`);
+        if (metadata.comment)
+          args.push('-metadata', `comment=${sanitizeMetadataField(metadata.comment)}`);
 
         args.push('-y', output);
 
         const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
         let stderr = '';
-        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+        proc.stderr.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
 
         proc.on('error', (err: Error) => {
-          if (coverTempPath) try { fs.unlinkSync(coverTempPath); } catch { /* ignore */ }
+          if (coverTempPath)
+            try {
+              fs.unlinkSync(coverTempPath);
+            } catch {
+              /* ignore */
+            }
           resolve({ success: false, error: `FFmpeg error: ${err.message}` });
         });
 
         proc.on('close', (code: number) => {
-          if (coverTempPath) try { fs.unlinkSync(coverTempPath); } catch { /* ignore */ }
+          if (coverTempPath)
+            try {
+              fs.unlinkSync(coverTempPath);
+            } catch {
+              /* ignore */
+            }
           if (code !== 0) {
-            console.error(`[sync-files] FFmpeg failed for ${output}: code=${code}`, `\nargs: ${args.join(' ')}`, `\nstderr: ${stderr}`);
+            console.error(
+              `[sync-files] FFmpeg failed for ${output}: code=${code}`,
+              `\nargs: ${args.join(' ')}`,
+              `\nstderr: ${stderr}`,
+            );
           }
           resolve({
             success: code === 0,
@@ -519,8 +575,17 @@ export function createFFmpegConverter(): AudioConverter {
         proc.stdin.on('error', () => {});
 
         inputStream.on('error', (err: Error) => {
-          try { proc.kill(); } catch { /* already dead */ }
-          if (coverTempPath) try { fs.unlinkSync(coverTempPath); } catch { /* ignore */ }
+          try {
+            proc.kill();
+          } catch {
+            /* already dead */
+          }
+          if (coverTempPath)
+            try {
+              fs.unlinkSync(coverTempPath);
+            } catch {
+              /* ignore */
+            }
           resolve({ success: false, error: `Stream error: ${err.message}` });
         });
 
@@ -543,7 +608,9 @@ export function createFFmpegConverter(): AudioConverter {
         const finalOutputPath = outputPath;
         // Use the same extension as the original file so FFmpeg recognizes the format
         const ext = path.extname(inputPath);
-        const tempOutputPath = useTempOutput ? `${os.tmpdir()}/jt-tag-${Date.now()}${ext}` : outputPath;
+        const tempOutputPath = useTempOutput
+          ? `${os.tmpdir()}/jt-tag-${Date.now()}${ext}`
+          : outputPath;
 
         // Build complete args array BEFORE spawning — all inputs and flags before output
         const args: string[] = ['-i', inputPath];
@@ -553,57 +620,105 @@ export function createFFmpegConverter(): AudioConverter {
         if (embedCover) {
           coverTempPath = `${os.tmpdir()}/jt-cover-${Date.now()}.jpg`;
           fs.writeFileSync(coverTempPath, embedCover);
-          args.push('-i', coverTempPath, '-map', '0:a', '-map', '1:v', '-disposition:v', 'attached_pic');
+          args.push(
+            '-i',
+            coverTempPath,
+            '-map',
+            '0:a',
+            '-map',
+            '1:v',
+            '-disposition:v',
+            'attached_pic',
+          );
         }
 
         args.push('-c', 'copy', '-y');
 
         // Metadata flags — must appear AFTER all inputs but before output path
-        if (metadata.title) args.push('-metadata', `title=${sanitizeMetadataField(metadata.title)}`);
-        if (metadata.artist) args.push('-metadata', `artist=${sanitizeMetadataField(metadata.artist)}`);
-        if (metadata.albumArtist) args.push('-metadata', `album_artist=${sanitizeMetadataField(metadata.albumArtist)}`);
-        if (metadata.album) args.push('-metadata', `album=${sanitizeMetadataField(metadata.album)}`);
+        if (metadata.title)
+          args.push('-metadata', `title=${sanitizeMetadataField(metadata.title)}`);
+        if (metadata.artist)
+          args.push('-metadata', `artist=${sanitizeMetadataField(metadata.artist)}`);
+        if (metadata.albumArtist)
+          args.push('-metadata', `album_artist=${sanitizeMetadataField(metadata.albumArtist)}`);
+        if (metadata.album)
+          args.push('-metadata', `album=${sanitizeMetadataField(metadata.album)}`);
         const year = sanitizeNumericField(metadata.year ?? '');
         if (year) args.push('-metadata', `date=${year}`);
         const track = sanitizeNumericField(metadata.trackNumber ?? '');
         if (track) args.push('-metadata', `track=${track}`);
         const disc = sanitizeNumericField(metadata.discNumber ?? '');
         if (disc) args.push('-metadata', `disc=${disc}`);
-        if (metadata.genres?.length) args.push('-metadata', `genre=${metadata.genres.map(g => sanitizeMetadataField(g)).join(';')}`);
-        if (metadata.composer) args.push('-metadata', `composer=${sanitizeMetadataField(metadata.composer)}`);
+        if (metadata.genres?.length)
+          args.push(
+            '-metadata',
+            `genre=${metadata.genres.map((g) => sanitizeMetadataField(g)).join(';')}`,
+          );
+        if (metadata.composer)
+          args.push('-metadata', `composer=${sanitizeMetadataField(metadata.composer)}`);
         if (metadata.isrc) args.push('-metadata', `isrc=${sanitizeMetadataField(metadata.isrc)}`);
-        if (metadata.copyright) args.push('-metadata', `copyright=${sanitizeMetadataField(metadata.copyright)}`);
-        if (metadata.comment) args.push('-metadata', `comment=${sanitizeMetadataField(metadata.comment)}`);
+        if (metadata.copyright)
+          args.push('-metadata', `copyright=${sanitizeMetadataField(metadata.copyright)}`);
+        if (metadata.comment)
+          args.push('-metadata', `comment=${sanitizeMetadataField(metadata.comment)}`);
 
         args.push(tempOutputPath);
 
         const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'ignore', 'pipe'] });
 
         let stderr = '';
-        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+        proc.stderr.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
 
         proc.on('error', (err: Error) => {
-          if (coverTempPath) try { fs.unlinkSync(coverTempPath); } catch { /* ignore */ }
+          if (coverTempPath)
+            try {
+              fs.unlinkSync(coverTempPath);
+            } catch {
+              /* ignore */
+            }
           resolve({ success: false, error: `FFmpeg error: ${err.message}` });
         });
 
         proc.on('close', (code: number) => {
-          if (coverTempPath) try { fs.unlinkSync(coverTempPath); } catch { /* ignore */ }
+          if (coverTempPath)
+            try {
+              fs.unlinkSync(coverTempPath);
+            } catch {
+              /* ignore */
+            }
           if (code === 0 && useTempOutput) {
             // Move temp file to final destination
             try {
               fs.unlinkSync(finalOutputPath);
               fs.renameSync(tempOutputPath, finalOutputPath);
             } catch (renameErr) {
-              console.error(`[sync-files] tagFile failed to replace ${finalOutputPath}:`, renameErr);
-              try { fs.unlinkSync(tempOutputPath); } catch { /* ignore */ }
+              console.error(
+                `[sync-files] tagFile failed to replace ${finalOutputPath}:`,
+                renameErr,
+              );
+              try {
+                fs.unlinkSync(tempOutputPath);
+              } catch {
+                /* ignore */
+              }
               resolve({ success: false, error: `Failed to replace file: ${renameErr}` });
               return;
             }
           }
           if (code !== 0) {
-            if (useTempOutput) try { fs.unlinkSync(tempOutputPath); } catch { /* ignore */ }
-            console.error(`[sync-files] tagFile FFmpeg failed for ${outputPath}: code=${code}`, `\nargs: ${args.join(' ')}`, `\nstderr: ${stderr}`);
+            if (useTempOutput)
+              try {
+                fs.unlinkSync(tempOutputPath);
+              } catch {
+                /* ignore */
+              }
+            console.error(
+              `[sync-files] tagFile FFmpeg failed for ${outputPath}: code=${code}`,
+              `\nargs: ${args.join(' ')}`,
+              `\nstderr: ${stderr}`,
+            );
           }
           resolve({
             success: code === 0,
@@ -627,19 +742,18 @@ export function createFFmpegConverter(): AudioConverter {
       const { spawn } = require('child_process');
 
       return new Promise((resolve) => {
-        const args = [
-          '-v', 'quiet',
-          '-print_format', 'json',
-          '-show_format',
-          filePath,
-        ];
+        const args = ['-v', 'quiet', '-print_format', 'json', '-show_format', filePath];
 
         const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'ignore'] });
 
         let stdout = '';
-        proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+        proc.stdout.on('data', (chunk: Buffer) => {
+          stdout += chunk.toString();
+        });
 
-        proc.on('error', () => { resolve({}); });
+        proc.on('error', () => {
+          resolve({});
+        });
         proc.on('close', () => {
           try {
             const parsed = JSON.parse(stdout);
@@ -668,7 +782,9 @@ export function createFFmpegConverter(): AudioConverter {
       return new Promise((resolve) => {
         const ext = path.extname(inputPath).toLowerCase();
         const useTempOutput = inputPath === outputPath;
-        const tempOutputPath = useTempOutput ? `${os.tmpdir()}/jt-lyrics-${Date.now()}${ext}` : outputPath;
+        const tempOutputPath = useTempOutput
+          ? `${os.tmpdir()}/jt-lyrics-${Date.now()}${ext}`
+          : outputPath;
 
         const args: string[] = ['-i', inputPath];
 
@@ -696,10 +812,17 @@ export function createFFmpegConverter(): AudioConverter {
         const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'ignore', 'pipe'] });
 
         let stderr = '';
-        proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+        proc.stderr.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
 
         proc.on('error', (err: Error) => {
-          if (useTempOutput) try { fs.unlinkSync(tempOutputPath); } catch { /* ignore */ }
+          if (useTempOutput)
+            try {
+              fs.unlinkSync(tempOutputPath);
+            } catch {
+              /* ignore */
+            }
           resolve({ success: false, error: `FFmpeg error: ${err.message}` });
         });
 
@@ -711,13 +834,22 @@ export function createFFmpegConverter(): AudioConverter {
               }
               fs.renameSync(tempOutputPath, outputPath);
             } catch (renameErr) {
-              try { fs.unlinkSync(tempOutputPath); } catch { /* ignore */ }
+              try {
+                fs.unlinkSync(tempOutputPath);
+              } catch {
+                /* ignore */
+              }
               resolve({ success: false, error: `Failed to replace file: ${renameErr}` });
               return;
             }
           }
           if (code !== 0) {
-            if (useTempOutput) try { fs.unlinkSync(tempOutputPath); } catch { /* ignore */ }
+            if (useTempOutput)
+              try {
+                fs.unlinkSync(tempOutputPath);
+              } catch {
+                /* ignore */
+              }
           }
           resolve({
             success: code === 0,
@@ -749,16 +881,16 @@ export function createMockConverter(): AudioConverter {
  */
 export async function validateDestination(
   path: string,
-  fs: FileSystem
+  fs: FileSystem,
 ): Promise<DestinationValidation> {
   const errors: string[] = [];
   let exists = false;
   let writable = false;
   let freeSpace: number | undefined;
-  
+
   try {
     exists = await fs.exists(path);
-    
+
     if (exists) {
       const isDir = await fs.isDirectory(path);
       if (!isDir) {
@@ -771,7 +903,7 @@ export async function validateDestination(
         } catch {
           errors.push('Directory is not readable/writable');
         }
-        
+
         // Try to get free space
         try {
           freeSpace = await fs.getFreeSpace(path);
@@ -783,7 +915,7 @@ export async function validateDestination(
   } catch (error) {
     errors.push(`Error checking path: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-  
+
   return {
     valid: errors.length === 0,
     exists,
@@ -810,7 +942,7 @@ export function sanitizeFilename(filename: string): string {
 export async function getUniqueFilename(
   basePath: string,
   filename: string,
-  fs: FileSystem
+  fs: FileSystem,
 ): Promise<string> {
   const ext = filename.match(/\.[^.]+$/)?.[0] || '';
   const baseName = filename.replace(/\.[^.]+$/, '');
@@ -830,7 +962,7 @@ export async function getUniqueFilename(
  * Ensure directory exists, creating if necessary
  */
 export async function ensureDirectory(path: string, fs: FileSystem): Promise<void> {
-  if (!await fs.exists(path)) {
+  if (!(await fs.exists(path))) {
     await fs.mkdir(path);
   }
 }
@@ -842,11 +974,11 @@ export async function copyFileWithProgress(
   source: string,
   destination: string,
   fs: FileSystem,
-  onProgress?: (bytesCopied: number, totalBytes: number) => void
+  onProgress?: (bytesCopied: number, totalBytes: number) => void,
 ): Promise<void> {
   // For now, simple copy - could be enhanced for streaming with progress
   await fs.copyFile(source, destination);
-  
+
   if (onProgress) {
     const stat = await fs.stat(destination);
     onProgress(stat.size, stat.size);
@@ -867,7 +999,7 @@ export function calculateTotalSize(tracks: TrackInfo[]): number {
  */
 export function mergeMetadata(
   fileMeta: Record<string, string>,
-  jellyfinMeta: TrackMetadata
+  jellyfinMeta: TrackMetadata,
 ): TrackMetadata {
   // Normalize file tag keys: ffprobe returns lowercase keys but field names vary
   // Map common aliases to standard field names
@@ -893,7 +1025,11 @@ export function mergeMetadata(
     year: jellyfinMeta.year ?? fileMeta.date ?? fileMeta.year,
     trackNumber: jellyfinMeta.trackNumber ?? fileMeta.track,
     discNumber: jellyfinMeta.discNumber ?? fileMeta.disc,
-    genres: jellyfinMeta.genres?.length ? jellyfinMeta.genres : fileMeta.genre ? [fileMeta.genre] : undefined,
+    genres: jellyfinMeta.genres?.length
+      ? jellyfinMeta.genres
+      : fileMeta.genre
+        ? [fileMeta.genre]
+        : undefined,
     composer: jellyfinMeta.composer ?? getFileVal(composerAliases),
     isrc: jellyfinMeta.isrc ?? getFileVal(isrcAliases),
     copyright: jellyfinMeta.copyright ?? getFileVal(copyrightAliases),
@@ -908,11 +1044,11 @@ export function formatSize(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let size = bytes;
   let unit = 0;
-  
+
   while (size >= 1024 && unit < units.length - 1) {
     size /= 1024;
     unit++;
   }
-  
+
   return `${size.toFixed(1)} ${units[unit]}`;
 }

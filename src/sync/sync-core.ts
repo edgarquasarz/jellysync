@@ -1,6 +1,6 @@
 /**
  * Sync Core Module
- * 
+ *
  * Main orchestration module that coordinates API calls,
  * file operations, and progress reporting.
  */
@@ -43,19 +43,15 @@ import {
   type SyncedTrackRecord,
 } from '../main/database';
 
-import {
-  createApiClient,
-  SyncApi,
-  detectServerRootPath,
-} from './sync-api';
+import { createApiClient, type SyncApi, detectServerRootPath } from './sync-api';
 
 import {
   createNodeFileSystem,
   createFFmpegConverter,
   validateDestination,
   ensureDirectory,
-  FileSystem,
-  AudioConverter,
+  type FileSystem,
+  type AudioConverter,
   mergeMetadata,
 } from './sync-files';
 
@@ -64,8 +60,8 @@ import {
   createCancellationController,
   createProgressStats,
   PhaseManager,
-  ProgressEmitter,
-  CancellationController,
+  type ProgressEmitter,
+  type CancellationController,
   SyncCancelledError,
 } from './sync-progress';
 
@@ -74,7 +70,9 @@ import {
  */
 function validatePathTraversal(basePath: string, relativePath: string): void {
   if (hasTraversalSegment(relativePath)) {
-    throw new Error(`Path traversal attempt detected: "${relativePath}" would escape "${basePath}"`);
+    throw new Error(
+      `Path traversal attempt detected: "${relativePath}" would escape "${basePath}"`,
+    );
   }
 
   // Normalize and verify the final path is still within base
@@ -82,7 +80,9 @@ function validatePathTraversal(basePath: string, relativePath: string): void {
   const normalizedFull = `${normalizedBase}/${relativePath}`.replace(/\/+/g, '/');
 
   if (!normalizedFull.startsWith(normalizedBase + '/') && normalizedFull !== normalizedBase) {
-    throw new Error(`Path traversal attempt detected: final path "${normalizedFull}" escapes base "${basePath}"`);
+    throw new Error(
+      `Path traversal attempt detected: final path "${normalizedFull}" escapes base "${basePath}"`,
+    );
   }
 }
 
@@ -99,7 +99,7 @@ const METADATA_HASH_LENGTH = 16;
  */
 function computeMetadataHash(meta: TrackMetadata): string {
   // Use Node's crypto module (available in Electron main process)
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   const { createHash } = require('crypto');
   const normalized = JSON.stringify({
     title: meta.title ?? '',
@@ -122,7 +122,7 @@ function computeMetadataHash(meta: TrackMetadata): string {
 async function runWithConcurrency<T>(
   items: T[],
   concurrency: number,
-  fn: (item: T) => Promise<void>
+  fn: (item: T) => Promise<void>,
 ): Promise<void> {
   let i = 0;
   async function worker(): Promise<void> {
@@ -131,9 +131,7 @@ async function runWithConcurrency<T>(
       await fn(item);
     }
   }
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, items.length) }, worker)
-  );
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
 }
 
 /**
@@ -145,7 +143,10 @@ async function runWithConcurrency<T>(
  * - MP3 → only convert if the source bitrate is KNOWN and exceeds the target
  *   (unknown bitrate = safe default: copy as-is to avoid unnecessary re-encoding)
  */
-function needsConversion(track: { format: string; bitrate?: number }, targetBitrateKbps: number): boolean {
+function needsConversion(
+  track: { format: string; bitrate?: number },
+  targetBitrateKbps: number,
+): boolean {
   const fmt = track.format.toLowerCase();
   if (fmt === 'mp3') {
     // Re-encode only when we know the source is higher than the target
@@ -164,7 +165,11 @@ function bitrateStringToKbps(bitrate: '128k' | '192k' | '320k'): number {
  * Uses ratio of target/source bitrate as size estimator.
  * Falls back to assuming 900kbps for lossless sources.
  */
-function estimatedMp3Size(originalBytes: number, sourceBitrateKbps: number, targetBitrateKbps: number): number {
+function estimatedMp3Size(
+  originalBytes: number,
+  sourceBitrateKbps: number,
+  targetBitrateKbps: number,
+): number {
   const effectiveSource = sourceBitrateKbps > 0 ? sourceBitrateKbps : 900;
   return Math.floor(originalBytes * (targetBitrateKbps / effectiveSource));
 }
@@ -175,7 +180,7 @@ function parseBitrateKbps(bitrate: string): number {
 }
 
 /** No-op logger used when no logger is injected (keeps module testable) */
-const noopLogger: SyncLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }
+const noopLogger: SyncLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
 
 /**
  * Dependencies container (for dependency injection).
@@ -242,21 +247,21 @@ class SyncCoreImpl {
     // Default server root path if not provided
     this.serverRootPath = config.serverRootPath ?? '';
   }
-  
+
   /**
    * Subscribe to progress updates
    */
   onProgress(callback: ProgressCallback): () => void {
     return this.progressEmitter.subscribe(callback);
   }
-  
+
   /**
    * Cancel ongoing sync operation
    */
   cancel(): void {
     this.cancellation.cancel();
   }
-  
+
   /**
    * Execute sync operation
    */
@@ -265,9 +270,7 @@ class SyncCoreImpl {
     const stats = createProgressStats();
     stats.startTime = startTime;
 
-    const unsubscribe = onProgress
-      ? this.progressEmitter.subscribe(onProgress)
-      : () => {};
+    const unsubscribe = onProgress ? this.progressEmitter.subscribe(onProgress) : () => {};
 
     const phaseManager = new PhaseManager(this.progressEmitter);
     const errors: string[] = [];
@@ -290,7 +293,11 @@ class SyncCoreImpl {
       totalTracks = fetchResult.tracks.length;
 
       if (totalTracks === 0) {
-        return this.buildFailureResult(startTime, ['No tracks found for selected items', ...errors], stats);
+        return this.buildFailureResult(
+          startTime,
+          ['No tracks found for selected items', ...errors],
+          stats,
+        );
       }
 
       // Phase 3: Copy
@@ -305,7 +312,7 @@ class SyncCoreImpl {
         phaseManager,
         tracksFailed,
         errors,
-        stats
+        stats,
       );
       lyricsAdded = copyResult.lyricsAdded;
 
@@ -327,7 +334,6 @@ class SyncCoreImpl {
         totalSizeBytes: stats.bytesTransferred,
         durationMs: Date.now() - startTime,
       };
-
     } catch (error) {
       if (error instanceof SyncCancelledError) {
         phaseManager.cancelled(stats.itemsProcessed, totalTracks || input.itemIds.length);
@@ -363,7 +369,6 @@ class SyncCoreImpl {
         totalSizeBytes: stats.bytesTransferred,
         durationMs: Date.now() - startTime,
       };
-
     } finally {
       unsubscribe();
     }
@@ -379,7 +384,7 @@ class SyncCoreImpl {
   private async runFetchPhase(
     itemIds: string[],
     itemTypes: Map<string, ItemType>,
-    phaseManager: PhaseManager
+    phaseManager: PhaseManager,
   ): Promise<{ tracks: TrackInfo[]; errors: string[] }> {
     this.cancellation.throwIfCancelled();
     phaseManager.updateFetching(1, 3);
@@ -405,14 +410,14 @@ class SyncCoreImpl {
     phaseManager: PhaseManager,
     tracksFailed: string[],
     errors: string[],
-    stats: ReturnType<typeof createProgressStats>
+    stats: ReturnType<typeof createProgressStats>,
   ): Promise<{ statsRetagged: number; statsMoved: number; lyricsAdded: number }> {
     this.currentPhase = 'copying';
     phaseManager.startCopying(tracks.length);
 
     const targetBitrateKbps = bitrateStringToKbps(options.bitrate ?? '192k');
-    const anyWillConvert = options.convertToMp3 === true &&
-      tracks.some(t => needsConversion(t, targetBitrateKbps));
+    const anyWillConvert =
+      options.convertToMp3 === true && tracks.some((t) => needsConversion(t, targetBitrateKbps));
     const concurrency = anyWillConvert ? CONVERT_CONCURRENCY : COPY_CONCURRENCY;
 
     let completed = 0;
@@ -436,7 +441,13 @@ class SyncCoreImpl {
 
       try {
         const result = await this.processTrack(
-          track, destinationPath, itemTypes, options, targetBitrateKbps, syncedByTrackId, stats
+          track,
+          destinationPath,
+          itemTypes,
+          options,
+          targetBitrateKbps,
+          syncedByTrackId,
+          stats,
         );
         if (result.processed) {
           stats.itemsProcessed++;
@@ -463,9 +474,9 @@ class SyncCoreImpl {
     itemIds: string[],
     itemTypes: Map<string, ItemType>,
     destinationPath: string,
-    options: ReturnType<typeof resolveSyncOptions>
+    options: ReturnType<typeof resolveSyncOptions>,
   ): Promise<void> {
-    const playlistIds = itemIds.filter(id => itemTypes.get(id) === 'playlist');
+    const playlistIds = itemIds.filter((id) => itemTypes.get(id) === 'playlist');
     if (playlistIds.length > 0 && this.serverRootPath) {
       await this.generateM3u8Files(playlistIds, destinationPath, options);
     }
@@ -474,7 +485,7 @@ class SyncCoreImpl {
   private buildFailureResult(
     startTime: number,
     errors: string[],
-    stats: ReturnType<typeof createProgressStats>
+    stats: ReturnType<typeof createProgressStats>,
   ): SyncResult {
     return {
       success: false,
@@ -498,13 +509,20 @@ class SyncCoreImpl {
     options: ReturnType<typeof resolveSyncOptions>,
     targetBitrateKbps: number,
     syncedByTrackId: Map<string, SyncedTrackRecord>,
-    stats: ReturnType<typeof createProgressStats>
-  ): Promise<{ retagged: boolean; moved: boolean; processed: boolean; skipped: boolean; lyricsAdded: number; error?: string }> {
+    stats: ReturnType<typeof createProgressStats>,
+  ): Promise<{
+    retagged: boolean;
+    moved: boolean;
+    processed: boolean;
+    skipped: boolean;
+    lyricsAdded: number;
+    error?: string;
+  }> {
     const outputDir = this.getOutputDir(
       track,
       destinationPath,
       options.preserveStructure ?? true,
-      options.filesystemType ?? 'unknown'
+      options.filesystemType ?? 'unknown',
     );
     await ensureDirectory(outputDir, this.deps.fs);
 
@@ -521,15 +539,34 @@ class SyncCoreImpl {
 
     if (syncedRecord) {
       return this.handleSyncedRecord(
-        syncedRecord, track, outputPath, itemId, currentHash,
-        coverArtMode, encodedBitrate, destinationPath, trackMeta, options, stats
+        syncedRecord,
+        track,
+        outputPath,
+        itemId,
+        currentHash,
+        coverArtMode,
+        encodedBitrate,
+        destinationPath,
+        trackMeta,
+        options,
+        stats,
       );
     }
 
     return this.copyOrConvertTrack(
-      track, outputDir, outputPath, outputFilename,
-      willConvert, coverArtMode, itemId, currentHash, encodedBitrate,
-      destinationPath, trackMeta, options, stats
+      track,
+      outputDir,
+      outputPath,
+      outputFilename,
+      willConvert,
+      coverArtMode,
+      itemId,
+      currentHash,
+      encodedBitrate,
+      destinationPath,
+      trackMeta,
+      options,
+      stats,
     );
   }
 
@@ -544,42 +581,88 @@ class SyncCoreImpl {
     destinationPath: string,
     trackMeta: TrackMetadata,
     options: ReturnType<typeof resolveSyncOptions>,
-    stats: ReturnType<typeof createProgressStats>
-  ): Promise<{ retagged: boolean; moved: boolean; processed: boolean; skipped: boolean; lyricsAdded: number; error?: string }> {
+    stats: ReturnType<typeof createProgressStats>,
+  ): Promise<{
+    retagged: boolean;
+    moved: boolean;
+    processed: boolean;
+    skipped: boolean;
+    lyricsAdded: number;
+    error?: string;
+  }> {
     const metadataChanged = syncedRecord.metadataHash !== currentHash;
-    const bitrateChanged = encodedBitrate !== null && syncedRecord.encodedBitrate !== encodedBitrate;
+    const bitrateChanged =
+      encodedBitrate !== null && syncedRecord.encodedBitrate !== encodedBitrate;
     const coverArtChanged = syncedRecord.coverArtMode !== coverArtMode;
     const pathChanged = syncedRecord.destinationPath !== outputPath;
 
     if (!metadataChanged && !bitrateChanged && !coverArtChanged) {
       if (pathChanged) {
         upsertSyncedTrack(
-          destinationPath, itemId, track.id, outputPath,
-          track.size ?? null, currentHash, coverArtMode, encodedBitrate,
-          track.path ?? null, this.serverRootPath || null
+          destinationPath,
+          itemId,
+          track.id,
+          outputPath,
+          track.size ?? null,
+          currentHash,
+          coverArtMode,
+          encodedBitrate,
+          track.path ?? null,
+          this.serverRootPath || null,
         );
-        const lyricsResult = await this.processLyrics(track, outputPath, options.lyricsMode ?? 'off');
-        return { retagged: false, moved: true, processed: true, skipped: false, lyricsAdded: lyricsResult };
+        const lyricsResult = await this.processLyrics(
+          track,
+          outputPath,
+          options.lyricsMode ?? 'off',
+        );
+        return {
+          retagged: false,
+          moved: true,
+          processed: true,
+          skipped: false,
+          lyricsAdded: lyricsResult,
+        };
       }
       // Truly unchanged — skip
       return { retagged: false, moved: false, processed: false, skipped: true, lyricsAdded: 0 };
     }
 
     if (!pathChanged && (metadataChanged || bitrateChanged || coverArtChanged)) {
-      const embedCover = coverArtMode === 'embed'
-        ? await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode)
-        : undefined;
+      const embedCover =
+        coverArtMode === 'embed'
+          ? await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode)
+          : undefined;
       const tagResult = await this.deps.converter.tagFile(
-        syncedRecord.destinationPath, syncedRecord.destinationPath, trackMeta, embedCover
+        syncedRecord.destinationPath,
+        syncedRecord.destinationPath,
+        trackMeta,
+        embedCover,
       );
       if (tagResult.success) {
         upsertSyncedTrack(
-          destinationPath, itemId, track.id, syncedRecord.destinationPath,
-          track.size ?? null, currentHash, coverArtMode, encodedBitrate,
-          track.path ?? null, this.serverRootPath || null
+          destinationPath,
+          itemId,
+          track.id,
+          syncedRecord.destinationPath,
+          track.size ?? null,
+          currentHash,
+          coverArtMode,
+          encodedBitrate,
+          track.path ?? null,
+          this.serverRootPath || null,
         );
-        const lyricsResult = await this.processLyrics(track, syncedRecord.destinationPath, options.lyricsMode ?? 'off');
-        return { retagged: true, moved: false, processed: false, skipped: false, lyricsAdded: lyricsResult };
+        const lyricsResult = await this.processLyrics(
+          track,
+          syncedRecord.destinationPath,
+          options.lyricsMode ?? 'off',
+        );
+        return {
+          retagged: true,
+          moved: false,
+          processed: false,
+          skipped: false,
+          lyricsAdded: lyricsResult,
+        };
       }
       this.log.warn(`Re-tag failed for ${track.name}, falling back to re-download`);
     }
@@ -588,7 +671,12 @@ class SyncCoreImpl {
     // don't increment itemsProcessed in the original (they fall through but don't re-download)
     return this.copyOrConvertTrack(
       track,
-      this.getOutputDir(track, destinationPath, options.preserveStructure ?? true, options.filesystemType ?? 'unknown'),
+      this.getOutputDir(
+        track,
+        destinationPath,
+        options.preserveStructure ?? true,
+        options.filesystemType ?? 'unknown',
+      ),
       outputPath,
       this.resolveCanonicalFilename(track, options),
       encodedBitrate !== null,
@@ -599,7 +687,7 @@ class SyncCoreImpl {
       destinationPath,
       trackMeta,
       options,
-      stats
+      stats,
     );
   }
 
@@ -616,19 +704,48 @@ class SyncCoreImpl {
     destinationPath: string,
     trackMeta: TrackMetadata,
     options: ReturnType<typeof resolveSyncOptions>,
-    stats: ReturnType<typeof createProgressStats>
-  ): Promise<{ retagged: boolean; moved: boolean; processed: boolean; skipped: boolean; lyricsAdded: number; error?: string }> {
+    stats: ReturnType<typeof createProgressStats>,
+  ): Promise<{
+    retagged: boolean;
+    moved: boolean;
+    processed: boolean;
+    skipped: boolean;
+    lyricsAdded: number;
+    error?: string;
+  }> {
     try {
       // Handle existing file at output path
       if (await this.deps.fs.exists(outputPath)) {
         if (willConvert) {
           // Cross-format: can't compare sizes meaningfully
           const existingSize = (await this.deps.fs.stat(outputPath)).size;
-          upsertSyncedTrack(destinationPath, itemId, track.id, outputPath, existingSize, currentHash, coverArtMode, encodedBitrate, track.path ?? null, this.serverRootPath || null);
+          upsertSyncedTrack(
+            destinationPath,
+            itemId,
+            track.id,
+            outputPath,
+            existingSize,
+            currentHash,
+            coverArtMode,
+            encodedBitrate,
+            track.path ?? null,
+            this.serverRootPath || null,
+          );
           return { retagged: false, moved: false, processed: true, skipped: true, lyricsAdded: 0 };
         }
         if (track.size && (await this.deps.fs.stat(outputPath)).size === track.size) {
-          upsertSyncedTrack(destinationPath, itemId, track.id, outputPath, track.size, currentHash, coverArtMode, encodedBitrate, track.path ?? null, this.serverRootPath || null);
+          upsertSyncedTrack(
+            destinationPath,
+            itemId,
+            track.id,
+            outputPath,
+            track.size,
+            currentHash,
+            coverArtMode,
+            encodedBitrate,
+            track.path ?? null,
+            this.serverRootPath || null,
+          );
           return { retagged: false, moved: false, processed: true, skipped: true, lyricsAdded: 0 };
         }
       }
@@ -636,25 +753,63 @@ class SyncCoreImpl {
       await this.deleteAlternateFormats(outputDir, outputFilename);
 
       if (willConvert) {
-        await this.convertAndCopy(track, outputPath, options.bitrate ?? '192k', options.embedMetadata !== false, coverArtMode);
+        await this.convertAndCopy(
+          track,
+          outputPath,
+          options.bitrate ?? '192k',
+          options.embedMetadata !== false,
+          coverArtMode,
+        );
         if (coverArtMode === 'companion') {
           const coverBuffer = await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode);
           if (coverBuffer) await this.writeCompanionCover(outputDir, coverBuffer);
         }
       } else {
-        const bytesWritten = await this.copyTrackFile(track, outputDir, outputPath, coverArtMode, destinationPath, trackMeta, options);
+        const bytesWritten = await this.copyTrackFile(
+          track,
+          outputDir,
+          outputPath,
+          coverArtMode,
+          destinationPath,
+          trackMeta,
+          options,
+        );
         stats.bytesTransferred += bytesWritten;
       }
 
-      upsertSyncedTrack(destinationPath, itemId, track.id, outputPath, track.size ?? null, currentHash, coverArtMode, encodedBitrate, track.path ?? null, this.serverRootPath || null);
+      upsertSyncedTrack(
+        destinationPath,
+        itemId,
+        track.id,
+        outputPath,
+        track.size ?? null,
+        currentHash,
+        coverArtMode,
+        encodedBitrate,
+        track.path ?? null,
+        this.serverRootPath || null,
+      );
 
       // Handle lyrics (after file is written/copied)
       const lyricsResult = await this.processLyrics(track, outputPath, options.lyricsMode ?? 'off');
 
-      return { retagged: false, moved: false, processed: true, skipped: false, lyricsAdded: lyricsResult };
+      return {
+        retagged: false,
+        moved: false,
+        processed: true,
+        skipped: false,
+        lyricsAdded: lyricsResult,
+      };
     } catch (error) {
       const errorMsg = `Failed to sync "${track.name}": ${error instanceof Error ? error.message : 'Unknown error'}`;
-      return { retagged: false, moved: false, processed: false, skipped: false, lyricsAdded: 0, error: errorMsg };
+      return {
+        retagged: false,
+        moved: false,
+        processed: false,
+        skipped: false,
+        lyricsAdded: 0,
+        error: errorMsg,
+      };
     }
   }
 
@@ -665,7 +820,7 @@ class SyncCoreImpl {
     coverArtMode: CoverArtMode,
     destinationPath: string,
     trackMeta: TrackMetadata,
-    options: ReturnType<typeof resolveSyncOptions>
+    options: ReturnType<typeof resolveSyncOptions>,
   ): Promise<number> {
     const data = await this.deps.api.downloadItem(track.id);
     const embedMetadata = options.embedMetadata !== false;
@@ -673,9 +828,10 @@ class SyncCoreImpl {
     if (embedMetadata) {
       const tmpPath = `${destinationPath}/.jt-tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       await this.deps.fs.writeFile(tmpPath, data);
-      const embedCover = coverArtMode === 'embed'
-        ? await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode)
-        : undefined;
+      const embedCover =
+        coverArtMode === 'embed'
+          ? await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode)
+          : undefined;
       const originalMeta = await this.deps.converter.readFileMetadata(tmpPath);
       const mergedMeta = mergeMetadata(originalMeta, trackMeta);
       const result = await this.deps.converter.tagFile(tmpPath, outputPath, mergedMeta, embedCover);
@@ -691,19 +847,23 @@ class SyncCoreImpl {
     }
     return track.size ?? 0;
   }
-  
+
   /**
    * Validate destination path
    */
   async validateDestination(path: string): Promise<DestinationValidation> {
     return validateDestination(path, this.deps.fs);
   }
-  
+
   /**
    * Estimate total size for items
    * If syncedIds is provided, accumulates syncedMusicBytes and newMusicBytes separately
    */
-  async estimateSize(itemIds: string[], itemTypes: Map<string, ItemType>, options?: { convertToMp3?: boolean; bitrate?: string; syncedIds?: Set<string> }): Promise<SizeEstimate> {
+  async estimateSize(
+    itemIds: string[],
+    itemTypes: Map<string, ItemType>,
+    options?: { convertToMp3?: boolean; bitrate?: string; syncedIds?: Set<string> },
+  ): Promise<SizeEstimate> {
     const { tracks, errors: _errors } = await this.deps.api.getTracksForItems(itemIds, itemTypes);
 
     const formatBreakdown = new Map<string, number>();
@@ -716,14 +876,14 @@ class SyncCoreImpl {
     for (const track of tracks) {
       // Apply MP3 conversion size reduction if needed
       const fmt = (track.format ?? '').toLowerCase();
-      const needsConversion = options?.convertToMp3 && fmt !== 'mp3'
+      const needsConversion = options?.convertToMp3 && fmt !== 'mp3';
       const effectiveSize = needsConversion
         ? estimatedMp3Size(
             track.size ?? 0,
-            (track.bitrate ?? 0) / 1000,  // track.bitrate is in bps, convert to kbps
-            parseBitrateKbps(options?.bitrate ?? '192k')
+            (track.bitrate ?? 0) / 1000, // track.bitrate is in bps, convert to kbps
+            parseBitrateKbps(options?.bitrate ?? '192k'),
           )
-        : (track.size ?? 0)
+        : (track.size ?? 0);
 
       totalBytes += effectiveSize;
 
@@ -753,7 +913,7 @@ class SyncCoreImpl {
       newMusicBytes,
     };
   }
-  
+
   /**
    * Remove synced items from destination.
    *
@@ -766,7 +926,7 @@ class SyncCoreImpl {
   async removeItems(
     itemIds: string[],
     itemTypes: Map<string, ItemType>,
-    destinationPath: string
+    destinationPath: string,
   ): Promise<{ removed: number; errors: string[] }> {
     if (itemIds.length === 0) return { removed: 0, errors: [] };
 
@@ -783,7 +943,7 @@ class SyncCoreImpl {
     const dirsToClean = new Set<string>();
 
     // Step 1: Delete M3U8 files for playlist items being removed
-    const playlistIds = itemIds.filter(id => itemTypes.get(id) === 'playlist');
+    const playlistIds = itemIds.filter((id) => itemTypes.get(id) === 'playlist');
     for (const playlistId of playlistIds) {
       try {
         const info = await this.deps.api.getItem(playlistId);
@@ -794,7 +954,9 @@ class SyncCoreImpl {
             await this.deps.fs.unlink(m3u8Path);
           }
         }
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     }
 
     if (tracks.length === 0) return { removed: 0, errors: [] };
@@ -815,7 +977,7 @@ class SyncCoreImpl {
         let deleted = false;
         for (const filename of [originalFilename, mp3Filename]) {
           const outputPath = `${outputDir}/${filename}`;
-          if (!await this.deps.fs.exists(outputPath)) continue;
+          if (!(await this.deps.fs.exists(outputPath))) continue;
 
           // Compute relative path for this specific file (respecting actual extension)
           if (this.serverRootPath && track.path) {
@@ -834,7 +996,9 @@ class SyncCoreImpl {
         }
         if (deleted) removed++;
       } catch (error) {
-        errors.push(`Failed to remove "${track.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+        errors.push(
+          `Failed to remove "${track.name}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
       }
     }
 
@@ -855,7 +1019,7 @@ class SyncCoreImpl {
     const referenced = new Set<string>();
     try {
       const entries = await this.deps.fs.readdir(destinationPath);
-      const m3u8Files = entries.filter(e => e.toLowerCase().endsWith('.m3u8'));
+      const m3u8Files = entries.filter((e) => e.toLowerCase().endsWith('.m3u8'));
       for (const m3u8File of m3u8Files) {
         try {
           const content = await this.deps.fs.readFile(`${destinationPath}/${m3u8File}`);
@@ -863,9 +1027,13 @@ class SyncCoreImpl {
             const trimmed = line.trim();
             if (trimmed && !trimmed.startsWith('#')) referenced.add(trimmed);
           }
-        } catch { /* ignore unreadable files */ }
+        } catch {
+          /* ignore unreadable files */
+        }
       }
-    } catch { /* ignore if destination doesn't exist */ }
+    } catch {
+      /* ignore if destination doesn't exist */
+    }
     return referenced;
   }
 
@@ -884,10 +1052,17 @@ class SyncCoreImpl {
     itemIds: string[],
     itemTypes: Map<string, ItemType>,
     destinationPath: string,
-    options: { coverArtMode: CoverArtMode; bitrate: '128k' | '192k' | '320k'; convertToMp3: boolean }
+    options: {
+      coverArtMode: CoverArtMode;
+      bitrate: '128k' | '192k' | '320k';
+      convertToMp3: boolean;
+    },
   ): Promise<SyncDiffResult> {
     // Resolve options to get filesystemType for path sanitization
-    const resolvedOptions = resolveSyncOptions({ convertToMp3: options.convertToMp3, bitrate: options.bitrate });
+    const resolvedOptions = resolveSyncOptions({
+      convertToMp3: options.convertToMp3,
+      bitrate: options.bitrate,
+    });
     const filesystemType = resolvedOptions.filesystemType ?? 'unknown';
 
     // Get synced tracks from device DB
@@ -902,7 +1077,7 @@ class SyncCoreImpl {
     // Fetch all tracks in a single batched call — no N+1
     const { tracks: allServerTracks, errors: fetchErrors } = await this.deps.api.getTracksForItems(
       Array.from(itemIds),
-      itemTypes
+      itemTypes,
     );
 
     // Group tracks by parentItemId for efficient diff per item
@@ -919,17 +1094,17 @@ class SyncCoreImpl {
     const playlistNames = new Map<string, string>();
     await Promise.all(
       itemIds
-        .filter(id => itemTypes.get(id) === 'playlist')
+        .filter((id) => itemTypes.get(id) === 'playlist')
         .map(async (playlistId) => {
           const info = await this.deps.api.getItem(playlistId);
           if (info) playlistNames.set(playlistId, info.name);
-        })
+        }),
     );
 
     // Build itemErrors from fetch errors
     const itemErrors: { itemId: string; itemName: string; error: string }[] = fetchErrors
-      .filter(e => e.includes('Failed to fetch'))
-      .map(e => {
+      .filter((e) => e.includes('Failed to fetch'))
+      .map((e) => {
         // Parse "Failed to fetch {type} {id}: {message}"
         const typeMatch = e.match(/Failed to fetch (artist|album|playlist) (.+?):/);
         const itemId = typeMatch ? typeMatch[2] : 'unknown';
@@ -948,7 +1123,7 @@ class SyncCoreImpl {
     // Items here have no synced_tracks entries. We treat them as fully unchanged to prevent
     // false "out of sync" after an app update. Once a v2 sync runs, synced_tracks gets
     // populated and normal diff logic takes over.
-    const legacySyncedItemIds = new Set(getSyncedItems(destinationPath).map(i => i.id));
+    const legacySyncedItemIds = new Set(getSyncedItems(destinationPath).map((i) => i.id));
 
     const itemDiffs: ItemDiff[] = [];
     let totalNew = 0;
@@ -959,9 +1134,7 @@ class SyncCoreImpl {
 
     for (const itemId of itemIds) {
       const itemType = itemTypes.get(itemId) ?? 'album';
-      const itemName = itemType === 'playlist'
-        ? (playlistNames.get(itemId) ?? itemId)
-        : itemId;
+      const itemName = itemType === 'playlist' ? (playlistNames.get(itemId) ?? itemId) : itemId;
 
       const serverTracks = tracksByItem.get(itemId) ?? [];
 
@@ -977,7 +1150,7 @@ class SyncCoreImpl {
       // This prevents false "out of sync" after an app update. Once a v2 sync runs and writes
       // synced_tracks records, this early-return is no longer triggered and normal diff resumes.
       if (syncedItemTracks.length === 0 && legacySyncedItemIds.has(itemId)) {
-        const unchangedChanges: TrackChange[] = serverTracks.map(t => ({
+        const unchangedChanges: TrackChange[] = serverTracks.map((t) => ({
           trackId: t.id,
           trackName: t.name,
           changeType: 'unchanged' as const,
@@ -988,7 +1161,13 @@ class SyncCoreImpl {
           itemName,
           itemType,
           changes: unchangedChanges,
-          summary: { new: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: unchangedChanges.length },
+          summary: {
+            new: 0,
+            metadataChanged: 0,
+            removed: 0,
+            pathChanged: 0,
+            unchanged: unchangedChanges.length,
+          },
         });
         continue;
       }
@@ -996,7 +1175,10 @@ class SyncCoreImpl {
       const changes: TrackChange[] = [];
 
       // For artists: track changes grouped by album (parentItemId)
-      const albumChanges = new Map<string, { newTracks: number; metadataChanged: number; pathChanged: number }>();
+      const albumChanges = new Map<
+        string,
+        { newTracks: number; metadataChanged: number; pathChanged: number }
+      >();
 
       // Detect new / changed / unchanged server tracks
       for (const track of serverTracks) {
@@ -1009,29 +1191,69 @@ class SyncCoreImpl {
           totalNew++;
           // Track new status in albumChanges if parentItemId available
           if (track.parentItemId) {
-            const prev = albumChanges.get(track.parentItemId) ?? { newTracks: 0, metadataChanged: 0, pathChanged: 0 };
-            albumChanges.set(track.parentItemId, { newTracks: prev.newTracks + 1, metadataChanged: prev.metadataChanged, pathChanged: prev.pathChanged });
+            const prev = albumChanges.get(track.parentItemId) ?? {
+              newTracks: 0,
+              metadataChanged: 0,
+              pathChanged: 0,
+            };
+            albumChanges.set(track.parentItemId, {
+              newTracks: prev.newTracks + 1,
+              metadataChanged: prev.metadataChanged,
+              pathChanged: prev.pathChanged,
+            });
           }
         } else if (synced.metadataHash !== currentHash) {
-          changes.push({ trackId: track.id, trackName: track.name, changeType: 'metadata_changed' });
+          changes.push({
+            trackId: track.id,
+            trackName: track.name,
+            changeType: 'metadata_changed',
+          });
           totalMetaChanged++;
           if (track.parentItemId) {
-            const prev = albumChanges.get(track.parentItemId) ?? { newTracks: 0, metadataChanged: 0, pathChanged: 0 };
-            albumChanges.set(track.parentItemId, { newTracks: prev.newTracks, metadataChanged: prev.metadataChanged + 1, pathChanged: prev.pathChanged });
+            const prev = albumChanges.get(track.parentItemId) ?? {
+              newTracks: 0,
+              metadataChanged: 0,
+              pathChanged: 0,
+            };
+            albumChanges.set(track.parentItemId, {
+              newTracks: prev.newTracks,
+              metadataChanged: prev.metadataChanged + 1,
+              pathChanged: prev.pathChanged,
+            });
           }
         } else if (options.convertToMp3 && synced.encodedBitrate !== options.bitrate) {
           changes.push({ trackId: track.id, trackName: track.name, changeType: 'bitrate_changed' });
           totalMetaChanged++;
           if (track.parentItemId) {
-            const prev = albumChanges.get(track.parentItemId) ?? { newTracks: 0, metadataChanged: 0, pathChanged: 0 };
-            albumChanges.set(track.parentItemId, { newTracks: prev.newTracks, metadataChanged: prev.metadataChanged + 1, pathChanged: prev.pathChanged });
+            const prev = albumChanges.get(track.parentItemId) ?? {
+              newTracks: 0,
+              metadataChanged: 0,
+              pathChanged: 0,
+            };
+            albumChanges.set(track.parentItemId, {
+              newTracks: prev.newTracks,
+              metadataChanged: prev.metadataChanged + 1,
+              pathChanged: prev.pathChanged,
+            });
           }
         } else if (synced.coverArtMode !== options.coverArtMode) {
-          changes.push({ trackId: track.id, trackName: track.name, changeType: 'cover_art_changed' });
+          changes.push({
+            trackId: track.id,
+            trackName: track.name,
+            changeType: 'cover_art_changed',
+          });
           totalMetaChanged++;
           if (track.parentItemId) {
-            const prev = albumChanges.get(track.parentItemId) ?? { newTracks: 0, metadataChanged: 0, pathChanged: 0 };
-            albumChanges.set(track.parentItemId, { newTracks: prev.newTracks, metadataChanged: prev.metadataChanged + 1, pathChanged: prev.pathChanged });
+            const prev = albumChanges.get(track.parentItemId) ?? {
+              newTracks: 0,
+              metadataChanged: 0,
+              pathChanged: 0,
+            };
+            albumChanges.set(track.parentItemId, {
+              newTracks: prev.newTracks,
+              metadataChanged: prev.metadataChanged + 1,
+              pathChanged: prev.pathChanged,
+            });
           }
         } else {
           // Legacy records (serverRootPath = NULL) cannot be reliably path-compared:
@@ -1052,19 +1274,31 @@ class SyncCoreImpl {
               destinationPath,
               true,
               filesystemType,
-              rootPathForDiff
+              rootPathForDiff,
             );
             const outputFilename = this.resolveCanonicalFilename(
               { ...track, path: serverPathForDiff },
-              resolvedOptions
+              resolvedOptions,
             );
             const expectedPath = `${outputDir}/${outputFilename}`;
             if (synced.destinationPath !== expectedPath) {
-              changes.push({ trackId: track.id, trackName: track.name, changeType: 'path_changed' });
+              changes.push({
+                trackId: track.id,
+                trackName: track.name,
+                changeType: 'path_changed',
+              });
               totalPathChanged++;
               if (track.parentItemId) {
-                const prev = albumChanges.get(track.parentItemId) ?? { newTracks: 0, metadataChanged: 0, pathChanged: 0 };
-                albumChanges.set(track.parentItemId, { newTracks: prev.newTracks, metadataChanged: prev.metadataChanged, pathChanged: prev.pathChanged + 1 });
+                const prev = albumChanges.get(track.parentItemId) ?? {
+                  newTracks: 0,
+                  metadataChanged: 0,
+                  pathChanged: 0,
+                };
+                albumChanges.set(track.parentItemId, {
+                  newTracks: prev.newTracks,
+                  metadataChanged: prev.metadataChanged,
+                  pathChanged: prev.pathChanged + 1,
+                });
               }
             } else {
               changes.push({ trackId: track.id, trackName: track.name, changeType: 'unchanged' });
@@ -1076,17 +1310,22 @@ class SyncCoreImpl {
 
       // Detect removed tracks: in synced DB for this item but not on server
       for (const synced of syncedItemTracks) {
-        if (!serverTracks.find(t => t.id === synced.trackId)) {
-          changes.push({ trackId: synced.trackId, trackName: synced.trackId, changeType: 'removed' });
+        if (!serverTracks.find((t) => t.id === synced.trackId)) {
+          changes.push({
+            trackId: synced.trackId,
+            trackName: synced.trackId,
+            changeType: 'removed',
+          });
           totalRemoved++;
         }
       }
 
       // For artist items, compute sub-items (per-album breakdown)
       // albumChanges tracks metadata/path changes by parentItemId (album ID)
-      const subItems: ItemDiff['subItems'] = itemType === 'artist' && albumChanges.size > 0
-        ? [...albumChanges.entries()].map(([id, s]) => ({ itemId: id, summary: s }))
-        : undefined;
+      const subItems: ItemDiff['subItems'] =
+        itemType === 'artist' && albumChanges.size > 0
+          ? [...albumChanges.entries()].map(([id, s]) => ({ itemId: id, summary: s }))
+          : undefined;
 
       itemDiffs.push({
         itemId,
@@ -1094,11 +1333,13 @@ class SyncCoreImpl {
         itemType,
         changes,
         summary: {
-          new: changes.filter(c => c.changeType === 'new').length,
-          metadataChanged: changes.filter(c => ['metadata_changed', 'cover_art_changed', 'bitrate_changed'].includes(c.changeType)).length,
-          removed: changes.filter(c => c.changeType === 'removed').length,
-          pathChanged: changes.filter(c => c.changeType === 'path_changed').length,
-          unchanged: changes.filter(c => c.changeType === 'unchanged').length,
+          new: changes.filter((c) => c.changeType === 'new').length,
+          metadataChanged: changes.filter((c) =>
+            ['metadata_changed', 'cover_art_changed', 'bitrate_changed'].includes(c.changeType),
+          ).length,
+          removed: changes.filter((c) => c.changeType === 'removed').length,
+          pathChanged: changes.filter((c) => c.changeType === 'path_changed').length,
+          unchanged: changes.filter((c) => c.changeType === 'unchanged').length,
         },
         ...(subItems && { subItems }),
       });
@@ -1118,7 +1359,7 @@ class SyncCoreImpl {
   }
 
   // Private helpers
-  
+
   /**
    * Get output directory path.
    * Preserves original server path structure when available; falls back to metadata.
@@ -1137,7 +1378,7 @@ class SyncCoreImpl {
     basePath: string,
     preserveStructure: boolean,
     filesystemType: FilesystemType = 'unknown',
-    serverRootPathOverride?: string
+    serverRootPathOverride?: string,
   ): string {
     // Prefer per-track override (from sync-time storage), fall back to instance value
     const effectiveRootPath = serverRootPathOverride ?? this.serverRootPath;
@@ -1152,7 +1393,7 @@ class SyncCoreImpl {
       const parts = serverRelativePath.split('/');
       if (parts.length > 1) {
         parts.pop(); // remove filename
-        const sanitized = parts.map(p => sanitizePathComponent(p, filesystemType));
+        const sanitized = parts.map((p) => sanitizePathComponent(p, filesystemType));
         return `${basePath}/${sanitized.join('/')}`;
       }
       return basePath;
@@ -1164,7 +1405,7 @@ class SyncCoreImpl {
     if (track.artists?.[0]) {
       const artist = sanitizePathComponent(
         track.artists[0].replace(/[<>:"/\\|?*]/g, '_').slice(0, 100),
-        filesystemType
+        filesystemType,
       );
       parts.push(artist);
     }
@@ -1177,7 +1418,7 @@ class SyncCoreImpl {
 
     return parts.join('/');
   }
-  
+
   /**
    * Get output filename
    * Uses original filename from server path if available, otherwise reconstructs from metadata
@@ -1188,8 +1429,15 @@ class SyncCoreImpl {
    * whether to skip, overwrite, or download.
    */
   private resolveCanonicalFilename(
-    track: { name: string; path: string; format: string; trackNumber?: number; artists?: string[]; album?: string },
-    options: ReturnType<typeof resolveSyncOptions>
+    track: {
+      name: string;
+      path: string;
+      format: string;
+      trackNumber?: number;
+      artists?: string[];
+      album?: string;
+    },
+    options: ReturnType<typeof resolveSyncOptions>,
   ): string {
     if (track.path) {
       return this.resolveFilenameFromPath(track, options);
@@ -1199,7 +1447,7 @@ class SyncCoreImpl {
 
   private resolveFilenameFromPath(
     track: { path: string; format: string },
-    options: ReturnType<typeof resolveSyncOptions>
+    options: ReturnType<typeof resolveSyncOptions>,
   ): string {
     let filename = getFilenameFromPath(track.path);
 
@@ -1222,8 +1470,14 @@ class SyncCoreImpl {
   }
 
   private buildFilenameFromMetadata(
-    track: { name: string; format: string; trackNumber?: number; artists?: string[]; album?: string },
-    options: ReturnType<typeof resolveSyncOptions>
+    track: {
+      name: string;
+      format: string;
+      trackNumber?: number;
+      artists?: string[];
+      album?: string;
+    },
+    options: ReturnType<typeof resolveSyncOptions>,
   ): string {
     const extension = options.convertToMp3 ? 'mp3' : track.format.toLowerCase();
     const baseName = track.name.replace(/[<>:"/\\|?*]/g, '_');
@@ -1237,7 +1491,7 @@ class SyncCoreImpl {
 
     return `${baseName}.${extension}`;
   }
-  
+
   /**
    * Generate M3U8 playlist files in the destination root.
    * Each file uses relative paths to audio files under lib/.
@@ -1245,7 +1499,7 @@ class SyncCoreImpl {
   private async generateM3u8Files(
     playlistIds: string[],
     destinationPath: string,
-    options: ReturnType<typeof resolveSyncOptions>
+    options: ReturnType<typeof resolveSyncOptions>,
   ): Promise<void> {
     for (const playlistId of playlistIds) {
       try {
@@ -1275,7 +1529,7 @@ class SyncCoreImpl {
           if (fs !== 'unknown') {
             relativePath = relativePath
               .split('/')
-              .map(segment => sanitizePathComponent(segment, fs))
+              .map((segment) => sanitizePathComponent(segment, fs))
               .join('/');
           }
 
@@ -1288,12 +1542,20 @@ class SyncCoreImpl {
         await this.deps.fs.writeFile(m3u8Path, Buffer.from(lines.join('\n') + '\n', 'utf8'));
         this.log.info(`M3U8 written: ${safeName}.m3u8 (${lines.length - 1} tracks)`);
       } catch (error) {
-        this.log.warn(`M3U8 generation failed for playlist ${playlistId}: ${error instanceof Error ? error.message : 'unknown error'}`);
+        this.log.warn(
+          `M3U8 generation failed for playlist ${playlistId}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        );
       }
     }
   }
 
-  private readonly SYSTEM_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini', '.Spotlight-V100', '.Trashes']);
+  private readonly SYSTEM_FILES = new Set([
+    '.DS_Store',
+    'Thumbs.db',
+    'desktop.ini',
+    '.Spotlight-V100',
+    '.Trashes',
+  ]);
 
   private isMusicFile(name: string): boolean {
     // Any non-system, non-hidden file counts as content
@@ -1304,11 +1566,15 @@ class SyncCoreImpl {
     if (dir === basePath || !dir.startsWith(basePath + '/')) return;
     try {
       const contents = await this.deps.fs.readdir(dir);
-      const meaningfulContents = contents.filter(f => this.isMusicFile(f));
+      const meaningfulContents = contents.filter((f) => this.isMusicFile(f));
       if (meaningfulContents.length === 0) {
         // Delete system/hidden files first so rmdir can succeed
         for (const f of contents) {
-          try { await this.deps.fs.unlink(`${dir}/${f}`); } catch { /* ignore */ }
+          try {
+            await this.deps.fs.unlink(`${dir}/${f}`);
+          } catch {
+            /* ignore */
+          }
         }
         await this.deps.fs.rmdir(dir);
         const parent = dir.substring(0, dir.lastIndexOf('/'));
@@ -1361,7 +1627,7 @@ class SyncCoreImpl {
   private async getCoverArtBuffer(
     trackId: string,
     albumId: string | undefined,
-    mode: CoverArtMode
+    mode: CoverArtMode,
   ): Promise<Buffer | undefined> {
     if (mode === 'off') return undefined;
 
@@ -1377,8 +1643,15 @@ class SyncCoreImpl {
       // Discard cover art exceeding 5MB to avoid embedding bloated images
       const MAX_COVER_SIZE = 5 * 1024 * 1024; // 5 MB
       if (buffer.length > MAX_COVER_SIZE) {
-        this.progressEmitter.emit({ phase: this.currentPhase, current: 0, total: 0, warning: 'cover_art_too_large' });
-        this.log.warn(`Cover art for track ${trackId} exceeds 5 MB (${buffer.length} bytes) — discarding`);
+        this.progressEmitter.emit({
+          phase: this.currentPhase,
+          current: 0,
+          total: 0,
+          warning: 'cover_art_too_large',
+        });
+        this.log.warn(
+          `Cover art for track ${trackId} exceeds 5 MB (${buffer.length} bytes) — discarding`,
+        );
         return undefined;
       }
 
@@ -1387,7 +1660,12 @@ class SyncCoreImpl {
     } catch {
       this.coverArtFailCount++;
       if (this.coverArtFailCount === 1) {
-        this.progressEmitter.emit({ phase: this.currentPhase, current: 0, total: 0, warning: 'cover_art_unavailable' });
+        this.progressEmitter.emit({
+          phase: this.currentPhase,
+          current: 0,
+          total: 0,
+          warning: 'cover_art_unavailable',
+        });
       }
       this.log.warn(`Cover art not available for track ${trackId}`);
       return undefined;
@@ -1404,7 +1682,9 @@ class SyncCoreImpl {
       await this.deps.fs.writeFile(`${dir}/cover.jpg`, coverBuffer);
       this.log.debug(`Companion cover written: ${dir}/cover.jpg`);
     } catch (err) {
-      this.log.warn(`Failed to write companion cover in ${dir}: ${err instanceof Error ? err.message : err}`);
+      this.log.warn(
+        `Failed to write companion cover in ${dir}: ${err instanceof Error ? err.message : err}`,
+      );
     }
   }
 
@@ -1412,7 +1692,11 @@ class SyncCoreImpl {
    * Process lyrics for a track based on the lyrics mode.
    * Returns 1 if lyrics were successfully added, 0 otherwise.
    */
-  private async processLyrics(track: TrackInfo, outputPath: string, lyricsMode: LyricsMode): Promise<number> {
+  private async processLyrics(
+    track: TrackInfo,
+    outputPath: string,
+    lyricsMode: LyricsMode,
+  ): Promise<number> {
     if (lyricsMode === 'off') return 0;
 
     try {
@@ -1430,7 +1714,12 @@ class SyncCoreImpl {
       if (lyricsMode === 'embed') {
         // Embed lyrics into the audio file
         const format = track.format.toLowerCase();
-        const result = await this.deps.converter.embedLyrics?.(outputPath, outputPath, lyrics, format);
+        const result = await this.deps.converter.embedLyrics?.(
+          outputPath,
+          outputPath,
+          lyrics,
+          format,
+        );
         if (result?.success) {
           this.log.debug(`Lyrics embedded in: ${outputPath}`);
           return 1;
@@ -1444,7 +1733,9 @@ class SyncCoreImpl {
       return 0;
     } catch (error) {
       // Non-fatal: skip lyrics for this track
-      this.log.debug(`Could not process lyrics for ${track.name}: ${error instanceof Error ? error.message : 'unknown error'}`);
+      this.log.debug(
+        `Could not process lyrics for ${track.name}: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
       return 0;
     }
   }
@@ -1454,7 +1745,7 @@ class SyncCoreImpl {
     outputPath: string,
     bitrate: '128k' | '192k' | '320k',
     embedMetadata: boolean,
-    coverArtMode: CoverArtMode
+    coverArtMode: CoverArtMode,
   ): Promise<void> {
     // Buffer stream to temp file so we can read original file metadata before converting
     const tmpPath = `${outputPath}.jt-tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1476,11 +1767,20 @@ class SyncCoreImpl {
       metadata = mergeMetadata(originalMeta, jellyfinMeta);
     }
 
-    const embedCover = coverArtMode === 'embed' ? await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode) : undefined;
+    const embedCover =
+      coverArtMode === 'embed'
+        ? await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode)
+        : undefined;
 
     // Convert from the buffered temp file (preserves original stream data)
     const readStream = await this.deps.fs.createReadStream(tmpPath);
-    const result = await this.deps.converter.convertStreamToMp3WithMeta(readStream, outputPath, bitrate, metadata, embedCover);
+    const result = await this.deps.converter.convertStreamToMp3WithMeta(
+      readStream,
+      outputPath,
+      bitrate,
+      metadata,
+      embedCover,
+    );
     await this.deps.fs.unlink(tmpPath).catch(() => {}); // clean up temp
 
     if (!result.success) {
@@ -1500,9 +1800,11 @@ export function createSyncCore(config: SyncConfig, deps?: Partial<SyncDependenci
     cancel: () => core.cancel(),
     validateDestination: (path) => core.validateDestination(path),
     estimateSize: (itemIds, itemTypes) => core.estimateSize(itemIds, itemTypes),
-    removeItems: (itemIds, itemTypes, destinationPath) => core.removeItems(itemIds, itemTypes, destinationPath),
+    removeItems: (itemIds, itemTypes, destinationPath) =>
+      core.removeItems(itemIds, itemTypes, destinationPath),
     testConnection: () => core.testConnection(),
-    analyzeDiff: (itemIds, itemTypes, destinationPath, options) => core.analyzeDiff(itemIds, itemTypes, destinationPath, options),
+    analyzeDiff: (itemIds, itemTypes, destinationPath, options) =>
+      core.analyzeDiff(itemIds, itemTypes, destinationPath, options),
   };
 }
 
@@ -1513,18 +1815,32 @@ export interface SyncCore {
   sync(input: SyncInput, onProgress?: ProgressCallback): Promise<SyncResult>;
   cancel(): void;
   validateDestination(path: string): Promise<DestinationValidation>;
-  estimateSize(itemIds: string[], itemTypes: Map<string, ItemType>, options?: { convertToMp3?: boolean; bitrate?: string; syncedIds?: Set<string> }): Promise<SizeEstimate>;
-  removeItems(itemIds: string[], itemTypes: Map<string, ItemType>, destinationPath: string): Promise<{ removed: number; errors: string[] }>;
+  estimateSize(
+    itemIds: string[],
+    itemTypes: Map<string, ItemType>,
+    options?: { convertToMp3?: boolean; bitrate?: string; syncedIds?: Set<string> },
+  ): Promise<SizeEstimate>;
+  removeItems(
+    itemIds: string[],
+    itemTypes: Map<string, ItemType>,
+    destinationPath: string,
+  ): Promise<{ removed: number; errors: string[] }>;
   testConnection(): Promise<{ success: boolean; error?: string }>;
-  analyzeDiff(itemIds: string[], itemTypes: Map<string, ItemType>, destinationPath: string, options: { coverArtMode: CoverArtMode; bitrate: '128k' | '192k' | '320k'; convertToMp3: boolean }): Promise<SyncDiffResult>;
+  analyzeDiff(
+    itemIds: string[],
+    itemTypes: Map<string, ItemType>,
+    destinationPath: string,
+    options: {
+      coverArtMode: CoverArtMode;
+      bitrate: '128k' | '192k' | '320k';
+      convertToMp3: boolean;
+    },
+  ): Promise<SyncDiffResult>;
 }
 
 /**
  * Export factory for tests
  */
-export function createTestSyncCore(
-  config: SyncConfig,
-  deps: SyncDependencies
-): SyncCore {
+export function createTestSyncCore(config: SyncConfig, deps: SyncDependencies): SyncCore {
   return new SyncCoreImpl(config, deps);
 }

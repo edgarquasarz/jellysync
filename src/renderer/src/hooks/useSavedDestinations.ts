@@ -1,67 +1,70 @@
-import { useState } from 'react'
-import type { SavedDestination } from '../appTypes'
+import { useState } from 'react';
+import type { SavedDestination } from '../appTypes';
 
-const STORAGE_KEY = 'jellytunes_destinations'
+const STORAGE_KEY = 'jellytunes_destinations';
 
 function load(): SavedDestination[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
   } catch {
-    return []
+    return [];
   }
 }
 
 function save(destinations: SavedDestination[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(destinations))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(destinations));
 }
 
 function nameFromPath(path: string): string {
-  return path.split('/').filter(Boolean).pop() ?? path
+  return path.split('/').filter(Boolean).pop() ?? path;
 }
 
 export function useSavedDestinations() {
-  const [destinations, setDestinations] = useState<SavedDestination[]>(load)
+  const [destinations, setDestinations] = useState<SavedDestination[]>(load);
 
   const addDestination = (path: string, name?: string): SavedDestination => {
-    const existing = destinations.find(d => d.path === path)
-    if (existing) return existing
+    const existing = destinations.find((d) => d.path === path);
+    if (existing) return existing;
 
     const dest: SavedDestination = {
       id: String(Date.now()),
       name: name ?? nameFromPath(path),
       path,
-    }
-    setDestinations(prev => {
-      const updated = [...prev, dest]
-      save(updated)
-      return updated
-    })
-    return dest
-  }
+    };
+    setDestinations((prev) => {
+      const updated = [...prev, dest];
+      save(updated);
+      return updated;
+    });
+    return dest;
+  };
 
   const removeDestination = (id: string): void => {
-    setDestinations(prev => {
-      const updated = prev.filter(d => d.id !== id)
-      save(updated)
-      return updated
-    })
-  }
+    setDestinations((prev) => {
+      const updated = prev.filter((d) => d.id !== id);
+      save(updated);
+      return updated;
+    });
+  };
 
   const renameDestination = (id: string, name: string): void => {
-    setDestinations(prev => {
-      const updated = prev.map(d => d.id === id ? { ...d, name } : d)
-      save(updated)
-      return updated
-    })
-  }
+    setDestinations((prev) => {
+      const updated = prev.map((d) => (d.id === id ? { ...d, name } : d));
+      save(updated);
+      return updated;
+    });
+  };
 
-  const updateDestination = (id: string, patch: Partial<Pick<SavedDestination, 'convertToMp3' | 'bitrate' | 'coverArtMode'>>): void => {
-    setDestinations(prev => {
-      const updated = prev.map(d => d.id === id ? { ...d, ...patch } : d)
-      save(updated)
-      return updated
-    })
-  }
+  const updateDestination = (
+    id: string,
+    patch: Partial<Pick<SavedDestination, 'convertToMp3' | 'bitrate' | 'coverArtMode'>>,
+  ): void => {
+    setDestinations((prev) => {
+      const updated = prev.map((d) => (d.id === id ? { ...d, ...patch } : d));
+      save(updated);
+      return updated;
+    });
+  };
 
-  return { destinations, addDestination, removeDestination, renameDestination, updateDestination }
+  return { destinations, addDestination, removeDestination, renameDestination, updateDestination };
 }

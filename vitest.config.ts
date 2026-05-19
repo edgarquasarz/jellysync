@@ -1,6 +1,6 @@
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
@@ -27,7 +27,7 @@ export default defineConfig({
       '@main': resolve(__dirname, 'src/main'),
       '@preload': resolve(__dirname, 'src/preload'),
       '@ffmpeg-installer/ffmpeg': resolve(__dirname, 'src/sync/__mocks__/ffmpeg-installer.ts'),
-      electron: resolve(__dirname, 'src/sync/__mocks__/electron.ts'),
+      'electron': resolve(__dirname, 'src/sync/__mocks__/electron.ts'),
     },
   },
-})
+});

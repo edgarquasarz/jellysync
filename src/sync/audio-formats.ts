@@ -2,7 +2,16 @@
 export const LOSSLESS_FORMATS = new Set(['flac', 'wav', 'aiff', 'aif', 'wv', 'ape', 'alac']);
 
 /** All supported audio file extensions on the destination device */
-export const ALL_AUDIO_EXTENSIONS = ['mp3', 'flac', 'wav', 'm4a', 'aac', 'ogg', 'wma', 'opus'] as const;
+export const ALL_AUDIO_EXTENSIONS = [
+  'mp3',
+  'flac',
+  'wav',
+  'm4a',
+  'aac',
+  'ogg',
+  'wma',
+  'opus',
+] as const;
 
 /**
  * Concurrency for tracks that need FFmpeg conversion.

@@ -1,17 +1,25 @@
-import { User } from 'lucide-react'
-import { GradientMusicIcon } from './GradientMusicIcon'
-import type { JellyfinUser } from '../appTypes'
+import { User } from 'lucide-react';
+import { GradientMusicIcon } from './GradientMusicIcon';
+import type { JellyfinUser } from '../appTypes';
 
 interface UserSelectorScreenProps {
-  users: JellyfinUser[]
-  serverUrl: string
-  onSelect: (user: JellyfinUser) => void
-  onCancel: () => void
+  users: JellyfinUser[];
+  serverUrl: string;
+  onSelect: (user: JellyfinUser) => void;
+  onCancel: () => void;
 }
 
-export function UserSelectorScreen({ users, serverUrl, onSelect, onCancel }: UserSelectorScreenProps): JSX.Element {
+export function UserSelectorScreen({
+  users,
+  serverUrl,
+  onSelect,
+  onCancel,
+}: UserSelectorScreenProps): JSX.Element {
   return (
-    <div data-testid="user-selector-screen" className="h-screen flex items-center justify-center bg-surface text-on_surface">
+    <div
+      data-testid="user-selector-screen"
+      className="h-screen flex items-center justify-center bg-surface text-on_surface"
+    >
       <div className="w-full max-w-md p-8">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <GradientMusicIcon className="w-10 h-10" />
@@ -21,7 +29,8 @@ export function UserSelectorScreen({ users, serverUrl, onSelect, onCancel }: Use
         <div className="bg-surface_container_low rounded-xl p-6 border border-outline_variant">
           <h2 className="text-headline-md mb-2">Select your user</h2>
           <p className="text-body-md text-on_surface_variant mb-4">
-            Could not automatically identify your account. Please select which Jellyfin user you want to use for sync:
+            Could not automatically identify your account. Please select which Jellyfin user you
+            want to use for sync:
           </p>
 
           <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
@@ -41,14 +50,16 @@ export function UserSelectorScreen({ users, serverUrl, onSelect, onCancel }: Use
                       alt={user.Name}
                       className="w-10 h-10 rounded-full object-cover"
                       onError={(e) => {
-                        const img = e.target as HTMLImageElement
-                        img.style.display = 'none'
-                        const parent = img.parentElement
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                        const parent = img.parentElement;
                         if (parent) {
-                          const fallback = document.createElement('div')
-                          fallback.className = 'w-10 h-10 bg-zinc-600 rounded-full flex items-center justify-center'
-                          fallback.innerHTML = '<svg class="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>'
-                          parent.appendChild(fallback)
+                          const fallback = document.createElement('div');
+                          fallback.className =
+                            'w-10 h-10 bg-zinc-600 rounded-full flex items-center justify-center';
+                          fallback.innerHTML =
+                            '<svg class="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>';
+                          parent.appendChild(fallback);
                         }
                       }}
                     />
@@ -75,5 +86,5 @@ export function UserSelectorScreen({ users, serverUrl, onSelect, onCancel }: Use
         </div>
       </div>
     </div>
-  )
+  );
 }

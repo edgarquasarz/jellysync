@@ -12,16 +12,18 @@ const GITHUB_REPO = 'orainlabs/jellytunes';
 // ─── Color helpers (terminal colors without external deps) ───────────────────
 
 const ESC = '\x1b';
-const reset  = `${ESC}[0m`;
-const bold   = `${ESC}[1m`;
-const dim    = `${ESC}[2m`;
-const cyan   = `${ESC}[36m`;
-const green  = `${ESC}[32m`;
+const reset = `${ESC}[0m`;
+const bold = `${ESC}[1m`;
+const dim = `${ESC}[2m`;
+const cyan = `${ESC}[36m`;
+const green = `${ESC}[32m`;
 const yellow = `${ESC}[33m`;
 const magenta = `${ESC}[35m`;
-const red    = `${ESC}[31m`;
+const red = `${ESC}[31m`;
 
-function c(color, text) { return `${color}${text}${reset}`; }
+function c(color, text) {
+  return `${color}${text}${reset}`;
+}
 
 // ─── Help ────────────────────────────────────────────────────────────────────
 
@@ -200,11 +202,11 @@ function section(label, entries, width = 38) {
 }
 
 function printDashboard(cfData, githubData, { from, to }) {
-  const byDate     = aggregateByDate(cfData);
-  const byVersion  = aggregateByVersion(cfData);
+  const byDate = aggregateByDate(cfData);
+  const byVersion = aggregateByVersion(cfData);
   const byPlatform = aggregateByPlatform(cfData);
-  const byCountry  = aggregateByCountry(cfData);
-  const totalCF    = Object.values(byDate).reduce((a, b) => a + b, 0);
+  const byCountry = aggregateByCountry(cfData);
+  const totalCF = Object.values(byDate).reduce((a, b) => a + b, 0);
 
   console.log(`\n${bold}${magenta}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}`);
   console.log(`  ${cyan}${bold}📊  JellyTunes Analytics${reset}`);
@@ -212,16 +214,24 @@ function printDashboard(cfData, githubData, { from, to }) {
   console.log(`${magenta}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}`);
 
   // ── Update Checks by Date ──
-  section('📅 Update Checks by Date',
-    Object.keys(byDate).sort().map(d => [d, byDate[d]]));
+  section(
+    '📅 Update Checks by Date',
+    Object.keys(byDate)
+      .sort()
+      .map((d) => [d, byDate[d]]),
+  );
 
   // ── Update Checks by Version ──
-  section('🏷️ Update Checks by Version',
-    Object.entries(byVersion).sort((a, b) => b[1] - a[1]));
+  section(
+    '🏷️ Update Checks by Version',
+    Object.entries(byVersion).sort((a, b) => b[1] - a[1]),
+  );
 
   // ── Update Checks by Platform ──
-  section('💻 Update Checks by Platform',
-    Object.entries(byPlatform).sort((a, b) => b[1] - a[1]));
+  section(
+    '💻 Update Checks by Platform',
+    Object.entries(byPlatform).sort((a, b) => b[1] - a[1]),
+  );
 
   // ── Update Checks by Country ──
   console.log(`\n  ${cyan}${bold}🌍 Update Checks by Country (top 15)${reset}`);
@@ -244,12 +254,12 @@ function printDashboard(cfData, githubData, { from, to }) {
   if (githubData && githubData.length > 0) {
     console.log(`\n  ${cyan}${bold}📥 GitHub Downloads by Release${reset}`);
     console.log(`  ${dim}${'─'.repeat(54)}${reset}`);
-    const releases = githubData.slice(0, 10).map(r => ({
+    const releases = githubData.slice(0, 10).map((r) => ({
       tag: r.tag_name,
       date: r.published_at.slice(0, 10),
       total: r.assets.reduce((s, a) => s + a.download_count, 0),
     }));
-    const maxDL = Math.max(...releases.map(r => r.total), 1);
+    const maxDL = Math.max(...releases.map((r) => r.total), 1);
     for (const { tag, date, total } of releases) {
       const filled = Math.round((total / maxDL) * 38);
       const block = `${yellow}${'█'.repeat(filled)}${reset}`;
@@ -269,10 +279,8 @@ function printDashboard(cfData, githubData, { from, to }) {
 function buildChartliData(cfData) {
   const byDateVersion = aggregateByDateVersion(cfData);
   const dates = Object.keys(byDateVersion).sort();
-  const versions = [...new Set(Object.values(byDateVersion).flatMap(d => Object.keys(d)))].sort();
-  const lines = dates.map(date =>
-    versions.map(v => byDateVersion[date]?.[v] ?? 0).join(' '),
-  );
+  const versions = [...new Set(Object.values(byDateVersion).flatMap((d) => Object.keys(d)))].sort();
+  const lines = dates.map((date) => versions.map((v) => byDateVersion[date]?.[v] ?? 0).join(' '));
   return { dates, versions, lines };
 }
 
@@ -288,10 +296,17 @@ async function printChartli(cfData, type = 'ascii') {
     const out = execFileSync(
       'chartli',
       [
-        tmpFile, '-t', type,
-        '-w', '60', '-h', '14',
-        '--x-labels', dates.join(','),
-        '--series-labels', versions.join(','),
+        tmpFile,
+        '-t',
+        type,
+        '-w',
+        '60',
+        '-h',
+        '14',
+        '--x-labels',
+        dates.join(','),
+        '--series-labels',
+        versions.join(','),
       ],
       { encoding: 'utf8' },
     );
@@ -300,13 +315,17 @@ async function printChartli(cfData, type = 'ascii') {
     try {
       execFileSync('chartli', ['--version'], { encoding: 'utf8', stdio: 'pipe' });
     } catch {
-      console.error(`${red}Error:${reset} chartli not installed. Run: ${yellow}npm i -g chartli${reset}`);
+      console.error(
+        `${red}Error:${reset} chartli not installed. Run: ${yellow}npm i -g chartli${reset}`,
+      );
       process.exit(1);
     }
     console.error(`${red}chartli error:${reset}`, e.message);
     process.exit(1);
   } finally {
-    try { writeFileSync(tmpFile, ''); } catch {}
+    try {
+      writeFileSync(tmpFile, '');
+    } catch {}
   }
 }
 
@@ -332,9 +351,9 @@ for (const arg of args) {
   }
 }
 
-const mode      = flags.mode  ?? 'dashboard';
+const mode = flags.mode ?? 'dashboard';
 const chartType = flags.chart ?? 'ascii';
-const days      = parseInt(flags.days ?? '7', 10);
+const days = parseInt(flags.days ?? '7', 10);
 const { from, to } = dateRange(days);
 
 (async () => {

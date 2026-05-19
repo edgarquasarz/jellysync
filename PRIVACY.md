@@ -5,6 +5,7 @@ JellyTunes is developed by Orain Labs. We believe in transparency and minimal da
 ## What We Collect
 
 When you check for updates, JellyTunes sends a single anonymous request containing:
+
 - **App version** (e.g., `v1.2.0`)
 - **Platform** (e.g., `mac`, `windows`, `linux`)
 - **Timestamp** of the request

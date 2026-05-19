@@ -1,6 +1,6 @@
 /**
  * JellyTunes Sync Module - Type Definitions
- * 
+ *
  * Core interfaces for the synchronization module.
  * These types define the public API contract.
  */
@@ -160,7 +160,14 @@ export interface TrackInfo {
 /**
  * Sync phase enumeration
  */
-export type SyncPhase = 'fetching' | 'copying' | 'converting' | 'validating' | 'complete' | 'cancelled' | 'error';
+export type SyncPhase =
+  | 'fetching'
+  | 'copying'
+  | 'converting'
+  | 'validating'
+  | 'complete'
+  | 'cancelled'
+  | 'error';
 
 /**
  * Progress event data
@@ -319,10 +326,10 @@ export interface JellyfinPlaylistItem {
  * Injected as an optional dependency so the module stays testable without electron-log.
  */
 export interface SyncLogger {
-  info:  (msg: string) => void
-  warn:  (msg: string) => void
-  error: (msg: string) => void
-  debug: (msg: string) => void
+  info: (msg: string) => void;
+  warn: (msg: string) => void;
+  error: (msg: string) => void;
+  debug: (msg: string) => void;
 }
 
 /**

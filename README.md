@@ -50,11 +50,11 @@ JellyTunes is a desktop app for [Jellyfin](https://jellyfin.org) users who want 
 
 Download the latest release for your platform from [GitHub Releases](https://github.com/orainlabs/jellytunes/releases):
 
-| Platform | File |
-|----------|------|
-| macOS | `.dmg` |
-| Windows | `.exe` installer |
-| Linux | `.AppImage` or `.deb` |
+| Platform | File                  |
+| -------- | --------------------- |
+| macOS    | `.dmg`                |
+| Windows  | `.exe` installer      |
+| Linux    | `.AppImage` or `.deb` |
 
 Open the installer and follow the prompts. No additional setup is required — FFmpeg is bundled with the app.
 
@@ -63,12 +63,15 @@ Open the installer and follow the prompts. No additional setup is required — F
 JellyTunes is not signed with an Apple Developer certificate. macOS may block it on first launch, especially on macOS 15 (Sequoia). To open it:
 
 **Option A — via Terminal (recommended):**
+
 ```bash
 xattr -cr /Applications/JellyTunes.app
 ```
+
 Then open the app normally.
 
 **Option B — via System Settings:**
+
 1. Try to open the app (it will be blocked)
 2. Go to **System Settings → Privacy & Security → Security**
 3. Click **"Open Anyway"** next to the JellyTunes entry

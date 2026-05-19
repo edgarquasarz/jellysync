@@ -76,19 +76,20 @@ pnpm test:bdd -- --tags "not @slow"
 
 ## Features Cubiertas
 
-| Feature | Escenarios | Estado |
-|---------|-----------|--------|
-| Autenticación Jellyfin | 5 | ✅ Listo |
-| Navegación de Biblioteca | 7 | ✅ Listo |
-| Sincronización | 7 | ✅ Listo |
-| Filtros y Búsqueda | 9 | ✅ Listo |
-| Manejo de Errores | 8 | ✅ Listo |
+| Feature                  | Escenarios | Estado   |
+| ------------------------ | ---------- | -------- |
+| Autenticación Jellyfin   | 5          | ✅ Listo |
+| Navegación de Biblioteca | 7          | ✅ Listo |
+| Sincronización           | 7          | ✅ Listo |
+| Filtros y Búsqueda       | 9          | ✅ Listo |
+| Manejo de Errores        | 8          | ✅ Listo |
 
 ## Data-TestIDs Requeridos
 
 Para que los tests funcionen, la aplicación debe tener estos `data-testid`:
 
 ### Autenticación
+
 - `auth-screen` - Pantalla de login
 - `server-url-input` - Input de URL del servidor
 - `api-key-input` - Input de API key
@@ -97,6 +98,7 @@ Para que los tests funcionen, la aplicación debe tener estos `data-testid`:
 - `library-screen` - Pantalla de biblioteca (post-login)
 
 ### Biblioteca
+
 - `library-screen` - Pantalla principal
 - `library-content` - Contenido de la biblioteca
 - `tab-artists`, `tab-albums`, `tab-playlists` - Pestañas
@@ -105,6 +107,7 @@ Para que los tests funcionen, la aplicación debe tener estos `data-testid`:
 - `artist-name`, `album-cover`, `track-item` - Elementos
 
 ### Sincronización
+
 - `usb-device-connected` - Indicador de USB conectado
 - `device-name` - Nombre del dispositivo
 - `available-space` - Espacio disponible
@@ -113,6 +116,7 @@ Para que los tests funcionen, la aplicación debe tener estos `data-testid`:
 - `selected-count` - Contador de selección
 
 ### Búsqueda y Filtros
+
 - `search-input` - Campo de búsqueda
 - `search-results` - Resultados de búsqueda
 - `filter-button` - Botón de filtros
@@ -142,10 +146,13 @@ tests/bdd/reports/cucumber-report.html
 ## Troubleshooting
 
 ### Error: "Electron app no se inicia"
+
 Verificar que la app esté compilada: `pnpm build`
 
 ### Error: "Timeout al esperar selector"
+
 Verificar que los `data-testid` estén correctamente implementados en la app
 
 ### Tests intermitentemente fallan
+
 Aumentar timeouts en `playwright.config.ts` o usar `@slow` tag

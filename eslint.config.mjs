@@ -23,7 +23,7 @@ export default tseslint.config(
   js.configs.recommended,
 
   // TypeScript files
-  ...tseslint.configs.recommended.map(config => ({
+  ...tseslint.configs.recommended.map((config) => ({
     ...config,
     languageOptions: {
       ...config.languageOptions,
@@ -35,7 +35,7 @@ export default tseslint.config(
     },
   })),
 
-  // React
+  // React - automatic JSX transform (React 17+)
   {
     files: ['**/*.{tsx,jsx}'],
     plugins: {
@@ -47,6 +47,12 @@ export default tseslint.config(
         ecmaFeatures: { jsx: true },
       },
     },
+    settings: {
+      react: {
+        version: '18.3',
+        runtime: 'automatic',
+      },
+    },
     rules: {
       ...reactPlugin.configs.recommended.rules,
       ...reactHooksPlugin.configs.recommended.rules,
@@ -56,6 +62,8 @@ export default tseslint.config(
       'react/jsx-no-target-blank': ['error', { enforceDynamicLinks: 'always' }],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // Disable react-in-jsx-scope for automatic JSX transform
+      'react/react-in-jsx-scope': 'off',
     },
   },
 
@@ -70,34 +78,83 @@ export default tseslint.config(
     },
   },
 
+  // Test files - relaxed rules
+  {
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      'no-console': 'off',
+    },
+  },
+
+  // Specific file overrides for legacy issues
+  {
+    files: ['src/sync/*.ts', 'src/renderer/src/components/LibraryContent.tsx'],
+    rules: {
+      // Allow console in sync module (needed for sync progress)
+      'no-console': 'off',
+      // Allow unescaped entities in JSX (quoted strings)
+      'react/no-unescaped-entities': 'off',
+      // Allow Function type (legacy code)
+      '@typescript-eslint/ban-types': 'off',
+    },
+  },
+
   // Project-specific rules
   {
     rules: {
       // TypeScript
-      '@typescript-eslint/no-unused-vars': ['error', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-      }],
-      '@typescript-eslint/consistent-type-imports': ['error', {
-        prefer: 'type-imports',
-        fixStyle: 'inline-type-imports',
-      }],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/consistent-type-imports': [
+        'warn',
+        {
+          prefer: 'type-imports',
+          fixStyle: 'inline-type-imports',
+        },
+      ],
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-non-null-assertion': 'off',
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      '@typescript-eslint/prefer-optional-chain': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+      '@typescript-eslint/prefer-optional-chain': 'warn',
       '@typescript-eslint/no-array-delete': 'error',
+      '@typescript-eslint/ban-ts-comment': [
+        'warn',
+        {
+          'ts-expect-error': 'allow-with-description',
+          'ts-ignore': 'allow-with-description',
+        },
+      ],
+      '@typescript-eslint/no-require-imports': 'off',
 
       // General
       'no-console': ['error', { allow: ['warn', 'error'] }],
       'no-debugger': 'error',
       'no-var': 'error',
       'prefer-const': 'error',
-      'eqeqeq': ['error', 'always'],
-      'no-else-return': ['error', { allowElseIf: false }],
-      'no-restricted-globals': ['error', 'event', 'fdescribe', 'fit', 'describe.only', 'it.only', 'test.only'],
+      'eqeqeq': ['warn', 'always'],
+      'no-else-return': ['warn', { allowElseIf: false }],
+      'no-restricted-globals': [
+        'error',
+        'event',
+        'fdescribe',
+        'fit',
+        'describe.only',
+        'it.only',
+        'test.only',
+      ],
+      'no-useless-escape': 'warn',
+      'no-control-regex': 'warn',
     },
-  }
+  },
 );

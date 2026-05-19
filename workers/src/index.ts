@@ -12,7 +12,11 @@ export default {
   },
 };
 
-async function handleUpdateCheck(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+async function handleUpdateCheck(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
   const ua = request.headers.get('User-Agent') ?? '';
   // Supports current UA "JellyTunes/1.2.3" and future "JellyTunes/1.2.3 (darwin; arm64)"
   const uaMatch = ua.match(/JellyTunes\/([^\s(]+)(?:\s+\(([^;)]+)(?:;\s*([^)]+))?\))?/);
@@ -30,7 +34,7 @@ async function handleUpdateCheck(request: Request, env: Env, ctx: ExecutionConte
     {
       headers: {
         'User-Agent': ua || 'JellyTunes-Worker',
-        Accept: 'application/vnd.github+json',
+        'Accept': 'application/vnd.github+json',
       },
     },
   );
@@ -41,7 +45,12 @@ async function handleUpdateCheck(request: Request, env: Env, ctx: ExecutionConte
   });
 }
 
-async function incrementStats(kv: KVNamespace, version: string, platform: string, country: string): Promise<void> {
+async function incrementStats(
+  kv: KVNamespace,
+  version: string,
+  platform: string,
+  country: string,
+): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   const key = `${date}:${version}:${platform}:${country}`;
   const current = await kv.get(key);
@@ -51,7 +60,10 @@ async function incrementStats(kv: KVNamespace, version: string, platform: string
 }
 
 async function handleStats(request: Request, env: Env): Promise<Response> {
-  if (!env.STATS_API_KEY || request.headers.get('Authorization') !== `Bearer ${env.STATS_API_KEY}`) {
+  if (
+    !env.STATS_API_KEY ||
+    request.headers.get('Authorization') !== `Bearer ${env.STATS_API_KEY}`
+  ) {
     return new Response('Unauthorized', { status: 401 });
   }
   const url = new URL(request.url);

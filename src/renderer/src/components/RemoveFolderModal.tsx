@@ -1,23 +1,32 @@
-import { useState } from 'react'
-import { X, Loader2 } from 'lucide-react'
+import { useState } from 'react';
+import { X, Loader2 } from 'lucide-react';
 
 interface RemoveFolderModalProps {
-  name: string
-  path: string
-  onCancel: () => void
-  onConfirm: (deleteFiles: boolean) => void
-  isRemoving?: boolean
+  name: string;
+  path: string;
+  onCancel: () => void;
+  onConfirm: (deleteFiles: boolean) => void;
+  isRemoving?: boolean;
 }
 
-export function RemoveFolderModal({ name, path, onCancel, onConfirm, isRemoving }: RemoveFolderModalProps): JSX.Element {
-  const [deleteFiles, setDeleteFiles] = useState(false)
+export function RemoveFolderModal({
+  name,
+  path,
+  onCancel,
+  onConfirm,
+  isRemoving,
+}: RemoveFolderModalProps): JSX.Element {
+  const [deleteFiles, setDeleteFiles] = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onCancel}>
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      onClick={onCancel}
+    >
       <div
         data-testid="remove-folder-modal"
         className="bg-surface_container_low border border-outline_variant rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
@@ -32,8 +41,8 @@ export function RemoveFolderModal({ name, path, onCancel, onConfirm, isRemoving 
 
         {/* Body */}
         <p className="text-body-md text-on_surface_variant mb-4 leading-relaxed">
-          <span className="text-on_surface">{name}</span> will be removed from your sidebar.
-          Your sync selections are saved — re-add the folder any time to resume.
+          <span className="text-on_surface">{name}</span> will be removed from your sidebar. Your
+          sync selections are saved — re-add the folder any time to resume.
         </p>
 
         {/* Checkbox option */}
@@ -41,12 +50,14 @@ export function RemoveFolderModal({ name, path, onCancel, onConfirm, isRemoving 
           <input
             type="checkbox"
             checked={deleteFiles}
-            onChange={e => setDeleteFiles(e.target.checked)}
+            onChange={(e) => setDeleteFiles(e.target.checked)}
             disabled={isRemoving}
             className="mt-0.5 accent-primary disabled:opacity-50"
           />
           <div className="flex-1">
-            <span className="text-body-md text-on_surface">Also delete synced music files from disk</span>
+            <span className="text-body-md text-on_surface">
+              Also delete synced music files from disk
+            </span>
             <p className="text-mono-sm text-on_surface_variant mt-0.5">{path}</p>
             <p className="text-caption text-on_surface_variant/70 mt-1">
               Only files added by JellyTunes are affected. Cannot be undone.
@@ -78,5 +89,5 @@ export function RemoveFolderModal({ name, path, onCancel, onConfirm, isRemoving 
         </div>
       </div>
     </div>
-  )
+  );
 }

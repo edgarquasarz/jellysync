@@ -20,18 +20,20 @@ import {
   getRelativePath,
   getFilenameFromPath,
 } from './sync-config';
-import {
-  createProgressEmitter,
-  createCancellationController,
-  progress,
-} from './sync-progress';
+import { createProgressEmitter, createCancellationController, progress } from './sync-progress';
 
-import { getSyncedTracksForDevice, getSyncedTracksForItem, upsertSyncedTrack } from '../main/database';
+import {
+  getSyncedTracksForDevice,
+  getSyncedTracksForItem,
+  upsertSyncedTrack,
+} from '../main/database';
 
 // Stable mock for getSyncedTracksForItem — hoisted so the vi.mock factory below can reference it
 const mockGetSyncedTracksForItem = vi.hoisted(() => vi.fn(() => []));
 // Stable mock for getSyncedItems — hoisted for same reason
-const mockGetSyncedItems = vi.hoisted(() => vi.fn<() => Array<{ id: string; name: string; type: string }>>(() => []));
+const mockGetSyncedItems = vi.hoisted(() =>
+  vi.fn<() => Array<{ id: string; name: string; type: string }>>(() => []),
+);
 
 // Mock database module so getSyncedTracksForDevice doesn't throw "Database not initialized"
 vi.mock('../main/database', () => ({
@@ -106,7 +108,9 @@ function createMockDeps(overrides?: Partial<SyncDependencies>): SyncDependencies
  * Shared helper to construct a fully-typed Response mock.
  * Use this instead of inline partial objects to satisfy globalThis.fetch's Response type.
  */
-function mockFetchResponse(overrides: Partial<Response> & { ok: boolean; status: number; statusText: string }): Response {
+function mockFetchResponse(
+  overrides: Partial<Response> & { ok: boolean; status: number; statusText: string },
+): Response {
   return {
     headers: new Headers(),
     redirected: false,
@@ -115,7 +119,9 @@ function mockFetchResponse(overrides: Partial<Response> & { ok: boolean; status:
     clone: () => ({}) as Response,
     arrayBuffer: async () => new ArrayBuffer(0),
     text: async () => '',
-    json: async () => { throw new Error('not json'); },
+    json: async () => {
+      throw new Error('not json');
+    },
     blob: async () => new Blob(),
     formData: async () => new FormData(),
     bodyUsed: false,
@@ -232,10 +238,10 @@ describe('sync-progress', () => {
     it('should emit progress to subscribers', () => {
       const emitter = createProgressEmitter();
       const callback = vi.fn();
-      
+
       emitter.subscribe(callback);
       emitter.emit({ phase: 'copying', current: 1, total: 10 });
-      
+
       expect(callback).toHaveBeenCalledWith({
         phase: 'copying',
         current: 1,
@@ -247,11 +253,11 @@ describe('sync-progress', () => {
       const emitter = createProgressEmitter();
       const callback1 = vi.fn();
       const callback2 = vi.fn();
-      
+
       emitter.subscribe(callback1);
       emitter.subscribe(callback2);
       emitter.emit({ phase: 'fetching', current: 0, total: 5 });
-      
+
       expect(callback1).toHaveBeenCalledTimes(1);
       expect(callback2).toHaveBeenCalledTimes(1);
     });
@@ -259,11 +265,11 @@ describe('sync-progress', () => {
     it('should unsubscribe correctly', () => {
       const emitter = createProgressEmitter();
       const callback = vi.fn();
-      
+
       const unsubscribe = emitter.subscribe(callback);
       emitter.emit({ phase: 'fetching', current: 0, total: 5 });
       expect(callback).toHaveBeenCalledTimes(1);
-      
+
       unsubscribe();
       emitter.emit({ phase: 'copying', current: 1, total: 5 });
       expect(callback).toHaveBeenCalledTimes(1); // Not called again
@@ -271,9 +277,9 @@ describe('sync-progress', () => {
 
     it('should return current progress', () => {
       const emitter = createProgressEmitter();
-      
+
       emitter.emit({ phase: 'fetching', current: 0, total: 5 });
-      
+
       expect(emitter.getCurrent()).toEqual({
         phase: 'fetching',
         current: 0,
@@ -297,7 +303,7 @@ describe('sync-progress', () => {
     it('should throw when cancelled', () => {
       const controller = createCancellationController();
       controller.cancel();
-      
+
       expect(() => controller.throwIfCancelled()).toThrow('Sync operation was cancelled');
     });
 
@@ -305,7 +311,7 @@ describe('sync-progress', () => {
       const controller = createCancellationController();
       controller.cancel();
       expect(controller.isCancelled()).toBe(true);
-      
+
       controller.reset();
       expect(controller.isCancelled()).toBe(false);
     });
@@ -319,7 +325,7 @@ describe('sync-progress', () => {
         .track('Test Track')
         .bytes(1000000, 5000000)
         .build();
-      
+
       expect(p).toEqual({
         phase: 'copying',
         current: 3,
@@ -340,7 +346,7 @@ describe('sync-api', () => {
   describe('createMockApiClient', () => {
     it('should return default mock values', async () => {
       const api = createMockApiClient();
-      
+
       const result = await api.testConnection();
       expect(result.success).toBe(true);
       expect(result.serverName).toBe('Mock Server');
@@ -350,16 +356,14 @@ describe('sync-api', () => {
       const api = createMockApiClient({
         testConnection: async () => ({ success: false, error: 'Connection refused' }),
       });
-      
+
       const result = await api.testConnection();
       expect(result.success).toBe(false);
       expect(result.error).toBe('Connection refused');
     });
 
     it('should return mock tracks', async () => {
-      const mockTracks: TrackInfo[] = [
-        { id: '1', name: 'Track', path: '/path', format: 'mp3' },
-      ];
+      const mockTracks: TrackInfo[] = [{ id: '1', name: 'Track', path: '/path', format: 'mp3' }];
 
       const api = createMockApiClient({
         getArtistTracks: async () => mockTracks,
@@ -408,12 +412,13 @@ describe('sync-api', () => {
         apiKey: '0123456789abcdef0123456789abcdef',
         userId: 'abcdef1234567890abcdef1234567890',
         timeout: 5000,
-        fetch: async () => mockFetchResponse({
-          ok: false,
-          status: 500,
-          statusText: 'Internal Server Error',
-          body: null,
-        }),
+        fetch: async () =>
+          mockFetchResponse({
+            ok: false,
+            status: 500,
+            statusText: 'Internal Server Error',
+            body: null,
+          }),
       });
 
       try {
@@ -449,7 +454,7 @@ describe('sync-api', () => {
         },
       });
 
-      const stream = await api.downloadItemStream('track-id') as import('stream').Readable;
+      const stream = (await api.downloadItemStream('track-id')) as import('stream').Readable;
 
       // Destroy the stream mid-consumption
       stream.destroy(new Error('Stream aborted by client'));
@@ -500,7 +505,7 @@ describe('sync-api', () => {
       });
 
       // Read the stream and write to a premature-close writable
-      const stream = await api.downloadItemStream('track-id') as import('stream').Readable;
+      const stream = (await api.downloadItemStream('track-id')) as import('stream').Readable;
       const writable = new PrematureCloseWritable();
 
       const pipePromise = new Promise((resolve, reject) => {
@@ -546,12 +551,14 @@ describe('sync-api', () => {
             });
 
             setTimeout(() => {
-              resolve(mockFetchResponse({
-                ok: true,
-                status: 200,
-                statusText: 'OK',
-                body: Readable.toWeb(slowStream) as ReadableStream,
-              }));
+              resolve(
+                mockFetchResponse({
+                  ok: true,
+                  status: 200,
+                  statusText: 'OK',
+                  body: Readable.toWeb(slowStream) as ReadableStream,
+                }),
+              );
             }, 600);
           });
         },
@@ -559,7 +566,9 @@ describe('sync-api', () => {
 
       let caughtError: any;
       const downloadPromise = api.downloadItemStream('slow-track-id');
-      const settled = downloadPromise.catch(err => { caughtError = err; });
+      const settled = downloadPromise.catch((err) => {
+        caughtError = err;
+      });
 
       // Advance timers to trigger AbortController timeout (~500ms)
       await vi.runAllTimersAsync();
@@ -583,23 +592,23 @@ describe('sync-files', () => {
   describe('createMockFileSystem', () => {
     it('should track files written', async () => {
       const fs = createMockFileSystem() as any;
-      
+
       await fs.writeFile('/test/file.txt', Buffer.from('content'));
-      
+
       expect(await fs.exists('/test/file.txt')).toBe(true);
       expect(await fs.readFile('/test/file.txt')).toEqual(Buffer.from('content'));
     });
 
     it('should support directory operations', async () => {
       const fs = createMockFileSystem();
-      
+
       await fs.mkdir('/test/dir');
       expect(await fs.isDirectory('/test/dir')).toBe(true);
     });
 
     it('should mock unlimited disk space', async () => {
       const fs = createMockFileSystem();
-      
+
       const freeSpace = await fs.getFreeSpace('/any/path');
       expect(freeSpace).toBe(Number.MAX_SAFE_INTEGER);
     });
@@ -621,8 +630,9 @@ describe('sync-core', () => {
     });
 
     it('should throw for invalid config', () => {
-      expect(() => createSyncCore({ serverUrl: '', apiKey: '', userId: '' }))
-        .toThrow('Invalid config');
+      expect(() => createSyncCore({ serverUrl: '', apiKey: '', userId: '' })).toThrow(
+        'Invalid config',
+      );
     });
   });
 
@@ -630,7 +640,7 @@ describe('sync-core', () => {
     it('should return invalid for non-existent path', async () => {
       const deps = createMockDeps();
       const core = createTestSyncCore(validConfig, deps);
-      
+
       const result = await core.validateDestination('/nonexistent/path');
       expect(result.valid).toBe(true); // Mock FS allows any path
       expect(result.exists).toBe(false);
@@ -639,9 +649,9 @@ describe('sync-core', () => {
     it('should return valid for existing directory', async () => {
       const deps = createMockDeps();
       (deps.fs as any).__setFile('/existing/dir/.keep', Buffer.from(''));
-      
+
       const core = createTestSyncCore(validConfig, deps);
-      
+
       const result = await core.validateDestination('/existing/dir');
       // Mock filesystem behavior
       expect(result).toBeDefined();
@@ -655,15 +665,15 @@ describe('sync-core', () => {
           getTracksForItems: async () => ({ tracks: [], errors: [] }),
         }),
       });
-      
+
       const core = createTestSyncCore(validConfig, deps);
-      
+
       const input: SyncInput = {
         itemIds: [],
         itemTypes: new Map(),
         destinationPath: '/music',
       };
-      
+
       const result = await core.sync(input);
       expect(result.success).toBe(false);
       expect(result.errors).toContain('No tracks found for selected items');
@@ -671,29 +681,27 @@ describe('sync-core', () => {
 
     it('should sync tracks successfully', async () => {
       const deps = createMockDeps();
-      
+
       // Set up source files in mock filesystem
       const mockFs = deps.fs as any;
       mockFs.__setFile('/music/artist/album/track1.mp3', Buffer.alloc(5000000));
       mockFs.__setFile('/music/artist/album/track2.flac', Buffer.alloc(30000000));
-      
+
       const core = createTestSyncCore(validConfig, deps);
-      
-      const itemTypes = new Map<string, ItemType>([
-        ['album-1', 'album'],
-      ]);
-      
+
+      const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
+
       const input: SyncInput = {
         itemIds: ['album-1'],
         itemTypes,
         destinationPath: '/music',
       };
-      
+
       let lastProgress: any;
       const result = await core.sync(input, (progress) => {
         lastProgress = progress;
       });
-      
+
       expect(result.success).toBe(true);
       expect(result.tracksCopied).toBe(2);
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
@@ -703,18 +711,15 @@ describe('sync-core', () => {
     it('should call progress callback during sync', async () => {
       const deps = createMockDeps();
       const core = createTestSyncCore(validConfig, deps);
-      
+
       const progressEvents: any[] = [];
-      
-      const itemTypes = new Map<string, ItemType>([
-        ['album-1', 'album'],
-      ]);
-      
-      await core.sync(
-        { itemIds: ['album-1'], itemTypes, destinationPath: '/music' },
-        (progress) => progressEvents.push(progress)
+
+      const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
+
+      await core.sync({ itemIds: ['album-1'], itemTypes, destinationPath: '/music' }, (progress) =>
+        progressEvents.push(progress),
       );
-      
+
       expect(progressEvents.length).toBeGreaterThan(0);
       expect(progressEvents[0].phase).toBe('fetching');
     });
@@ -733,9 +738,7 @@ describe('sync-core', () => {
 
       const core = createTestSyncCore(validConfig, { ...deps, converter });
 
-      const itemTypes = new Map<string, ItemType>([
-        ['album-1', 'album'],
-      ]);
+      const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
 
       const input: SyncInput = {
         itemIds: ['album-1'],
@@ -754,29 +757,29 @@ describe('sync-core', () => {
       const deps = createMockDeps({
         api: createMockApiClient({
           getTracksForItems: async () => ({
-            tracks: [
-              { id: '1', name: 'Track', path: '/nonexistent.mp3', format: 'mp3' },
-            ],
+            tracks: [{ id: '1', name: 'Track', path: '/nonexistent.mp3', format: 'mp3' }],
             errors: [],
           }),
           // Now using downloadItem instead of copyFile
-          downloadItem: async () => { throw new Error('Download failed - file not found'); },
+          downloadItem: async () => {
+            throw new Error('Download failed - file not found');
+          },
         }),
         fs: {
           ...createMockFileSystem(),
         },
       });
-      
+
       const core = createTestSyncCore(validConfig, deps);
-      
+
       const itemTypes = new Map<string, ItemType>([['1', 'album']]);
-      
+
       const result = await core.sync({
         itemIds: ['1'],
         itemTypes,
         destinationPath: '/music',
       });
-      
+
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.tracksFailed).toContain('1');
@@ -787,13 +790,11 @@ describe('sync-core', () => {
     it('should return size estimate for items', async () => {
       const deps = createMockDeps();
       const core = createTestSyncCore(validConfig, deps);
-      
-      const itemTypes = new Map<string, ItemType>([
-        ['album-1', 'album'],
-      ]);
-      
+
+      const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
+
       const estimate = await core.estimateSize(['album-1'], itemTypes);
-      
+
       expect(estimate.trackCount).toBe(2);
       expect(estimate.totalBytes).toBe(35000000); // 5MB + 30MB
     });
@@ -801,13 +802,11 @@ describe('sync-core', () => {
     it('should break down by format', async () => {
       const deps = createMockDeps();
       const core = createTestSyncCore(validConfig, deps);
-      
-      const itemTypes = new Map<string, ItemType>([
-        ['album-1', 'album'],
-      ]);
-      
+
+      const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
+
       const estimate = await core.estimateSize(['album-1'], itemTypes);
-      
+
       expect(estimate.formatBreakdown.get('mp3')).toBe(5000000);
       expect(estimate.formatBreakdown.get('flac')).toBe(30000000);
     });
@@ -830,30 +829,30 @@ describe('Integration: Full Sync Flow', () => {
     // Set up source files
     (mockFs as any).__setFile('/music/artist/album/track1.mp3', Buffer.alloc(5000000));
     (mockFs as any).__setFile('/music/artist/album/track2.flac', Buffer.alloc(30000000));
-    
+
     const mockConverter = createMockConverter();
-    
+
     const deps: SyncDependencies = {
       api: mockApi,
       fs: mockFs,
       converter: mockConverter,
     };
-    
+
     const core = createTestSyncCore(validConfig, deps);
-    
+
     // Test connection first
     const connection = await core.testConnection();
     expect(connection.success).toBe(true);
-    
+
     // Validate destination
     const destValidation = await core.validateDestination('/music');
     expect(destValidation.valid).toBe(true);
-    
+
     // Estimate size
     const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
     const estimate = await core.estimateSize(['album-1'], itemTypes);
     expect(estimate.trackCount).toBeGreaterThan(0);
-    
+
     // Run sync
     const progressEvents: any[] = [];
     const result = await core.sync(
@@ -862,13 +861,13 @@ describe('Integration: Full Sync Flow', () => {
         itemTypes,
         destinationPath: '/music',
       },
-      (progress) => progressEvents.push(progress)
+      (progress) => progressEvents.push(progress),
     );
-    
+
     // Verify result
     expect(result.success).toBe(true);
     expect(result.tracksCopied).toBeGreaterThan(0);
-    
+
     // Verify progress events
     expect(progressEvents.length).toBeGreaterThan(0);
     expect(progressEvents[0].phase).toBe('fetching');
@@ -878,21 +877,21 @@ describe('Integration: Full Sync Flow', () => {
   it('should handle cancellation correctly', async () => {
     const deps = createMockDeps();
     const core = createTestSyncCore(validConfig, deps);
-    
+
     // Start sync and cancel immediately
     const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
-    
+
     const syncPromise = core.sync({
       itemIds: ['album-1'],
       itemTypes,
       destinationPath: '/music',
     });
-    
+
     // Cancel the sync
     (core as any).cancel?.();
-    
+
     const result = await syncPromise;
-    
+
     // Should either cancel or complete (race condition)
     expect(result.cancelled || result.success).toBe(true);
   });
@@ -911,17 +910,17 @@ describe('Error Handling', () => {
         },
       }),
     });
-    
+
     const core = createTestSyncCore(validConfig, deps);
-    
+
     const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
-    
+
     const result = await core.sync({
       itemIds: ['album-1'],
       itemTypes,
       destinationPath: '/music',
     });
-    
+
     expect(result.success).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
@@ -930,20 +929,22 @@ describe('Error Handling', () => {
     const deps = createMockDeps({
       fs: {
         ...createMockFileSystem(),
-        mkdir: async () => { throw new Error('Permission denied'); },
+        mkdir: async () => {
+          throw new Error('Permission denied');
+        },
       },
     });
-    
+
     const core = createTestSyncCore(validConfig, deps);
-    
+
     const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
-    
+
     const result = await core.sync({
       itemIds: ['album-1'],
       itemTypes,
       destinationPath: '/readonly',
     });
-    
+
     expect(result.success).toBe(false);
   });
 
@@ -963,14 +964,14 @@ describe('Error Handling', () => {
     const core = createTestSyncCore(validConfig, deps);
 
     const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
-    
+
     const result = await core.sync({
       itemIds: ['album-1'],
       itemTypes,
       destinationPath: '/music',
       options: { convertToMp3: true },
     });
-    
+
     // FLAC track should fail conversion
     expect(result.tracksFailed.length).toBeGreaterThan(0);
   });
@@ -1065,7 +1066,9 @@ describe('Error Handling', () => {
 
       // Mock proc.stdin as a real Writable so pipe() works
       const mockStdin = new Writable({
-        write(_chunk: Buffer, _enc: string, cb: () => void) { cb(); }
+        write(_chunk: Buffer, _enc: string, cb: () => void) {
+          cb();
+        },
       });
 
       vi.spyOn(require('child_process'), 'spawn').mockImplementation(() => {
@@ -1086,7 +1089,7 @@ describe('Error Handling', () => {
         input,
         '/tmp/test-output.mp3',
         '192k',
-        { title: 'Test' }
+        { title: 'Test' },
       );
 
       expect(result.success).toBe(false);
@@ -1099,7 +1102,9 @@ describe('Error Handling', () => {
       const { Writable, Readable } = require('stream');
 
       const mockStdin = new Writable({
-        write(_chunk: Buffer, _enc: string, cb: () => void) { cb(); }
+        write(_chunk: Buffer, _enc: string, cb: () => void) {
+          cb();
+        },
       });
 
       vi.spyOn(require('child_process'), 'spawn').mockImplementation(() => {
@@ -1123,7 +1128,7 @@ describe('Error Handling', () => {
         '/tmp/test-output.mp3',
         '192k',
         { title: 'Test', artist: 'Artist' },
-        coverData
+        coverData,
       );
 
       // After FFmpeg failed (exit code 1), temp cover file must have been deleted
@@ -1142,7 +1147,9 @@ describe('Error Handling', () => {
     it('returns error when input file does not exist (FFmpeg exits non-zero)', async () => {
       const { Writable } = require('stream');
       const mockStdin = new Writable({
-        write(_chunk: Buffer, _enc: string, cb: () => void) { cb(); }
+        write(_chunk: Buffer, _enc: string, cb: () => void) {
+          cb();
+        },
       });
 
       vi.spyOn(require('child_process'), 'spawn').mockImplementation(() => {
@@ -1160,11 +1167,10 @@ describe('Error Handling', () => {
       const { createFFmpegConverter } = await import('./sync-files');
       const converter = createFFmpegConverter();
 
-      const result = await converter.tagFile(
-        '/nonexistent/file.mp3',
-        '/tmp/tagged-output.mp3',
-        { title: 'Test', artist: 'Artist' }
-      );
+      const result = await converter.tagFile('/nonexistent/file.mp3', '/tmp/tagged-output.mp3', {
+        title: 'Test',
+        artist: 'Artist',
+      });
 
       // Should return error result, not throw
       expect(result.success).toBe(false);
@@ -1264,7 +1270,10 @@ describe('Error Handling', () => {
       };
     }
 
-    function makeDeps(tracks: TrackInfo[], converterMock: Partial<import('./sync-files').AudioConverter>): SyncDependencies {
+    function makeDeps(
+      tracks: TrackInfo[],
+      converterMock: Partial<import('./sync-files').AudioConverter>,
+    ): SyncDependencies {
       return {
         api: createMockApiClient({
           getTracksForItems: async () => ({ tracks, errors: [] }),
@@ -1275,7 +1284,9 @@ describe('Error Handling', () => {
     }
 
     it('does NOT convert an MP3 whose bitrate is at or below the target', async () => {
-      const converter = { convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }) };
+      const converter = {
+        convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }),
+      };
       const track = makeTrack({ format: 'mp3', bitrate: 128_000 }); // 128 kbps, at target
       const core = createTestSyncCore(validConfig, makeDeps([track], converter));
 
@@ -1290,7 +1301,9 @@ describe('Error Handling', () => {
     });
 
     it('re-encodes an MP3 whose bitrate is above the target', async () => {
-      const converter = { convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }) };
+      const converter = {
+        convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }),
+      };
       const track = makeTrack({ format: 'mp3', bitrate: 320_000 }); // 320 kbps, above 128k target
       const core = createTestSyncCore(validConfig, makeDeps([track], converter));
 
@@ -1305,7 +1318,9 @@ describe('Error Handling', () => {
     });
 
     it('does NOT re-encode an MP3 with unknown bitrate (conservative: copy instead)', async () => {
-      const converter = { convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }) };
+      const converter = {
+        convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }),
+      };
       const track = makeTrack({ format: 'mp3', bitrate: undefined }); // bitrate unknown
       const core = createTestSyncCore(validConfig, makeDeps([track], converter));
 
@@ -1320,7 +1335,9 @@ describe('Error Handling', () => {
     });
 
     it('always converts FLAC regardless of bitrate', async () => {
-      const converter = { convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }) };
+      const converter = {
+        convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }),
+      };
       const track = makeTrack({ format: 'flac', path: '/music/track.flac', bitrate: 900_000 });
       const core = createTestSyncCore(validConfig, makeDeps([track], converter));
 
@@ -1335,7 +1352,9 @@ describe('Error Handling', () => {
     });
 
     it('does not convert anything when convertToMp3 is false', async () => {
-      const converter = { convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }) };
+      const converter = {
+        convertStreamToMp3WithMeta: vi.fn().mockResolvedValue({ success: true }),
+      };
       const track = makeTrack({ format: 'flac', path: '/music/track.flac', bitrate: 900_000 });
       const core = createTestSyncCore(validConfig, makeDeps([track], converter));
 
@@ -1358,7 +1377,7 @@ describe('Error Handling', () => {
 /**
  * Integration tests that connect to a real Jellyfin server.
  * These tests are skipped by default - run with: npm test -- --integration
- * 
+ *
  * To enable:
  * 1. Set JELLYFIN_SERVER, JELLYFIN_API_KEY, JELLYFIN_USER_ID environment variables
  * 2. Run: npm test -- --integration
@@ -1426,7 +1445,8 @@ describe('Integration: Real API Tests', () => {
 
     // This would need a real item ID from the server
     // Skip if no test albums exist
-    console.log('Integration test: Size estimation requires a real item ID');
+    // eslint-disable-next-line no-console
+    console.warn('Integration test: Size estimation requires a real item ID');
   });
 });
 
@@ -1437,64 +1457,64 @@ describe('Integration: Real API Tests', () => {
 describe('File Structure', () => {
   it('should generate correct folder structure with year', () => {
     const sanitize = (name: string) => name.replace(/[<>:"/\\|?*]/g, '_').slice(0, 100);
-    
+
     const track = {
       artists: ['The Beatles'],
       album: 'Abbey Road',
       year: 1969,
       name: 'Come Together',
       trackNumber: 1,
-      format: 'flac'
+      format: 'flac',
     };
-    
+
     // Expected: lib/The Beatles/Abbey Road (1969)/
     const artistName = sanitize(track.artists[0]);
     const albumName = sanitize(track.album);
     const yearStr = track.year ? ` (${track.year})` : '';
     const expectedDir = `lib/${artistName}/${albumName}${yearStr}`;
-    
+
     expect(expectedDir).toBe('lib/The Beatles/Abbey Road (1969)');
   });
 
   it('should generate correct filename format', () => {
     const sanitize = (name: string) => name.replace(/[<>:"/\\|?*]/g, '_').slice(0, 100);
-    
+
     const track = {
       artists: ['The Beatles'],
       album: 'Abbey Road',
       year: 1969,
       name: 'Come Together',
       trackNumber: 1,
-      format: 'flac'
+      format: 'flac',
     };
-    
+
     // Expected: The Beatles - Abbey Road - 01 - Come Together.flac
     const artistName = sanitize(track.artists[0]);
     const albumName = sanitize(track.album);
     const trackNum = String(track.trackNumber).padStart(2, '0');
     const titleSanitized = sanitize(track.name);
     const expectedFilename = `${artistName} - ${albumName} - ${trackNum} - ${titleSanitized}.${track.format}`;
-    
+
     expect(expectedFilename).toBe('The Beatles - Abbey Road - 01 - Come Together.flac');
   });
 
   it('should handle missing year in folder structure', () => {
     const sanitize = (name: string) => name.replace(/[<>:"/\\|?*]/g, '_').slice(0, 100);
-    
+
     const track = {
       artists: ['Unknown Artist'],
       album: 'Unknown Album',
       year: undefined,
       name: 'Track',
       trackNumber: 5,
-      format: 'mp3'
+      format: 'mp3',
     };
-    
+
     const artistName = sanitize(track.artists[0]);
     const albumName = sanitize(track.album);
     const yearStr = track.year ? ` (${track.year})` : '';
     const expectedDir = `lib/${artistName}/${albumName}${yearStr}`;
-    
+
     expect(expectedDir).toBe('lib/Unknown Artist/Unknown Album');
   });
 });
@@ -1675,11 +1695,11 @@ describe('Server Root Path - Original Path Usage', () => {
       // Set up source files
       (mockFs as any).__setFile(
         '/mediamusic/lib/lib/Ace/Five-A-Side/Ace - Five-A-Side - How Long.mp3',
-        Buffer.alloc(5000000)
+        Buffer.alloc(5000000),
       );
       (mockFs as any).__setFile(
         '/mediamusic/lib/lib/Ace/Five-A-Side/Ace - Five-A-Side - Twenty Years Later.mp3',
-        Buffer.alloc(4000000)
+        Buffer.alloc(4000000),
       );
 
       // tagFile mock that actually copies the file (simulates real FFmpeg behavior)
@@ -1705,9 +1725,7 @@ describe('Server Root Path - Original Path Usage', () => {
 
       const core = createTestSyncCore(validConfigWithServerRoot, deps);
 
-      const itemTypes = new Map<string, ItemType>([
-        ['album-five-a-side', 'album'],
-      ]);
+      const itemTypes = new Map<string, ItemType>([['album-five-a-side', 'album']]);
 
       const result = await core.sync({
         itemIds: ['album-five-a-side'],
@@ -1720,7 +1738,8 @@ describe('Server Root Path - Original Path Usage', () => {
 
       // Verify files were written to correct paths using __getFile
       const expectedPath1 = '/Volumes/MEDIA/lib/Ace/Five-A-Side/Ace - Five-A-Side - How Long.mp3';
-      const expectedPath2 = '/Volumes/MEDIA/lib/Ace/Five-A-Side/Ace - Five-A-Side - Twenty Years Later.mp3';
+      const expectedPath2 =
+        '/Volumes/MEDIA/lib/Ace/Five-A-Side/Ace - Five-A-Side - Twenty Years Later.mp3';
 
       expect((mockFs as any).__getFile(expectedPath1)).toBeDefined();
       expect((mockFs as any).__getFile(expectedPath2)).toBeDefined();
@@ -1761,9 +1780,7 @@ describe('Server Root Path - Original Path Usage', () => {
       // Config without serverRootPath — auto-detection should kick in
       const core = createTestSyncCore(validConfig, deps);
 
-      const itemTypes = new Map<string, ItemType>([
-        ['album-five-a-side', 'album'],
-      ]);
+      const itemTypes = new Map<string, ItemType>([['album-five-a-side', 'album']]);
 
       const result = await core.sync({
         itemIds: ['album-five-a-side'],
@@ -1774,7 +1791,8 @@ describe('Server Root Path - Original Path Usage', () => {
       expect(result.success).toBe(true);
       // Auto-detection strips /mediamusic/lib/ so the relative path is lib/Ace/Five-A-Side/...
       const expectedPath1 = '/Volumes/USB/lib/Ace/Five-A-Side/Ace - Five-A-Side - How Long.mp3';
-      const expectedPath2 = '/Volumes/USB/lib/Ace/Five-A-Side/Ace - Five-A-Side - Twenty Years Later.mp3';
+      const expectedPath2 =
+        '/Volumes/USB/lib/Ace/Five-A-Side/Ace - Five-A-Side - Twenty Years Later.mp3';
       expect((mockFs as any).__getFile(expectedPath1)).toBeDefined();
       expect((mockFs as any).__getFile(expectedPath2)).toBeDefined();
     });
@@ -1793,7 +1811,7 @@ describe('Server Root Path - Original Path Usage', () => {
 
       (mockFs as any).__setFile(
         '/mediamusic/lib/lib/Ace/Five-A-Side/Ace - Five-A-Side - How Long.mp3',
-        Buffer.alloc(5000000)
+        Buffer.alloc(5000000),
       );
 
       const mockConverter = {
@@ -1818,9 +1836,7 @@ describe('Server Root Path - Original Path Usage', () => {
 
       const core = createTestSyncCore(validConfigWithServerRoot, deps);
 
-      const itemTypes = new Map<string, ItemType>([
-        ['album-1', 'album'],
-      ]);
+      const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
 
       await core.sync({
         itemIds: ['album-1'],
@@ -1847,11 +1863,27 @@ describe('Server Root Path - Original Path Usage', () => {
       const getTracksForItemsSpy = vi.fn(() =>
         Promise.resolve({
           tracks: [
-            { id: 'track-1', name: 'Track 1', album: 'Album', artists: ['Artist'], path: '/music/Artist/Album/track1.mp3', format: 'mp3', parentItemId: 'album-1' },
-            { id: 'track-2', name: 'Track 2', album: 'Album', artists: ['Artist'], path: '/music/Artist/Album/track2.mp3', format: 'mp3', parentItemId: 'album-1' },
+            {
+              id: 'track-1',
+              name: 'Track 1',
+              album: 'Album',
+              artists: ['Artist'],
+              path: '/music/Artist/Album/track1.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
+            {
+              id: 'track-2',
+              name: 'Track 2',
+              album: 'Album',
+              artists: ['Artist'],
+              path: '/music/Artist/Album/track2.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
           ],
           errors: [],
-        })
+        }),
       );
 
       const deps = createMockDeps({
@@ -1860,12 +1892,11 @@ describe('Server Root Path - Original Path Usage', () => {
 
       const core = createTestSyncCore(configWithServerRoot, deps);
 
-      await core.analyzeDiff(
-        ['album-1'],
-        new Map([['album-1', 'album' as ItemType]]),
-        '/music',
-        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
-      );
+      await core.analyzeDiff(['album-1'], new Map([['album-1', 'album' as ItemType]]), '/music', {
+        coverArtMode: 'embed',
+        bitrate: '192k',
+        convertToMp3: false,
+      });
 
       // Should be called exactly once (not once per item — no N+1)
       expect(getTracksForItemsSpy).toHaveBeenCalledTimes(1);
@@ -1880,12 +1911,36 @@ describe('Server Root Path - Original Path Usage', () => {
       const getTracksForItemsSpy = vi.fn(() =>
         Promise.resolve({
           tracks: [
-            { id: 'track-1', name: 'Track 1', album: 'Album A', artists: ['Artist'], path: '/music/Artist/Album A/track1.mp3', format: 'mp3', parentItemId: 'album-1' },
-            { id: 'track-2', name: 'Track 2', album: 'Album A', artists: ['Artist'], path: '/music/Artist/Album A/track2.mp3', format: 'mp3', parentItemId: 'album-1' },
-            { id: 'track-3', name: 'Track 3', album: 'Album B', artists: ['Artist'], path: '/music/Artist/Album B/track3.mp3', format: 'mp3', parentItemId: 'album-2' },
+            {
+              id: 'track-1',
+              name: 'Track 1',
+              album: 'Album A',
+              artists: ['Artist'],
+              path: '/music/Artist/Album A/track1.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
+            {
+              id: 'track-2',
+              name: 'Track 2',
+              album: 'Album A',
+              artists: ['Artist'],
+              path: '/music/Artist/Album A/track2.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
+            {
+              id: 'track-3',
+              name: 'Track 3',
+              album: 'Album B',
+              artists: ['Artist'],
+              path: '/music/Artist/Album B/track3.mp3',
+              format: 'mp3',
+              parentItemId: 'album-2',
+            },
           ],
           errors: [],
-        })
+        }),
       );
 
       // Ensure the module-level mock returns an empty array synchronously
@@ -1904,12 +1959,12 @@ describe('Server Root Path - Original Path Usage', () => {
           ['album-2', 'album' as ItemType],
         ]),
         '/music',
-        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
       );
 
       // album-1 should have 2 tracks, album-2 should have 1
-      const album1Diff = result.items.find(i => i.itemId === 'album-1');
-      const album2Diff = result.items.find(i => i.itemId === 'album-2');
+      const album1Diff = result.items.find((i) => i.itemId === 'album-1');
+      const album2Diff = result.items.find((i) => i.itemId === 'album-2');
       expect(album1Diff?.changes.length).toBe(2);
       expect(album2Diff?.changes.length).toBe(1);
     });
@@ -1931,13 +1986,37 @@ describe('Server Root Path - Original Path Usage', () => {
         Promise.resolve({
           tracks: [
             // Old album tracks - these were already synced
-            { id: 'track-old-1', name: 'Old Track 1', album: 'Old Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Old Album/track1.mp3', format: 'mp3', parentItemId: 'artist-1' },
-            { id: 'track-old-2', name: 'Old Track 2', album: 'Old Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Old Album/track2.mp3', format: 'mp3', parentItemId: 'artist-1' },
+            {
+              id: 'track-old-1',
+              name: 'Old Track 1',
+              album: 'Old Album',
+              artists: ['Artist'],
+              path: '/music/lib/lib/Artist/Old Album/track1.mp3',
+              format: 'mp3',
+              parentItemId: 'artist-1',
+            },
+            {
+              id: 'track-old-2',
+              name: 'Old Track 2',
+              album: 'Old Album',
+              artists: ['Artist'],
+              path: '/music/lib/lib/Artist/Old Album/track2.mp3',
+              format: 'mp3',
+              parentItemId: 'artist-1',
+            },
             // New album tracks - these are brand new on server
-            { id: 'track-new-1', name: 'New Track 1', album: 'New Album', artists: ['Artist'], path: '/music/lib/lib/Artist/New Album/track1.mp3', format: 'mp3', parentItemId: 'artist-1' },
+            {
+              id: 'track-new-1',
+              name: 'New Track 1',
+              album: 'New Album',
+              artists: ['Artist'],
+              path: '/music/lib/lib/Artist/New Album/track1.mp3',
+              format: 'mp3',
+              parentItemId: 'artist-1',
+            },
           ],
           errors: [],
-        })
+        }),
       );
 
       // Previously synced tracks: only the OLD album tracks (from initial sync)
@@ -1984,7 +2063,7 @@ describe('Server Root Path - Original Path Usage', () => {
         ['artist-1'],
         new Map([['artist-1', 'artist' as ItemType]]),
         '/mnt/usb',
-        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
       );
 
       expect(result.items).toHaveLength(1);
@@ -1993,13 +2072,13 @@ describe('Server Root Path - Original Path Usage', () => {
       expect(artistDiff.itemType).toBe('artist');
 
       // Old tracks should be unchanged, new tracks should be new
-      const unchanged = artistDiff.changes.filter(c => c.changeType === 'unchanged');
-      const newTracks = artistDiff.changes.filter(c => c.changeType === 'new');
+      const unchanged = artistDiff.changes.filter((c) => c.changeType === 'unchanged');
+      const newTracks = artistDiff.changes.filter((c) => c.changeType === 'new');
 
       expect(unchanged).toHaveLength(2); // Old tracks should be unchanged
       expect(newTracks).toHaveLength(1); // New album track should be new
-      expect(unchanged.map(c => c.trackId)).toEqual(['track-old-1', 'track-old-2']);
-      expect(newTracks.map(c => c.trackId)).toEqual(['track-new-1']);
+      expect(unchanged.map((c) => c.trackId)).toEqual(['track-old-1', 'track-old-2']);
+      expect(newTracks.map((c) => c.trackId)).toEqual(['track-new-1']);
 
       // Totals should reflect: 1 new, 2 unchanged
       expect(result.totals.newTracks).toBe(1);
@@ -2023,11 +2102,27 @@ describe('Server Root Path - Original Path Usage', () => {
         Promise.resolve({
           tracks: [
             // Tracks with NEW path structure (as if library was reorganized)
-            { id: 'track-old-1', name: 'Old Track 1', album: 'Old Album', artists: ['Artist'], path: '/music/newlib/newlib/Artist/Old Album/track1.mp3', format: 'mp3', parentItemId: 'artist-1' },
-            { id: 'track-old-2', name: 'Old Track 2', album: 'Old Album', artists: ['Artist'], path: '/music/newlib/newlib/Artist/Old Album/track2.mp3', format: 'mp3', parentItemId: 'artist-1' },
+            {
+              id: 'track-old-1',
+              name: 'Old Track 1',
+              album: 'Old Album',
+              artists: ['Artist'],
+              path: '/music/newlib/newlib/Artist/Old Album/track1.mp3',
+              format: 'mp3',
+              parentItemId: 'artist-1',
+            },
+            {
+              id: 'track-old-2',
+              name: 'Old Track 2',
+              album: 'Old Album',
+              artists: ['Artist'],
+              path: '/music/newlib/newlib/Artist/Old Album/track2.mp3',
+              format: 'mp3',
+              parentItemId: 'artist-1',
+            },
           ],
           errors: [],
-        })
+        }),
       );
 
       // Synced with OLD path structure (serverRootPath = /music/lib/)
@@ -2072,12 +2167,12 @@ describe('Server Root Path - Original Path Usage', () => {
         ['artist-1'],
         new Map([['artist-1', 'artist' as ItemType]]),
         '/mnt/usb',
-        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
       );
 
       const artistDiff = result.items[0];
-      const pathChanged = artistDiff.changes.filter(c => c.changeType === 'path_changed');
-      const unchanged = artistDiff.changes.filter(c => c.changeType === 'unchanged');
+      const pathChanged = artistDiff.changes.filter((c) => c.changeType === 'path_changed');
+      const unchanged = artistDiff.changes.filter((c) => c.changeType === 'unchanged');
 
       // With the fix using both synced.serverRootPath AND synced.serverPath:
       // synced.serverRootPath='/music/lib/lib/', serverPath='/music/lib/lib/Artist/Old Album/track1.mp3'
@@ -2087,7 +2182,7 @@ describe('Server Root Path - Original Path Usage', () => {
       // expected = /mnt/usb/Artist/Old Album/track1.mp3 ✓
       // So old tracks stay unchanged despite library reorganisation
       expect(pathChanged).toHaveLength(0); // FIXED: no false path_changed
-      expect(unchanged).toHaveLength(2);   // FIXED: old tracks correctly marked unchanged
+      expect(unchanged).toHaveLength(2); // FIXED: old tracks correctly marked unchanged
     });
   });
 
@@ -2118,7 +2213,7 @@ describe('Server Root Path - Original Path Usage', () => {
         ['album-fail'],
         new Map([['album-fail', 'album' as ItemType]]),
         '/music',
-        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
       );
 
       expect(result.itemErrors).toBeDefined();
@@ -2141,11 +2236,27 @@ describe('Server Root Path - Original Path Usage', () => {
       const getTracksForItemsSpy = vi.fn(() =>
         Promise.resolve({
           tracks: [
-            { id: 'track-1', name: 'Track 1', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track1.mp3', format: 'mp3', parentItemId: 'album-1' },
-            { id: 'track-2', name: 'Track 2', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track2.mp3', format: 'mp3', parentItemId: 'album-1' },
+            {
+              id: 'track-1',
+              name: 'Track 1',
+              album: 'Album',
+              artists: ['Artist'],
+              path: '/music/lib/lib/Artist/Album/track1.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
+            {
+              id: 'track-2',
+              name: 'Track 2',
+              album: 'Album',
+              artists: ['Artist'],
+              path: '/music/lib/lib/Artist/Album/track2.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
           ],
           errors: [],
-        })
+        }),
       );
 
       // Legacy synced records from v1 sync: serverRootPath = NULL, serverPath = NULL
@@ -2164,7 +2275,7 @@ describe('Server Root Path - Original Path Usage', () => {
           metadataHash: metadataHash1,
           coverArtMode: 'embed',
           encodedBitrate: '192k',
-          serverPath: null,    // legacy: never stored
+          serverPath: null, // legacy: never stored
           serverRootPath: null, // legacy: NULL from v1 migration
         },
         {
@@ -2175,7 +2286,7 @@ describe('Server Root Path - Original Path Usage', () => {
           metadataHash: metadataHash2,
           coverArtMode: 'embed',
           encodedBitrate: '192k',
-          serverPath: null,    // legacy: never stored
+          serverPath: null, // legacy: never stored
           serverRootPath: null, // legacy: NULL from v1 migration
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2191,7 +2302,7 @@ describe('Server Root Path - Original Path Usage', () => {
         ['album-1'],
         new Map([['album-1', 'album' as ItemType]]),
         '/mnt/usb',
-        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
       );
 
       expect(result.items).toHaveLength(1);
@@ -2200,8 +2311,8 @@ describe('Server Root Path - Original Path Usage', () => {
       // Tracks with NULL serverRootPath must be marked unchanged (not path_changed),
       // regardless of whether the expected path computed by current detectServerRootPath
       // matches the legacy stored destinationPath.
-      const unchanged = albumDiff.changes.filter(c => c.changeType === 'unchanged');
-      const pathChanged = albumDiff.changes.filter(c => c.changeType === 'path_changed');
+      const unchanged = albumDiff.changes.filter((c) => c.changeType === 'unchanged');
+      const pathChanged = albumDiff.changes.filter((c) => c.changeType === 'path_changed');
       expect(unchanged).toHaveLength(2);
       expect(pathChanged).toHaveLength(0);
     });
@@ -2215,10 +2326,18 @@ describe('Server Root Path - Original Path Usage', () => {
       const getTracksForItemsSpy = vi.fn(() =>
         Promise.resolve({
           tracks: [
-            { id: 'track-1', name: 'Track 1', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track1.mp3', format: 'mp3', parentItemId: 'album-1' },
+            {
+              id: 'track-1',
+              name: 'Track 1',
+              album: 'Album',
+              artists: ['Artist'],
+              path: '/music/lib/lib/Artist/Album/track1.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
           ],
           errors: [],
-        })
+        }),
       );
 
       // v2 synced record with stored serverRootPath — path comparison should work
@@ -2248,11 +2367,11 @@ describe('Server Root Path - Original Path Usage', () => {
         ['album-1'],
         new Map([['album-1', 'album' as ItemType]]),
         '/mnt/usb',
-        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+        { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
       );
 
       const albumDiff = result.items[0];
-      const unchanged = albumDiff.changes.filter(c => c.changeType === 'unchanged');
+      const unchanged = albumDiff.changes.filter((c) => c.changeType === 'unchanged');
       // Path should match → unchanged
       expect(unchanged).toHaveLength(1);
     });
@@ -2268,8 +2387,18 @@ describe('detectServerRootPath', () => {
 
     const tracks = [
       // Deep paths — valid candidates
-      { id: '1', name: 'Track 1', path: '/mediamusic/lib/lib/Artist1/Album/track1.mp3', format: 'mp3' },
-      { id: '2', name: 'Track 2', path: '/mediamusic/lib/lib/Artist2/Album/track2.mp3', format: 'mp3' },
+      {
+        id: '1',
+        name: 'Track 1',
+        path: '/mediamusic/lib/lib/Artist1/Album/track1.mp3',
+        format: 'mp3',
+      },
+      {
+        id: '2',
+        name: 'Track 2',
+        path: '/mediamusic/lib/lib/Artist2/Album/track2.mp3',
+        format: 'mp3',
+      },
       // Shallow path — would return '' from map, must be filtered out
       { id: '3', name: 'Track 3', path: '/music/track.mp3', format: 'mp3' },
     ];
@@ -2303,20 +2432,34 @@ describe('detectServerRootPath', () => {
 describe('analyzeDiff v1→v2 retrocompatibility', () => {
   it('marks all tracks as unchanged when item is v1-synced (in synced_files, no synced_tracks)', async () => {
     // Item was synced with v1: present in getSyncedItems() but absent from getSyncedTracksForItem()
-    mockGetSyncedItems.mockReturnValue([
-      { id: 'artist-1', name: 'Artist One', type: 'artist' },
-    ]);
+    mockGetSyncedItems.mockReturnValue([{ id: 'artist-1', name: 'Artist One', type: 'artist' }]);
     // No track-level records for this item (v1 never wrote synced_tracks)
     mockGetSyncedTracksForItem.mockReturnValue([]);
 
     const getTracksForItemsSpy = vi.fn(() =>
       Promise.resolve({
         tracks: [
-          { id: 'track-1', name: 'Track 1', album: 'Album', artists: ['Artist One'], path: '/music/lib/lib/Artist One/Album/track1.mp3', format: 'mp3', parentItemId: 'artist-1' },
-          { id: 'track-2', name: 'Track 2', album: 'Album', artists: ['Artist One'], path: '/music/lib/lib/Artist One/Album/track2.mp3', format: 'mp3', parentItemId: 'artist-1' },
+          {
+            id: 'track-1',
+            name: 'Track 1',
+            album: 'Album',
+            artists: ['Artist One'],
+            path: '/music/lib/lib/Artist One/Album/track1.mp3',
+            format: 'mp3',
+            parentItemId: 'artist-1',
+          },
+          {
+            id: 'track-2',
+            name: 'Track 2',
+            album: 'Album',
+            artists: ['Artist One'],
+            path: '/music/lib/lib/Artist One/Album/track2.mp3',
+            format: 'mp3',
+            parentItemId: 'artist-1',
+          },
         ],
         errors: [],
-      })
+      }),
     );
 
     const deps = createMockDeps({
@@ -2328,15 +2471,15 @@ describe('analyzeDiff v1→v2 retrocompatibility', () => {
       ['artist-1'],
       new Map([['artist-1', 'artist' as ItemType]]),
       '/mnt/usb',
-      { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+      { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
     );
 
     expect(result.items).toHaveLength(1);
     const diff = result.items[0];
 
     // All tracks must be unchanged — no false "new" for v1 items
-    const unchanged = diff.changes.filter(c => c.changeType === 'unchanged');
-    const newTracks = diff.changes.filter(c => c.changeType === 'new');
+    const unchanged = diff.changes.filter((c) => c.changeType === 'unchanged');
+    const newTracks = diff.changes.filter((c) => c.changeType === 'new');
     expect(unchanged).toHaveLength(2);
     expect(newTracks).toHaveLength(0);
     expect(diff.summary.new).toBe(0);
@@ -2359,10 +2502,18 @@ describe('analyzeDiff v1→v2 retrocompatibility', () => {
     const getTracksForItemsSpy = vi.fn(() =>
       Promise.resolve({
         tracks: [
-          { id: 'track-1', name: 'Track 1', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track1.mp3', format: 'mp3', parentItemId: 'artist-1' },
+          {
+            id: 'track-1',
+            name: 'Track 1',
+            album: 'Album',
+            artists: ['Artist'],
+            path: '/music/lib/lib/Artist/Album/track1.mp3',
+            format: 'mp3',
+            parentItemId: 'artist-1',
+          },
         ],
         errors: [],
-      })
+      }),
     );
 
     const deps = createMockDeps({
@@ -2374,11 +2525,11 @@ describe('analyzeDiff v1→v2 retrocompatibility', () => {
       ['artist-1'],
       new Map([['artist-1', 'artist' as ItemType]]),
       '/mnt/usb',
-      { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+      { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
     );
 
     expect(result.items).toHaveLength(1);
-    const newTracks = result.items[0].changes.filter(c => c.changeType === 'new');
+    const newTracks = result.items[0].changes.filter((c) => c.changeType === 'new');
     expect(newTracks).toHaveLength(1);
     expect(result.items[0].summary.new).toBe(1);
   });
@@ -2404,10 +2555,7 @@ describe('sync loop healing on skip', () => {
     const core = createTestSyncCore(validConfig, deps);
 
     const itemTypes = new Map<string, ItemType>([['album-1', 'album']]);
-    await core.sync(
-      { itemIds: ['album-1'], itemTypes, destinationPath: '/mnt/usb' },
-      () => {}
-    );
+    await core.sync({ itemIds: ['album-1'], itemTypes, destinationPath: '/mnt/usb' }, () => {});
 
     // upsertSyncedTrack must have been called to record the skipped track
     expect(vi.mocked(upsertSyncedTrack)).toHaveBeenCalled();
@@ -2437,9 +2585,7 @@ describe('cover art size limit — ORAIN-0232', () => {
       albumId: 'album-cover-5mb',
     };
 
-    const getTracksForItemsSpy = vi.fn(() =>
-      Promise.resolve({ tracks: [track], errors: [] })
-    );
+    const getTracksForItemsSpy = vi.fn(() => Promise.resolve({ tracks: [track], errors: [] }));
 
     const deps = createMockDeps({
       api: createMockApiClient({
@@ -2458,7 +2604,9 @@ describe('cover art size limit — ORAIN-0232', () => {
 
     await core.sync(
       { itemIds: ['album-cover-5mb'], itemTypes, destinationPath: '/mnt/usb' },
-      (p) => { if (p.warning) progressWarnings.push(p.warning); }
+      (p) => {
+        if (p.warning) progressWarnings.push(p.warning);
+      },
     );
 
     // Exactly 5 MB is NOT greater than 5 MB — no warning should be emitted
@@ -2480,9 +2628,7 @@ describe('cover art size limit — ORAIN-0232', () => {
       albumId: 'album-cover-big',
     };
 
-    const getTracksForItemsSpy = vi.fn(() =>
-      Promise.resolve({ tracks: [track], errors: [] })
-    );
+    const getTracksForItemsSpy = vi.fn(() => Promise.resolve({ tracks: [track], errors: [] }));
 
     const deps = createMockDeps({
       api: createMockApiClient({
@@ -2501,7 +2647,9 @@ describe('cover art size limit — ORAIN-0232', () => {
 
     await core.sync(
       { itemIds: ['album-cover-big'], itemTypes, destinationPath: '/mnt/usb' },
-      (p) => { if (p.warning) progressWarnings.push(p.warning); }
+      (p) => {
+        if (p.warning) progressWarnings.push(p.warning);
+      },
     );
 
     // Over 5 MB → cover_art_too_large warning must be emitted
@@ -2522,9 +2670,7 @@ describe('cover art size limit — ORAIN-0232', () => {
       albumId: 'album-cover-ok',
     };
 
-    const getTracksForItemsSpy = vi.fn(() =>
-      Promise.resolve({ tracks: [track], errors: [] })
-    );
+    const getTracksForItemsSpy = vi.fn(() => Promise.resolve({ tracks: [track], errors: [] }));
 
     const deps = createMockDeps({
       api: createMockApiClient({
@@ -2550,14 +2696,15 @@ describe('cover art size limit — ORAIN-0232', () => {
       await expect(
         core.sync(
           { itemIds: ['album-cover-ok'], itemTypes, destinationPath: '/mnt/usb' },
-          () => {}
-        )
+          () => {},
+        ),
       ).resolves.toBeDefined();
     } finally {
       console.error = origError;
     }
   });
-});describe('removeItems', () => {
+});
+describe('removeItems', () => {
   // Stable config WITH serverRootPath so path computation works in tests
   const configWithServerRoot: SyncConfig = {
     serverUrl: 'https://jellyfin.example.com',
@@ -2589,8 +2736,20 @@ describe('cover art size limit — ORAIN-0232', () => {
       const mockApi = createMockApiClient({
         getTracksForItems: async () => ({
           tracks: [
-            { id: 'track-1', name: 'Track One', path: '/music/Artist/Album/track-1.mp3', format: 'mp3', parentItemId: 'album-1' },
-            { id: 'track-2', name: 'Track Two', path: '/music/Artist/Album/track-2.mp3', format: 'mp3', parentItemId: 'album-1' },
+            {
+              id: 'track-1',
+              name: 'Track One',
+              path: '/music/Artist/Album/track-1.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
+            {
+              id: 'track-2',
+              name: 'Track Two',
+              path: '/music/Artist/Album/track-2.mp3',
+              format: 'mp3',
+              parentItemId: 'album-1',
+            },
           ],
           errors: [],
         }),
@@ -2607,13 +2766,15 @@ describe('cover art size limit — ORAIN-0232', () => {
       const result = await core.removeItems(
         ['album-1'],
         new Map([['album-1', 'album' as ItemType]]),
-        '/music'
+        '/music',
       );
 
       // track-2 should have been deleted successfully
       expect(track2Deleted).toBe(true);
       // Error for track-1 should be in the errors list
-      expect(result.errors.some(e => e.includes('track-1') || e.includes('Permission denied'))).toBe(true);
+      expect(
+        result.errors.some((e) => e.includes('track-1') || e.includes('Permission denied')),
+      ).toBe(true);
       // At least one track should have been removed
       expect(result.removed).toBeGreaterThanOrEqual(1);
     });
@@ -2635,14 +2796,27 @@ describe('cover art size limit — ORAIN-0232', () => {
       // M3U8 stores relative paths as: getRelativePath(track.path, serverRootPath)
       // track.path = '/music/Artist/Shared Track.mp3', serverRootPath = '/music/'
       // → relative path = 'Artist/Shared Track.mp3'
-      mockFs.__setFile('/music/Pop Hits.m3u8', Buffer.from('#EXTM3U\n#EXTINF:-1,Shared Track\nArtist/Shared Track.mp3\n'));
-      mockFs.__setFile('/music/Rock Classics.m3u8', Buffer.from('#EXTM3U\n#EXTINF:-1,Shared Track\nArtist/Shared Track.mp3\n'));
+      mockFs.__setFile(
+        '/music/Pop Hits.m3u8',
+        Buffer.from('#EXTM3U\n#EXTINF:-1,Shared Track\nArtist/Shared Track.mp3\n'),
+      );
+      mockFs.__setFile(
+        '/music/Rock Classics.m3u8',
+        Buffer.from('#EXTM3U\n#EXTINF:-1,Shared Track\nArtist/Shared Track.mp3\n'),
+      );
       mockFs.__setFile('/music/Artist/Shared Track.mp3', Buffer.alloc(5000000));
 
       const mockApi = createMockApiClient({
         getTracksForItems: async () => ({
           tracks: [
-            { id: 'track-shared', name: 'Shared Track', artists: ['Artist'], path: '/music/Artist/Shared Track.mp3', format: 'mp3', parentItemId: 'playlist-pop-hits' },
+            {
+              id: 'track-shared',
+              name: 'Shared Track',
+              artists: ['Artist'],
+              path: '/music/Artist/Shared Track.mp3',
+              format: 'mp3',
+              parentItemId: 'playlist-pop-hits',
+            },
           ],
           errors: [],
         }),
@@ -2663,7 +2837,7 @@ describe('cover art size limit — ORAIN-0232', () => {
       const result = await core.removeItems(
         ['playlist-pop-hits'],
         new Map([['playlist-pop-hits', 'playlist' as ItemType]]),
-        '/music'
+        '/music',
       );
 
       // Pop Hits.m3u8 should be deleted
@@ -2684,13 +2858,23 @@ describe('cover art size limit — ORAIN-0232', () => {
 
       // Only one playlist references the track
       // relative path = getRelativePath('/music/Artist/Lone Track.mp3', '/music/') = 'Artist/Lone Track.mp3'
-      mockFs.__setFile('/music/Solo Playlist.m3u8', Buffer.from('#EXTM3U\n#EXTINF:-1,Lone Track\nArtist/Lone Track.mp3\n'));
+      mockFs.__setFile(
+        '/music/Solo Playlist.m3u8',
+        Buffer.from('#EXTM3U\n#EXTINF:-1,Lone Track\nArtist/Lone Track.mp3\n'),
+      );
       mockFs.__setFile('/music/Artist/Lone Track.mp3', Buffer.alloc(5000000));
 
       const mockApi = createMockApiClient({
         getTracksForItems: async () => ({
           tracks: [
-            { id: 'track-lone', name: 'Lone Track', artists: ['Artist'], path: '/music/Artist/Lone Track.mp3', format: 'mp3', parentItemId: 'playlist-solo' },
+            {
+              id: 'track-lone',
+              name: 'Lone Track',
+              artists: ['Artist'],
+              path: '/music/Artist/Lone Track.mp3',
+              format: 'mp3',
+              parentItemId: 'playlist-solo',
+            },
           ],
           errors: [],
         }),
@@ -2708,7 +2892,7 @@ describe('cover art size limit — ORAIN-0232', () => {
       const result = await core.removeItems(
         ['playlist-solo'],
         new Map([['playlist-solo', 'playlist' as ItemType]]),
-        '/music'
+        '/music',
       );
 
       // M3U8 deleted
@@ -2731,7 +2915,10 @@ describe('cover art size limit — ORAIN-0232', () => {
 
       // Set up: one playlist referencing one track
       // relative path = 'Artist/Track.mp3'
-      mockFs.__setFile('/music/Test Playlist.m3u8', Buffer.from('#EXTM3U\n#EXTINF:-1,Track\nArtist/Track.mp3\n'));
+      mockFs.__setFile(
+        '/music/Test Playlist.m3u8',
+        Buffer.from('#EXTM3U\n#EXTINF:-1,Track\nArtist/Track.mp3\n'),
+      );
       mockFs.__setFile('/music/Artist/Track.mp3', Buffer.alloc(3000000));
 
       let deleteCallCount = 0;
@@ -2746,7 +2933,14 @@ describe('cover art size limit — ORAIN-0232', () => {
       const mockApi = createMockApiClient({
         getTracksForItems: async () => ({
           tracks: [
-            { id: 'track-1', name: 'Track', artists: ['Artist'], path: '/music/Artist/Track.mp3', format: 'mp3', parentItemId: 'playlist-1' },
+            {
+              id: 'track-1',
+              name: 'Track',
+              artists: ['Artist'],
+              path: '/music/Artist/Track.mp3',
+              format: 'mp3',
+              parentItemId: 'playlist-1',
+            },
           ],
           errors: [],
         }),
@@ -2763,8 +2957,16 @@ describe('cover art size limit — ORAIN-0232', () => {
 
       // Simulate two concurrent calls to removeItems for the same playlist
       const [result1, result2] = await Promise.all([
-        core.removeItems(['playlist-1'], new Map([['playlist-1', 'playlist' as ItemType]]), '/music'),
-        core.removeItems(['playlist-1'], new Map([['playlist-1', 'playlist' as ItemType]]), '/music'),
+        core.removeItems(
+          ['playlist-1'],
+          new Map([['playlist-1', 'playlist' as ItemType]]),
+          '/music',
+        ),
+        core.removeItems(
+          ['playlist-1'],
+          new Map([['playlist-1', 'playlist' as ItemType]]),
+          '/music',
+        ),
       ]);
 
       // Both should succeed without errors (second call finds nothing to do)
@@ -2781,15 +2983,35 @@ describe('cover art size limit — ORAIN-0232', () => {
 
       // Track is in both playlists
       // relative path = 'Artist/Shared.mp3'
-      mockFs.__setFile('/music/Playlist A.m3u8', Buffer.from('#EXTM3U\n#EXTINF:-1,Shared\nArtist/Shared.mp3\n'));
-      mockFs.__setFile('/music/Playlist B.m3u8', Buffer.from('#EXTM3U\n#EXTINF:-1,Shared\nArtist/Shared.mp3\n'));
+      mockFs.__setFile(
+        '/music/Playlist A.m3u8',
+        Buffer.from('#EXTM3U\n#EXTINF:-1,Shared\nArtist/Shared.mp3\n'),
+      );
+      mockFs.__setFile(
+        '/music/Playlist B.m3u8',
+        Buffer.from('#EXTM3U\n#EXTINF:-1,Shared\nArtist/Shared.mp3\n'),
+      );
       mockFs.__setFile('/music/Artist/Shared.mp3', Buffer.alloc(5000000));
 
       const mockApi = createMockApiClient({
         getTracksForItems: async () => ({
           tracks: [
-            { id: 'shared-track', name: 'Shared', artists: ['Artist'], path: '/music/Artist/Shared.mp3', format: 'mp3', parentItemId: 'playlist-a' },
-            { id: 'shared-track', name: 'Shared', artists: ['Artist'], path: '/music/Artist/Shared.mp3', format: 'mp3', parentItemId: 'playlist-b' },
+            {
+              id: 'shared-track',
+              name: 'Shared',
+              artists: ['Artist'],
+              path: '/music/Artist/Shared.mp3',
+              format: 'mp3',
+              parentItemId: 'playlist-a',
+            },
+            {
+              id: 'shared-track',
+              name: 'Shared',
+              artists: ['Artist'],
+              path: '/music/Artist/Shared.mp3',
+              format: 'mp3',
+              parentItemId: 'playlist-b',
+            },
           ],
           errors: [],
         }),
@@ -2810,8 +3032,16 @@ describe('cover art size limit — ORAIN-0232', () => {
 
       // Concurrently remove both playlists
       const [resultA, resultB] = await Promise.all([
-        core.removeItems(['playlist-a'], new Map([['playlist-a', 'playlist' as ItemType]]), '/music'),
-        core.removeItems(['playlist-b'], new Map([['playlist-b', 'playlist' as ItemType]]), '/music'),
+        core.removeItems(
+          ['playlist-a'],
+          new Map([['playlist-a', 'playlist' as ItemType]]),
+          '/music',
+        ),
+        core.removeItems(
+          ['playlist-b'],
+          new Map([['playlist-b', 'playlist' as ItemType]]),
+          '/music',
+        ),
       ]);
 
       // Both should succeed
@@ -2857,8 +3087,24 @@ describe('generateM3u8Files', () => {
 
   it('writes a single playlist M3U8 file', async () => {
     const tracks = [
-      { id: 't1', name: 'Track One', album: 'Album', artists: ['Artist'], path: '/music/lib/Artist/Album/track1.mp3', format: 'mp3', parentItemId: 'pl-1' },
-      { id: 't2', name: 'Track Two', album: 'Album', artists: ['Artist'], path: '/music/lib/Artist/Album/track2.mp3', format: 'mp3', parentItemId: 'pl-1' },
+      {
+        id: 't1',
+        name: 'Track One',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/Artist/Album/track1.mp3',
+        format: 'mp3',
+        parentItemId: 'pl-1',
+      },
+      {
+        id: 't2',
+        name: 'Track Two',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/Artist/Album/track2.mp3',
+        format: 'mp3',
+        parentItemId: 'pl-1',
+      },
     ];
 
     // Set up source files so sync actually processes something
@@ -2903,13 +3149,29 @@ describe('generateM3u8Files', () => {
     const mockApi = createMockApiClient({
       getTracksForItems: async () => ({
         tracks: [
-          { id: 't1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/Artist/Album/t.mp3', format: 'mp3', parentItemId: 'pl-1' },
+          {
+            id: 't1',
+            name: 'Track',
+            album: 'Album',
+            artists: ['Artist'],
+            path: '/music/lib/Artist/Album/t.mp3',
+            format: 'mp3',
+            parentItemId: 'pl-1',
+          },
         ],
         errors: [],
       }),
       getItem: async (id: string) => ({ id, name: `Playlist ${id}`, type: 'Playlist' }),
       getPlaylistTracks: async () => [
-        { id: 't1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/Artist/Album/t.mp3', format: 'mp3', parentItemId: 'pl-1' },
+        {
+          id: 't1',
+          name: 'Track',
+          album: 'Album',
+          artists: ['Artist'],
+          path: '/music/lib/Artist/Album/t.mp3',
+          format: 'mp3',
+          parentItemId: 'pl-1',
+        },
       ],
       downloadItem: async () => Buffer.alloc(100),
       downloadItemStream: async () => {
@@ -2943,13 +3205,29 @@ describe('generateM3u8Files', () => {
     const mockApi = createMockApiClient({
       getTracksForItems: async () => ({
         tracks: [
-          { id: 't1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/Artist/Album/t.mp3', format: 'mp3', parentItemId: 'pl-1' },
+          {
+            id: 't1',
+            name: 'Track',
+            album: 'Album',
+            artists: ['Artist'],
+            path: '/music/lib/Artist/Album/t.mp3',
+            format: 'mp3',
+            parentItemId: 'pl-1',
+          },
         ],
         errors: [],
       }),
       getItem: async () => ({ id: 'pl-1', name: 'My:Playlist', type: 'Playlist' }),
       getPlaylistTracks: async () => [
-        { id: 't1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/Artist/Album/t.mp3', format: 'mp3', parentItemId: 'pl-1' },
+        {
+          id: 't1',
+          name: 'Track',
+          album: 'Album',
+          artists: ['Artist'],
+          path: '/music/lib/Artist/Album/t.mp3',
+          format: 'mp3',
+          parentItemId: 'pl-1',
+        },
       ],
       downloadItem: async () => Buffer.alloc(100),
       downloadItemStream: async () => {
@@ -2995,22 +3273,30 @@ describe('getCoverArtBuffer', () => {
     const getTracksForItemsSpy = vi.fn(() =>
       Promise.resolve({
         tracks: [
-          { id: 'track-1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track.mp3', format: 'mp3', albumId: 'album-1', parentItemId: 'album-1' },
+          {
+            id: 'track-1',
+            name: 'Track',
+            album: 'Album',
+            artists: ['Artist'],
+            path: '/music/lib/lib/Artist/Album/track.mp3',
+            format: 'mp3',
+            albumId: 'album-1',
+            parentItemId: 'album-1',
+          },
         ],
         errors: [],
-      })
+      }),
     );
 
     (mockApi as any).getTracksForItems = getTracksForItemsSpy;
 
     mockGetSyncedTracksForItem.mockReturnValue([]);
 
-    await core.analyzeDiff(
-      ['album-1'],
-      new Map([['album-1', 'album' as ItemType]]),
-      '/usb',
-      { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
-    );
+    await core.analyzeDiff(['album-1'], new Map([['album-1', 'album' as ItemType]]), '/usb', {
+      coverArtMode: 'embed',
+      bitrate: '192k',
+      convertToMp3: false,
+    });
 
     // Should not throw — error is swallowed and undefined is returned
     expect(getTracksForItemsSpy).toHaveBeenCalled();
@@ -3031,10 +3317,19 @@ describe('getCoverArtBuffer', () => {
     const getTracksForItemsSpy = vi.fn(() =>
       Promise.resolve({
         tracks: [
-          { id: 'track-1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track.mp3', format: 'mp3', albumId: 'album-1', parentItemId: 'album-1' },
+          {
+            id: 'track-1',
+            name: 'Track',
+            album: 'Album',
+            artists: ['Artist'],
+            path: '/music/lib/lib/Artist/Album/track.mp3',
+            format: 'mp3',
+            albumId: 'album-1',
+            parentItemId: 'album-1',
+          },
         ],
         errors: [],
-      })
+      }),
     );
 
     (mockApi as any).getTracksForItems = getTracksForItemsSpy;
@@ -3045,7 +3340,7 @@ describe('getCoverArtBuffer', () => {
       ['album-1'],
       new Map([['album-1', 'album' as ItemType]]),
       '/usb',
-      { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false }
+      { coverArtMode: 'embed', bitrate: '192k', convertToMp3: false },
     );
 
     expect(result.items[0]).toBeDefined();
@@ -3068,7 +3363,15 @@ describe('cleanEmptyDir', () => {
 
     // Use sync to trigger cleanEmptyDir — set up an empty album dir
     const tracks = [
-      { id: 'track-1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Empty Album/track.mp3', format: 'mp3', parentItemId: 'album-1' },
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Empty Album/track.mp3',
+        format: 'mp3',
+        parentItemId: 'album-1',
+      },
     ];
 
     const mockFsAny = mockFs as any;
@@ -3114,7 +3417,15 @@ describe('cleanEmptyDir', () => {
 
     // Trigger cleanEmptyDir by calling sync
     const tracks = [
-      { id: 'track-1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track.mp3', format: 'mp3', parentItemId: 'album-1' },
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Album/track.mp3',
+        format: 'mp3',
+        parentItemId: 'album-1',
+      },
     ];
 
     const getTracksForItemsSpy = vi.fn(() => Promise.resolve({ tracks, errors: [] }));
@@ -3147,7 +3458,15 @@ describe('cleanEmptyDir', () => {
     const core = createTestSyncCore(validConfig, deps);
 
     const tracks = [
-      { id: 'track-1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track.mp3', format: 'mp3', parentItemId: 'album-1' },
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Album/track.mp3',
+        format: 'mp3',
+        parentItemId: 'album-1',
+      },
     ];
 
     const getTracksForItemsSpy = vi.fn(() => Promise.resolve({ tracks, errors: [] }));
@@ -3160,10 +3479,12 @@ describe('cleanEmptyDir', () => {
     mockGetSyncedTracksForItem.mockReturnValue([]);
 
     // Should not throw even though the empty dir path doesn't exist
-    await expect(core.sync({
-      itemIds: ['album-1'],
-      itemTypes: new Map([['album-1', 'album' as ItemType]]),
-      destinationPath: '/nonexistent',
-    })).resolves.not.toThrow();
+    await expect(
+      core.sync({
+        itemIds: ['album-1'],
+        itemTypes: new Map([['album-1', 'album' as ItemType]]),
+        destinationPath: '/nonexistent',
+      }),
+    ).resolves.not.toThrow();
   });
 });

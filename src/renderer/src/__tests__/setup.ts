@@ -1,12 +1,12 @@
-import '@testing-library/jest-dom'
-import { afterEach } from 'vitest'
-import { cleanup } from '@testing-library/react'
+import '@testing-library/jest-dom';
+import { afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
 
 // Mock IntersectionObserver for jsdom
 class MockIntersectionObserver implements IntersectionObserver {
-  readonly root: Element | null = null
-  readonly rootMargin: string = ''
-  readonly thresholds: ReadonlyArray<number> = []
+  readonly root: Element | null = null;
+  readonly rootMargin: string = '';
+  readonly thresholds: ReadonlyArray<number> = [];
 
   constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {}
 
@@ -14,13 +14,13 @@ class MockIntersectionObserver implements IntersectionObserver {
   unobserve(): void {}
   disconnect(): void {}
   takeRecords(): IntersectionObserverEntry[] {
-    return []
+    return [];
   }
 }
 
 Object.defineProperty(window, 'IntersectionObserver', {
   value: MockIntersectionObserver,
   writable: true,
-})
+});
 
-afterEach(() => cleanup())
+afterEach(() => cleanup());

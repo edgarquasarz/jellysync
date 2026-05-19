@@ -21,18 +21,18 @@ Para que los tests BDD funcionen correctamente, la aplicación React debe implem
     <button data-testid="tab-artists">Artistas</button>
     <button data-testid="tab-albums">Álbumes</button>
     <button data-testid="tab-playlists">Playlists</button>
-    
+
     <div data-testid="artists-list">
-      {artists.map(artist => (
+      {artists.map((artist) => (
         <div key={artist.id} data-testid="artist-item">
           <span data-testid="artist-name">{artist.name}</span>
           <span data-testid="album-count">{artist.albumCount}</span>
         </div>
       ))}
     </div>
-    
+
     <div data-testid="albums-list">
-      {albums.map(album => (
+      {albums.map((album) => (
         <div key={album.id} data-testid="album-item">
           <img data-testid="album-cover" src={album.coverUrl} />
         </div>
@@ -46,7 +46,7 @@ Para que los tests BDD funcionen correctamente, la aplicación React debe implem
 
 ```tsx
 <div data-testid="tracks-list">
-  {tracks.map(track => (
+  {tracks.map((track) => (
     <div key={track.id} data-testid="track-item">
       <input data-testid="track-checkbox" type="checkbox" />
       <span data-testid="track-number">{track.number}</span>
@@ -119,24 +119,24 @@ Para que los tests BDD funcionen correctamente, la aplicación React debe implem
 ## Estados Offline y Errores
 
 ```tsx
-{isOffline && (
-  <div data-testid="offline-status">Modo offline</div>
-)}
+{
+  isOffline && <div data-testid="offline-status">Modo offline</div>;
+}
 
-<div data-testid="cached-content">
-  {/* Contenido en caché */}
-</div>
+<div data-testid="cached-content">{/* Contenido en caché */}</div>;
 
-{error && (
-  <div data-testid="generic-error-message">
-    {userFriendlyMessage}
-    <button onClick={showTechnicalDetails}>Ver detalles técnicos</button>
-  </div>
-)}
+{
+  error && (
+    <div data-testid="generic-error-message">
+      {userFriendlyMessage}
+      <button onClick={showTechnicalDetails}>Ver detalles técnicos</button>
+    </div>
+  );
+}
 
-{technicalDetails && (
-  <pre data-testid="technical-details">{JSON.stringify(details, null, 2)}</pre>
-)}
+{
+  technicalDetails && <pre data-testid="technical-details">{JSON.stringify(details, null, 2)}</pre>;
+}
 ```
 
 ## Notas

@@ -57,10 +57,10 @@ describe('buildDestinationPath — validatePathTraversal coverage', () => {
 
   describe('rejects path traversal attacks', () => {
     it.each([
-      ['/mnt/usb/../../../etc/passwd',   '/mnt/usb', 'traversal beyond base'],
-      ['/mnt/usb/foo/../../../../etc',   '/mnt/usb', 'deep traversal with subdirs'],
-      ['/mnt/usb/./../../../etc/passwd',  '/mnt/usb', 'traversal with dot segments'],
-      ['/mnt/lib-backup/x',               '/mnt/lib',  'substring prefix overlap'],
+      ['/mnt/usb/../../../etc/passwd', '/mnt/usb', 'traversal beyond base'],
+      ['/mnt/usb/foo/../../../../etc', '/mnt/usb', 'deep traversal with subdirs'],
+      ['/mnt/usb/./../../../etc/passwd', '/mnt/usb', 'traversal with dot segments'],
+      ['/mnt/lib-backup/x', '/mnt/lib', 'substring prefix overlap'],
     ])('%s — %s', (serverPath, serverRoot, _desc) => {
       expect(() => buildDestinationPath(serverPath, serverRoot, DEST)).toThrow();
     });
@@ -68,10 +68,10 @@ describe('buildDestinationPath — validatePathTraversal coverage', () => {
 
   describe('accepts valid destination paths', () => {
     it.each([
-      ['/mnt/usb/Artist/Album/track.mp3', '/mnt/usb',  '/mnt/usb'],
-      ['/mnt/usb/a/b/c/d/e/f/track.mp3',  '/mnt/usb',  '/mnt/usb'],
-      ['/mnt/usb',                         '/mnt/usb',  '/mnt/usb'],
-      ['/music/Artist/Album/track.mp3',   '/music',    '/dest'],
+      ['/mnt/usb/Artist/Album/track.mp3', '/mnt/usb', '/mnt/usb'],
+      ['/mnt/usb/a/b/c/d/e/f/track.mp3', '/mnt/usb', '/mnt/usb'],
+      ['/mnt/usb', '/mnt/usb', '/mnt/usb'],
+      ['/music/Artist/Album/track.mp3', '/music', '/dest'],
     ])('%s under %s to %s', (serverPath, serverRoot, destinationRoot) => {
       expect(() => buildDestinationPath(serverPath, serverRoot, destinationRoot)).not.toThrow();
     });

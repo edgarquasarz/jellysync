@@ -1,37 +1,37 @@
 name: BDD Tests
 
 on:
-  workflow_dispatch:  # manual only — BDD tests require a real Electron environment, run locally
+  workflow_dispatch: # manual only — BDD tests require a real Electron environment, run locally
 
 jobs:
   bdd-tests:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: pnpm/action-setup@v2
         with:
           version: 9
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Build app
         run: pnpm build
-      
+
       - name: Install xvfb and system dependencies
         run: sudo apt-get update && sudo apt-get install -y xvfb libudev-dev
-      
+
       - name: Run BDD tests with XVFB
         run: xvfb-run --auto-servernum pnpm test:bdd:ci
-      
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

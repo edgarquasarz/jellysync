@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
 interface SyncSuccessModalProps {
-  tracksCopied: number
-  tracksSkipped: number
-  tracksRetagged: number
-  lyricsAdded: number
-  removed: number
-  errors: string[]
-  onClose: () => void
+  tracksCopied: number;
+  tracksSkipped: number;
+  tracksRetagged: number;
+  lyricsAdded?: number;
+  removed: number;
+  errors: string[];
+  onClose: () => void;
 }
 
 const CTAS = [
@@ -23,7 +23,7 @@ const CTAS = [
     label: 'Support development on Ko-fi ☕',
     url: 'https://ko-fi.com/orainlabs',
   },
-]
+];
 
 export function SyncSuccessModal({
   tracksCopied,
@@ -34,14 +34,16 @@ export function SyncSuccessModal({
   errors,
   onClose,
 }: SyncSuccessModalProps): JSX.Element {
-  const [cta] = useState(() => CTAS[Math.floor(Date.now() / (24 * 60 * 60 * 1000)) % CTAS.length])
-  const success = errors.length === 0 || tracksCopied > 0
+  const [cta] = useState(() => CTAS[Math.floor(Date.now() / (24 * 60 * 60 * 1000)) % CTAS.length]);
+  const success = errors.length === 0 || tracksCopied > 0;
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose])
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
 
   return (
     <div
@@ -50,7 +52,7 @@ export function SyncSuccessModal({
     >
       <div
         className="bg-surface_container_low border border-outline_variant rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">{success ? '✓' : '✗'}</span>
@@ -59,24 +61,56 @@ export function SyncSuccessModal({
 
         {success ? (
           <div className="text-body-md text-on_surface_variant space-y-1 mb-5">
-            {tracksCopied > 0 && <p>Copied: <span className="text-on_surface">{tracksCopied} tracks</span></p>}
-            {tracksRetagged > 0 && <p>Re-tagged (metadata updated): <span className="text-on_surface">{tracksRetagged} tracks</span></p>}
-            {lyricsAdded > 0 && <p>Lyrics embedded: <span className="text-on_surface">{lyricsAdded} tracks</span></p>}
-            {tracksSkipped > 0 && <p>Skipped (up-to-date): <span className="text-on_surface">{tracksSkipped}</span></p>}
-            {removed > 0 && <p>Removed: <span className="text-on_surface">{removed} items</span></p>}
-            {errors.length > 0 && <p>Errors: <span className="text-error">{errors.length}</span></p>}
+            {tracksCopied > 0 && (
+              <p>
+                Copied: <span className="text-on_surface">{tracksCopied} tracks</span>
+              </p>
+            )}
+            {tracksRetagged > 0 && (
+              <p>
+                Re-tagged (metadata updated):{' '}
+                <span className="text-on_surface">{tracksRetagged} tracks</span>
+              </p>
+            )}
+            {lyricsAdded && lyricsAdded > 0 && (
+              <p>
+                Lyrics added: <span className="text-on_surface">{lyricsAdded} tracks</span>
+              </p>
+            )}
+            {tracksSkipped > 0 && (
+              <p>
+                Skipped (up-to-date): <span className="text-on_surface">{tracksSkipped}</span>
+              </p>
+            )}
+            {removed > 0 && (
+              <p>
+                Removed: <span className="text-on_surface">{removed} items</span>
+              </p>
+            )}
+            {errors.length > 0 && (
+              <p>
+                Errors: <span className="text-error">{errors.length}</span>
+              </p>
+            )}
           </div>
         ) : (
           <div className="text-body-md text-error mb-5 space-y-1">
-            {errors.slice(0, 3).map((e, i) => <p key={i}>{e}</p>)}
-            {errors.length > 3 && <p className="text-on_surface_variant">+{errors.length - 3} more</p>}
+            {errors.slice(0, 3).map((e, i) => (
+              <p key={i}>{e}</p>
+            ))}
+            {errors.length > 3 && (
+              <p className="text-on_surface_variant">+{errors.length - 3} more</p>
+            )}
           </div>
         )}
 
         {success && (
           <a
             href="#"
-            onClick={e => { e.preventDefault(); window.open(cta.url) }}
+            onClick={(e) => {
+              e.preventDefault();
+              window.open(cta.url);
+            }}
             className="block w-full text-center px-4 py-2 text-body-md text-on_surface_variant hover:text-on_surface hover:bg-surface_container_high rounded-lg transition-colors mb-2"
           >
             {cta.label}
@@ -91,5 +125,5 @@ export function SyncSuccessModal({
         </button>
       </div>
     </div>
-  )
+  );
 }

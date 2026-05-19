@@ -1,4 +1,4 @@
-import type { Artist, Album, Playlist, UsbDevice } from '../appTypes'
+import type { Artist, Album, Playlist, UsbDevice } from '../appTypes';
 
 export const mockArtists: Artist[] = [
   {
@@ -19,7 +19,7 @@ export const mockArtists: Artist[] = [
     AlbumCount: 9,
     ImageTags: {},
   },
-]
+];
 
 export const mockAlbums: Album[] = [
   {
@@ -43,7 +43,7 @@ export const mockAlbums: Album[] = [
     ProductionYear: 1997,
     ImageTags: {},
   },
-]
+];
 
 export const mockPlaylists: Playlist[] = [
   {
@@ -58,12 +58,16 @@ export const mockPlaylists: Playlist[] = [
     ChildCount: 28,
     ImageTags: {},
   },
-]
+];
 
-export const mockSyncedItems: Array<{ id: string; name: string; type: 'artist' | 'album' | 'playlist' }> = [
+export const mockSyncedItems: Array<{
+  id: string;
+  name: string;
+  type: 'artist' | 'album' | 'playlist';
+}> = [
   { id: 'artist-1', name: 'The Beatles', type: 'artist' },
   { id: 'album-2', name: 'The Dark Side of the Moon', type: 'album' },
-]
+];
 
 export const mockUsbDevice: UsbDevice = {
   device: '/dev/disk2s1',
@@ -73,4 +77,4 @@ export const mockUsbDevice: UsbDevice = {
   isRemovable: true,
   vendorName: 'SanDisk',
   serialNumber: 'ABC123456',
-}
+};

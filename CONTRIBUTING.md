@@ -55,6 +55,7 @@ Closes #<issue>, relates to #<issue>
 ```
 
 ### Types
+
 - `feat` — New feature
 - `fix` — Bug fix
 - `refactor` — Code refactoring
@@ -63,6 +64,7 @@ Closes #<issue>, relates to #<issue>
 - `chore` — Maintenance, deps, build config
 
 ### Example
+
 ```
 feat(usb-detection): add polling backup to detect mount/unmount without disconnect
 
@@ -74,6 +76,7 @@ Closes JELLY-0005, JELLY-0009
 ```
 
 ### Rules
+
 - First line: type(scope): subject (max 50 chars)
 - Body: bullet points explaining what/why (not how)
 - Last line: references to issues/tasks (Closes, Fixes, Relates to)

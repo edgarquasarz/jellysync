@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { createApiClient } from './sync-api'
-import type { JellyfinTrackItem } from './types'
+import { describe, it, expect, vi } from 'vitest';
+import { createApiClient } from './sync-api';
+import type { JellyfinTrackItem } from './types';
 
 // Helper to create a minimal track item
 function makeTrackItem(overrides: Partial<JellyfinTrackItem> = {}): JellyfinTrackItem {
@@ -25,7 +25,7 @@ function makeTrackItem(overrides: Partial<JellyfinTrackItem> = {}): JellyfinTrac
     IndexNumber: 1,
     ParentIndexNumber: 1,
     ...overrides,
-  }
+  };
 }
 
 describe('sync-api', () => {
@@ -35,22 +35,20 @@ describe('sync-api', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            Items: [
-              makeTrackItem({ Id: 'track-1', Album: 'Abbey Road', Name: 'Come Together' }),
-            ],
+            Items: [makeTrackItem({ Id: 'track-1', Album: 'Abbey Road', Name: 'Come Together' })],
           }),
-      })
+      });
 
       const api = createApiClient({
         baseUrl: 'https://jellyfin.test',
         apiKey: 'test-key',
         userId: 'user-1',
         fetch: mockFetch,
-      })
+      });
 
-      const tracks = await api.getAlbumTracks('album-1')
-      expect(tracks[0].album).toBe('Abbey Road')
-    })
+      const tracks = await api.getAlbumTracks('album-1');
+      expect(tracks[0].album).toBe('Abbey Road');
+    });
 
     it('falls back to AlbumName when Album is undefined', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
@@ -61,90 +59,90 @@ describe('sync-api', () => {
               makeTrackItem({ Id: 'track-1', Album: undefined, AlbumName: 'Help! (Deluxe)' }),
             ],
           }),
-      })
+      });
 
       const api = createApiClient({
         baseUrl: 'https://jellyfin.test',
         apiKey: 'test-key',
         userId: 'user-1',
         fetch: mockFetch,
-      })
+      });
 
-      const tracks = await api.getAlbumTracks('album-1')
-      expect(tracks[0].album).toBe('Help! (Deluxe)')
-    })
-  })
+      const tracks = await api.getAlbumTracks('album-1');
+      expect(tracks[0].album).toBe('Help! (Deluxe)');
+    });
+  });
 
   describe('getAlbumTracks fields', () => {
     it('includes Artists and AlbumArtist in the Fields query param', async () => {
-      let capturedUrl = ''
+      let capturedUrl = '';
       const mockFetch = vi.fn().mockImplementation((url: string) => {
-        capturedUrl = url
+        capturedUrl = url;
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ Items: [], ProductionYear: 1969 }),
-        })
-      })
+        });
+      });
 
       const api = createApiClient({
         baseUrl: 'https://jellyfin.test',
         apiKey: 'test-key',
         userId: 'user-1',
         fetch: mockFetch,
-      })
+      });
 
-      await api.getAlbumTracks('album-1')
+      await api.getAlbumTracks('album-1');
 
-      expect(capturedUrl).toContain('Fields=')
-      expect(capturedUrl).toContain('Artists')
-      expect(capturedUrl).toContain('AlbumArtist')
-    })
-  })
+      expect(capturedUrl).toContain('Fields=');
+      expect(capturedUrl).toContain('Artists');
+      expect(capturedUrl).toContain('AlbumArtist');
+    });
+  });
 
   describe('getPlaylistTracks fields', () => {
     it('includes Artists and AlbumArtist in the Fields query param', async () => {
-      let capturedUrl = ''
+      let capturedUrl = '';
       const mockFetch = vi.fn().mockImplementation((url: string) => {
-        capturedUrl = url
+        capturedUrl = url;
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ Items: [] }),
-        })
-      })
+        });
+      });
 
       const api = createApiClient({
         baseUrl: 'https://jellyfin.test',
         apiKey: 'test-key',
         userId: 'user-1',
         fetch: mockFetch,
-      })
+      });
 
-      await api.getPlaylistTracks('playlist-1')
+      await api.getPlaylistTracks('playlist-1');
 
-      expect(capturedUrl).toContain('Fields=')
-      expect(capturedUrl).toContain('Artists')
-      expect(capturedUrl).toContain('AlbumArtist')
-    })
-  })
+      expect(capturedUrl).toContain('Fields=');
+      expect(capturedUrl).toContain('Artists');
+      expect(capturedUrl).toContain('AlbumArtist');
+    });
+  });
 
   describe('getTracksForItems', () => {
     it('with empty array: returns { tracks: [], errors: [] } with 0 HTTP calls', async () => {
-      const mockFetch = vi.fn()
+      const mockFetch = vi.fn();
 
       const api = createApiClient({
         baseUrl: 'https://jellyfin.test',
         apiKey: 'test-key',
         userId: 'user-1',
         fetch: mockFetch,
-      })
+      });
 
-      const result = await api.getTracksForItems([], new Map())
+      const result = await api.getTracksForItems([], new Map());
 
-      expect(result.tracks).toEqual([])
-      expect(result.errors).toEqual([])
-      expect(mockFetch).not.toHaveBeenCalled()
-    })
-  })
+      expect(result.tracks).toEqual([]);
+      expect(result.errors).toEqual([]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
 
   describe('getCoverArt', () => {
     it('emits warning (via error) when cover art fetch fails — sync continues', async () => {
@@ -152,92 +150,103 @@ describe('sync-api', () => {
         ok: false,
         status: 404,
         text: () => Promise.resolve('Not Found'),
-      })
+      });
 
       const api = createApiClient({
         baseUrl: 'https://jellyfin.test',
         apiKey: 'test-key',
         userId: 'user-1',
         fetch: mockFetch,
-      })
+      });
 
-      await expect(api.getCoverArt('cover-art-1')).rejects.toThrow()
-    })
-  })
+      await expect(api.getCoverArt('cover-art-1')).rejects.toThrow();
+    });
+  });
 
   describe('request() AbortController', () => {
     it('cancels the request when timeout expires', async () => {
-      vi.useFakeTimers()
-      let abortThrown = false
-      let abortError: Error | undefined
+      vi.useFakeTimers();
+      let abortThrown = false;
+      let abortError: Error | undefined;
       const mockFetch = vi.fn().mockImplementation(async (_url: string, opts?: unknown) => {
-        const signal = (opts as { signal?: AbortSignal })?.signal
+        const signal = (opts as { signal?: AbortSignal })?.signal;
         while (!signal?.aborted && !abortThrown) {
-          await vi.advanceTimersByTimeAsync(1)
+          await vi.advanceTimersByTimeAsync(1);
         }
         if (!abortThrown) {
-          abortThrown = true
-          abortError = new Error('aborted'); abortError.name = 'AbortError'
-          throw abortError
+          abortThrown = true;
+          abortError = new Error('aborted');
+          abortError.name = 'AbortError';
+          throw abortError;
         }
-      })
+      });
       const api = createApiClient({
         baseUrl: 'https://jellyfin.example.com',
         apiKey: 'test-key',
         userId: 'user-1',
         timeout: 100,
         fetch: mockFetch,
-      })
-      const requestPromise = (api as unknown as { request<T>(ep: string): Promise<T> }).request('/test')
-      let caught: unknown
-      const settled = requestPromise.catch(e => { caught = e })
-      await vi.advanceTimersByTimeAsync(101)
-      await settled
-      expect(caught).toMatchObject({ statusCode: 408 })
-      await vi.advanceTimersByTimeAsync(0)
-      mockFetch.mockRestore()
-      vi.useRealTimers()
-    })
+      });
+      const requestPromise = (api as unknown as { request<T>(ep: string): Promise<T> }).request(
+        '/test',
+      );
+      let caught: unknown;
+      const settled = requestPromise.catch((e) => {
+        caught = e;
+      });
+      await vi.advanceTimersByTimeAsync(101);
+      await settled;
+      expect(caught).toMatchObject({ statusCode: 408 });
+      await vi.advanceTimersByTimeAsync(0);
+      mockFetch.mockRestore();
+      vi.useRealTimers();
+    });
 
     it('does not throw or double-resolve when response arrives as timeout fires', async () => {
-      vi.useFakeTimers()
-      let abortThrown = false
-      let abortError: Error | undefined
+      vi.useFakeTimers();
+      let abortThrown = false;
+      let abortError: Error | undefined;
       const mockFetch = vi.fn().mockImplementation(async (_url: string, opts?: unknown) => {
-        const signal = (opts as { signal?: AbortSignal })?.signal
-        await vi.advanceTimersByTimeAsync(99)
+        const signal = (opts as { signal?: AbortSignal })?.signal;
+        await vi.advanceTimersByTimeAsync(99);
         if (signal?.aborted && !abortThrown) {
-          abortThrown = true
-          abortError = new Error('aborted'); abortError.name = 'AbortError'
-          throw abortError
+          abortThrown = true;
+          abortError = new Error('aborted');
+          abortError.name = 'AbortError';
+          throw abortError;
         }
-        await vi.advanceTimersByTimeAsync(2)
+        await vi.advanceTimersByTimeAsync(2);
         if (signal?.aborted && !abortThrown) {
-          abortThrown = true
-          abortError = new Error('aborted'); abortError.name = 'AbortError'
-          throw abortError
+          abortThrown = true;
+          abortError = new Error('aborted');
+          abortError.name = 'AbortError';
+          throw abortError;
         }
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
-        })
-      })
+        });
+      });
       const api = createApiClient({
         baseUrl: 'https://jellyfin.example.com',
         apiKey: 'test-key',
         userId: 'user-1',
         timeout: 100,
         fetch: mockFetch,
-      })
-      const requestPromise = (api as unknown as { request<T>(ep: string): Promise<T> }).request('/test')
-      let caught: unknown
-      const settled = requestPromise.catch(e => { caught = e })
-      await vi.advanceTimersByTimeAsync(200)
-      await settled
-      expect(caught).toMatchObject({ statusCode: 408 })
-      await vi.advanceTimersByTimeAsync(0)
-      mockFetch.mockRestore()
-      vi.useRealTimers()
-    })
-  })
-})
+      });
+      const requestPromise = (api as unknown as { request<T>(ep: string): Promise<T> }).request(
+        '/test',
+      );
+      let caught: unknown;
+      const settled = requestPromise.catch((e) => {
+        caught = e;
+      });
+      await vi.advanceTimersByTimeAsync(200);
+      await settled;
+      expect(caught).toMatchObject({ statusCode: 408 });
+      await vi.advanceTimersByTimeAsync(0);
+      mockFetch.mockRestore();
+      vi.useRealTimers();
+    });
+  });
+});

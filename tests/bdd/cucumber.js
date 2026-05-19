@@ -31,6 +31,6 @@ const config = {
       headless: true,
     },
   },
-}
+};
 
-module.exports = config
+module.exports = config;

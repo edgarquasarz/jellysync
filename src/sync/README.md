@@ -21,6 +21,7 @@ src/sync/
 ## Design Principles
 
 ### 1. **Dependency Injection**
+
 All external dependencies (API client, filesystem, converter) are injected, making unit testing trivial:
 
 ```typescript
@@ -36,6 +37,7 @@ const core = createTestSyncCore(config, {
 ```
 
 ### 2. **Pure Functions for Configuration**
+
 Config validation and normalization use pure functions with no side effects:
 
 ```typescript
@@ -46,6 +48,7 @@ if (!result.valid) {
 ```
 
 ### 3. **Event-Driven Progress**
+
 Progress updates are emitted through a callback pattern, decoupling UI from sync logic:
 
 ```typescript
@@ -55,6 +58,7 @@ const result = await syncCore.sync(input, (progress) => {
 ```
 
 ### 4. **Cancellable Operations**
+
 Long-running operations can be cancelled:
 
 ```typescript
@@ -86,19 +90,22 @@ const itemTypes = new Map([
   ['playlist-id-1', 'playlist'],
 ]);
 
-const result = await syncCore.sync({
-  itemIds: ['album-id-1', 'album-id-2', 'playlist-id-1'],
-  itemTypes,
-  destinationPath: '/Volumes/USB/music',
-  options: {
-    convertToMp3: true,
-    bitrate: '192k',
-    skipExisting: true,
-    preserveStructure: true,
-  }
-}, (progress) => {
-  console.log(progress);
-});
+const result = await syncCore.sync(
+  {
+    itemIds: ['album-id-1', 'album-id-2', 'playlist-id-1'],
+    itemTypes,
+    destinationPath: '/Volumes/USB/music',
+    options: {
+      convertToMp3: true,
+      bitrate: '192k',
+      skipExisting: true,
+      preserveStructure: true,
+    },
+  },
+  (progress) => {
+    console.log(progress);
+  },
+);
 
 if (result.success) {
   console.log(`Synced ${result.tracksCopied} tracks`);
@@ -116,12 +123,12 @@ import { createSyncCore, SyncProgress } from './sync';
 function SyncComponent({ config, selectedItems, destinationPath }) {
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [syncCore] = useState(() => createSyncCore(config));
-  
+
   const handleSync = useCallback(async () => {
     const itemTypes = new Map(
       selectedItems.map(item => [item.id, item.type])
     );
-    
+
     const result = await syncCore.sync(
       {
         itemIds: selectedItems.map(i => i.id),
@@ -131,12 +138,12 @@ function SyncComponent({ config, selectedItems, destinationPath }) {
       },
       setProgress // React setState is a valid callback
     );
-    
+
     if (result.success) {
       alert(`Sync complete: ${result.tracksCopied} tracks`);
     }
   }, [syncCore, selectedItems, destinationPath]);
-  
+
   return (
     <div>
       {progress && (
@@ -155,10 +162,10 @@ function SyncComponent({ config, selectedItems, destinationPath }) {
 ### Estimating Sync Size
 
 ```typescript
-const itemTypes = new Map(selectedItems.map(i => [i.id, i.type]));
+const itemTypes = new Map(selectedItems.map((i) => [i.id, i.type]));
 const estimate = await syncCore.estimateSize(
-  selectedItems.map(i => i.id),
-  itemTypes
+  selectedItems.map((i) => i.id),
+  itemTypes,
 );
 
 console.log(`Will sync ${estimate.trackCount} tracks`);
@@ -216,16 +223,16 @@ describe('Sync Feature', () => {
     const mockApi = createMockApiClient({
       getAlbumTracks: async () => [{ id: '1', name: 'Track', ... }],
     });
-    
+
     const core = createTestSyncCore(config, {
       api: mockApi,
       fs: createMockFileSystem(),
       converter: createMockConverter(),
     });
-    
+
     // Act
     const result = await core.sync({ ... });
-    
+
     // Assert
     expect(result.success).toBe(true);
   });
@@ -291,6 +298,7 @@ Progress & cancellation:
 ## Implementation Checklist for GizmoDev
 
 ### Phase 1: Core Module (COMPLETED)
+
 - [x] Define TypeScript interfaces (`types.ts`)
 - [x] Implement configuration validation (`sync-config.ts`)
 - [x] Create Jellyfin API client (`sync-api.ts`)
@@ -300,21 +308,25 @@ Progress & cancellation:
 - [x] Write comprehensive tests (`sync.test.ts`)
 
 ### Phase 2: UI Integration
+
 - [ ] Replace inline sync logic in `App.tsx` with `SyncCore`
 - [ ] Use progress callbacks for UI updates
 - [ ] Integrate cancellation with UI button
 
 ### Phase 3: Error Handling
+
 - [ ] Add error boundary in React components
 - [ ] Display user-friendly error messages
 - [ ] Add retry mechanism for network failures
 
 ### Phase 4: Performance
+
 - [ ] Add parallel file copying
 - [ ] Implement batch API requests
 - [ ] Add disk space pre-check
 
 ### Phase 5: Features
+
 - [ ] Add sync history/persistence
 - [ ] Add incremental sync (checksums)
 - [ ] Add playlist preservation
@@ -338,22 +350,27 @@ function handleStartSync() { ... }
 import { createSyncCore } from './sync';
 
 function App() {
-  const [syncCore] = useState(() => createSyncCore({
-    serverUrl: config.url,
-    apiKey: config.apiKey,
-    userId: config.userId,
-  }));
-  
+  const [syncCore] = useState(() =>
+    createSyncCore({
+      serverUrl: config.url,
+      apiKey: config.apiKey,
+      userId: config.userId,
+    }),
+  );
+
   const handleStartSync = async () => {
-    const result = await syncCore.sync({
-      itemIds: Array.from(selectedTracks),
-      itemTypes: getItemTypesFromIndex(itemTypeIndex),
-      destinationPath: syncFolder,
-      options: { convertToMp3, bitrate: mp3Bitrate },
-    }, (progress) => {
-      setSyncProgress(progress);
-    });
-    
+    const result = await syncCore.sync(
+      {
+        itemIds: Array.from(selectedTracks),
+        itemTypes: getItemTypesFromIndex(itemTypeIndex),
+        destinationPath: syncFolder,
+        options: { convertToMp3, bitrate: mp3Bitrate },
+      },
+      (progress) => {
+        setSyncProgress(progress);
+      },
+    );
+
     if (result.success) {
       showToast(`${result.tracksCopied} tracks synced`);
     } else {
@@ -372,12 +389,14 @@ The sync module is **backward compatible** with the existing codebase. You can:
 3. **Full replacement**: Remove all inline sync logic and use only the module
 
 The module does **not** modify:
+
 - React state management
 - UI rendering
 - LocalStorage
 - Electron IPC
 
 It only handles:
+
 - Jellyfin API communication
 - File operations
 - Progress reporting

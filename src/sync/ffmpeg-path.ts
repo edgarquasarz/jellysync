@@ -44,7 +44,6 @@ const SYSTEM_FFMPEG_CANDIDATES = [
  */
 export function resolveFFmpegPath(): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const installer = require('@ffmpeg-installer/ffmpeg');
     const raw: string = installer.path ?? installer?.default?.path;
     if (raw) return rewriteAsarPath(raw);

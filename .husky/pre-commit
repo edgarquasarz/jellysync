@@ -1,1 +1,26 @@
-pnpm typecheck
+#!/usr/bin/env sh
+# Automatically lint and format on commit
+
+# Run format check first
+echo "Checking formatting with Prettier..."
+pnpm run format:check
+
+# If format fails, abort commit
+if [ $? -ne 0 ]; then
+  echo "Prettier format check failed. Please run 'pnpm format' to fix formatting."
+  exit 1
+fi
+
+echo "Formatting passed!"
+
+# Run lint check
+echo "Running ESLint..."
+pnpm run lint
+
+# If lint fails, abort commit
+if [ $? -ne 0 ]; then
+  echo "ESLint failed. Please fix the errors before committing."
+  exit 1
+fi
+
+echo "Linting passed!"

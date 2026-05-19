@@ -1,5 +1,4 @@
-import type { Config } from 'tailwindcss'
-
+/** @type {import('tailwindcss').Config} */
 export default {
   content: ['./src/renderer/**/*.{js,ts,jsx,tsx,html}'],
   theme: {
@@ -43,7 +42,7 @@ export default {
         shimmer: 'shimmer 1.5s ease-in-out infinite',
         sizeSquarePulse: 'sizeSquarePulse 0.8s ease-in-out infinite',
       },
-    }
+    },
   },
-  plugins: []
-} satisfies Config
+  plugins: [],
+};

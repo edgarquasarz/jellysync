@@ -1,18 +1,28 @@
-import { X } from 'lucide-react'
-import { GradientMusicIcon } from './GradientMusicIcon'
+import { X } from 'lucide-react';
+import { GradientMusicIcon } from './GradientMusicIcon';
 
 interface LoginScreenProps {
-  urlInput: string
-  apiKeyInput: string
-  error: string | null
-  onUrlChange: (value: string) => void
-  onApiKeyChange: (value: string) => void
-  onSubmit: (url: string, apiKey: string) => void
+  urlInput: string;
+  apiKeyInput: string;
+  error: string | null;
+  onUrlChange: (value: string) => void;
+  onApiKeyChange: (value: string) => void;
+  onSubmit: (url: string, apiKey: string) => void;
 }
 
-export function LoginScreen({ urlInput, apiKeyInput, error, onUrlChange, onApiKeyChange, onSubmit }: LoginScreenProps): JSX.Element {
+export function LoginScreen({
+  urlInput,
+  apiKeyInput,
+  error,
+  onUrlChange,
+  onApiKeyChange,
+  onSubmit,
+}: LoginScreenProps): JSX.Element {
   return (
-    <div data-testid="auth-screen" className="h-screen flex items-center justify-center bg-surface text-on_surface">
+    <div
+      data-testid="auth-screen"
+      className="h-screen flex items-center justify-center bg-surface text-on_surface"
+    >
       <div className="w-full max-w-md p-8">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <GradientMusicIcon className="w-10 h-10" />
@@ -22,15 +32,20 @@ export function LoginScreen({ urlInput, apiKeyInput, error, onUrlChange, onApiKe
         <div className="bg-surface_container_low rounded-xl p-6 border border-outline_variant">
           <h2 className="text-headline-md mb-4">Connect to Jellyfin</h2>
 
-          <form onSubmit={(e) => {
-            e.preventDefault()
-            const url = (e.currentTarget.elements.namedItem('url') as HTMLInputElement).value
-            const apiKey = (e.currentTarget.elements.namedItem('apiKey') as HTMLInputElement).value
-            onSubmit(url, apiKey)
-          }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const url = (e.currentTarget.elements.namedItem('url') as HTMLInputElement).value;
+              const apiKey = (e.currentTarget.elements.namedItem('apiKey') as HTMLInputElement)
+                .value;
+              onSubmit(url, apiKey);
+            }}
+          >
             <div className="space-y-4">
               <div>
-                <label className="block text-body-md text-on_surface_variant mb-1">Server URL</label>
+                <label className="block text-body-md text-on_surface_variant mb-1">
+                  Server URL
+                </label>
                 <input
                   data-testid="server-url-input"
                   name="url"
@@ -57,7 +72,10 @@ export function LoginScreen({ urlInput, apiKeyInput, error, onUrlChange, onApiKe
               </div>
 
               {error && (
-                <div data-testid="error-message" className="flex items-center gap-2 text-error text-body-md">
+                <div
+                  data-testid="error-message"
+                  className="flex items-center gap-2 text-error text-body-md"
+                >
                   <X className="w-4 h-4" />
                   {error}
                 </div>
@@ -79,5 +97,5 @@ export function LoginScreen({ urlInput, apiKeyInput, error, onUrlChange, onApiKe
         </p>
       </div>
     </div>
-  )
+  );
 }

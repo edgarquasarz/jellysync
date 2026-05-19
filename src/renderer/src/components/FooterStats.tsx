@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react'
-import type { LibraryStats, PaginationState, Artist, Album, Playlist } from '../appTypes'
-import { HardDrive, Folder } from 'lucide-react'
+import { useEffect, useState } from 'react';
+import type { LibraryStats, PaginationState, Artist, Album, Playlist } from '../appTypes';
+import { HardDrive, Folder } from 'lucide-react';
 
 interface FooterStatsProps {
-  stats: LibraryStats | null
-  pagination: PaginationState
-  artists: Artist[]
-  albums: Album[]
-  playlists: Playlist[]
-  activeDeviceName?: string | null
-  isUsbDevice?: boolean
-  onGoToDevice?: () => void
-  isSyncing?: boolean
+  stats: LibraryStats | null;
+  pagination: PaginationState;
+  artists: Artist[];
+  albums: Album[];
+  playlists: Playlist[];
+  activeDeviceName?: string | null;
+  isUsbDevice?: boolean;
+  onGoToDevice?: () => void;
+  isSyncing?: boolean;
 }
 
 export function FooterStats({
@@ -25,19 +25,26 @@ export function FooterStats({
   onGoToDevice,
   isSyncing,
 }: FooterStatsProps): JSX.Element {
-  const [updateInfo, setUpdateInfo] = useState<{ latestVersion: string; releaseUrl: string } | null>(null)
+  const [updateInfo, setUpdateInfo] = useState<{
+    latestVersion: string;
+    releaseUrl: string;
+  } | null>(null);
 
   useEffect(() => {
-    window.api.checkForUpdates().then(result => {
-      if (result.updateAvailable) setUpdateInfo({ latestVersion: result.latestVersion, releaseUrl: result.releaseUrl })
-    }).catch(() => {})
-  }, [])
+    window.api
+      .checkForUpdates()
+      .then((result) => {
+        if (result.updateAvailable)
+          setUpdateInfo({ latestVersion: result.latestVersion, releaseUrl: result.releaseUrl });
+      })
+      .catch(() => {});
+  }, []);
 
   const libraryText = stats
     ? `${stats.ArtistCount.toLocaleString()} artists · ${stats.AlbumCount.toLocaleString()} albums · ${stats.PlaylistCount.toLocaleString()} playlists`
-    : `${pagination.artists.total > 0 ? pagination.artists.total : artists.length} artists · ${pagination.albums.total > 0 ? pagination.albums.total : albums.length} albums · ${pagination.playlists.total > 0 ? pagination.playlists.total : playlists.length} playlists`
+    : `${pagination.artists.total > 0 ? pagination.artists.total : artists.length} artists · ${pagination.albums.total > 0 ? pagination.albums.total : albums.length} albums · ${pagination.playlists.total > 0 ? pagination.playlists.total : playlists.length} playlists`;
 
-  const DeviceIcon = isUsbDevice ? HardDrive : Folder
+  const DeviceIcon = isUsbDevice ? HardDrive : Folder;
 
   return (
     <footer className="h-10 border-t border-outline_variant flex items-center justify-between px-4 text-label-sm text-on_surface_variant">
@@ -46,7 +53,10 @@ export function FooterStats({
         {updateInfo && (
           <a
             href="#"
-            onClick={e => { e.preventDefault(); window.open(updateInfo.releaseUrl) }}
+            onClick={(e) => {
+              e.preventDefault();
+              window.open(updateInfo.releaseUrl);
+            }}
             className="text-primary hover:text-on_surface transition-colors"
           >
             v{updateInfo.latestVersion} available ↗
@@ -74,5 +84,5 @@ export function FooterStats({
         </button>
       )}
     </footer>
-  )
+  );
 }

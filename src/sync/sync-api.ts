@@ -1,6 +1,6 @@
 /**
  * Jellyfin API Client Module
- * 
+ *
  * Handles all HTTP communication with Jellyfin server.
  * Designed to be mockable for unit tests.
  */
@@ -33,7 +33,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public statusCode: number,
-    public body?: string
+    public body?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -53,31 +53,31 @@ export function createApiClient(config: ApiClientConfig): SyncApi {
 export interface SyncApi {
   /** Test connection to Jellyfin server */
   testConnection(): Promise<{ success: boolean; serverName?: string; error?: string }>;
-  
+
   /** Get user information */
   getUser(): Promise<{ id: string; name: string }>;
-  
+
   /** Get tracks for an artist */
   getArtistTracks(artistId: string): Promise<TrackInfo[]>;
-  
+
   /** Get tracks for an album */
   getAlbumTracks(albumId: string): Promise<TrackInfo[]>;
-  
+
   /** Get tracks in a playlist */
   getPlaylistTracks(playlistId: string): Promise<TrackInfo[]>;
-  
+
   /** Get tracks for multiple items (batch) */
   getTracksForItems(
     itemIds: string[],
-    itemTypes: Map<string, ItemType>
+    itemTypes: Map<string, ItemType>,
   ): Promise<{ tracks: TrackInfo[]; errors: string[] }>;
-  
+
   /** Get item information */
   getItem(itemId: string): Promise<{ id: string; name: string; type: string } | null>;
-  
+
   /** Get library statistics */
   getLibraryStats(): Promise<{ artists: number; albums: number; tracks: number }>;
-  
+
   /** Download item from Jellyfin server */
   downloadItem(itemId: string): Promise<Buffer>;
 
@@ -103,7 +103,7 @@ class ConcurrencyLimiter {
 
   async run<T>(fn: () => Promise<T>): Promise<T> {
     if (this.running >= this.limit) {
-      await new Promise<void>(resolve => this.queue.push(resolve));
+      await new Promise<void>((resolve) => this.queue.push(resolve));
     }
     this.running++;
     try {
@@ -148,13 +148,13 @@ class SyncApiImpl implements SyncApi {
 
   private async request<T>(
     endpoint: string,
-    options?: { method?: string; body?: unknown }
+    options?: { method?: string; body?: unknown },
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-    
+
     try {
       const response = await this.fetchFn(url, {
         method: options?.method ?? 'GET',
@@ -162,33 +162,33 @@ class SyncApiImpl implements SyncApi {
         body: options?.body ? JSON.stringify(options.body) : undefined,
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         const body = await response.text().catch(() => '');
         throw new ApiError(
           `API request failed: ${response.status} ${response.statusText}`,
           response.status,
-          body
+          body,
         );
       }
-      
+
       return response.json();
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof ApiError) {
         throw error;
       }
-      
+
       if (error instanceof Error && error.name === 'AbortError') {
         throw new ApiError('Request timed out', 408);
       }
-      
+
       throw new ApiError(
         `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        0
+        0,
       );
     }
   }
@@ -222,53 +222,62 @@ class SyncApiImpl implements SyncApi {
     const albumsData = await this.request<{ Items: JellyfinAlbumItem[] }>(albumsEndpoint);
 
     const albumTrackArrays = await Promise.all(
-      (albumsData.Items ?? []).map(album => this.getAlbumTracks(album.Id))
+      (albumsData.Items ?? []).map((album) => this.getAlbumTracks(album.Id)),
     );
     return albumTrackArrays.flat();
   }
 
   async getAlbumTracks(albumId: string): Promise<TrackInfo[]> {
     const [albumData, tracksData] = await Promise.all([
-      this.request<{ Name?: string; ProductionYear?: number }>(`/Users/${this.userId}/Items/${albumId}`)
-        .catch(() => ({ Name: undefined, ProductionYear: undefined })),
+      this.request<{ Name?: string; ProductionYear?: number }>(
+        `/Users/${this.userId}/Items/${albumId}`,
+      ).catch(() => ({ Name: undefined, ProductionYear: undefined })),
       this.request<{ Items: JellyfinTrackItem[] }>(
-        `/Users/${this.userId}/Items?parentId=${albumId}&includeItemTypes=Audio&Recursive=true&Fields=Path,MediaSources,AlbumId,Genres,Artists,AlbumArtist,Album`
+        `/Users/${this.userId}/Items?parentId=${albumId}&includeItemTypes=Audio&Recursive=true&Fields=Path,MediaSources,AlbumId,Genres,Artists,AlbumArtist,Album`,
       ),
     ]);
 
-    this.logger?.debug(`getAlbumTracks albumId=${albumId} → albumName="${albumData.Name}" tracks=${tracksData.Items?.length ?? 0}`);
+    this.logger?.debug(
+      `getAlbumTracks albumId=${albumId} → albumName="${albumData.Name}" tracks=${tracksData.Items?.length ?? 0}`,
+    );
 
     return (tracksData.Items ?? [])
-      .filter(item => item.MediaSources?.[0]?.Path)
-      .map(item => this.trackItemToInfo(item, albumData.ProductionYear, albumData.Name));
+      .filter((item) => item.MediaSources?.[0]?.Path)
+      .map((item) => this.trackItemToInfo(item, albumData.ProductionYear, albumData.Name));
   }
 
   async getPlaylistTracks(playlistId: string): Promise<TrackInfo[]> {
     const data = await this.request<{ Items: JellyfinTrackItem[] }>(
-      `/Playlists/${playlistId}/Items?UserId=${this.userId}&Fields=Path,MediaSources,AlbumId,ParentId,Genres,Artists,AlbumArtist,Album`
+      `/Playlists/${playlistId}/Items?UserId=${this.userId}&Fields=Path,MediaSources,AlbumId,ParentId,Genres,Artists,AlbumArtist,Album`,
     );
 
     return (data.Items ?? [])
-      .filter(item => item.MediaSources?.[0]?.Path)
-      .map(item => this.trackItemToInfo(item));
+      .filter((item) => item.MediaSources?.[0]?.Path)
+      .map((item) => this.trackItemToInfo(item));
   }
 
   async getTracksForItems(
     itemIds: string[],
-    itemTypes: Map<string, ItemType>
+    itemTypes: Map<string, ItemType>,
   ): Promise<{ tracks: TrackInfo[]; errors: string[] }> {
     // Fetch all items in parallel, capped at API_CONCURRENCY to avoid server flooding
     const results = await Promise.allSettled(
-      itemIds.map((itemId) => this.limiter.run(async () => {
-        const itemType = itemTypes.get(itemId);
-        if (!itemType) throw new Error(`Unknown item type for ID: ${itemId}`);
-        switch (itemType) {
-          case 'artist': return await this.getArtistTracks(itemId);
-          case 'album': return await this.getAlbumTracks(itemId);
-          case 'playlist': return await this.getPlaylistTracks(itemId);
-          default: throw new Error(`Unsupported item type: ${itemType}`);
-        }
-      }))
+      itemIds.map((itemId) =>
+        this.limiter.run(async () => {
+          const itemType = itemTypes.get(itemId);
+          if (!itemType) throw new Error(`Unknown item type for ID: ${itemId}`);
+          switch (itemType) {
+            case 'artist':
+              return await this.getArtistTracks(itemId);
+            case 'album':
+              return await this.getAlbumTracks(itemId);
+            case 'playlist':
+              return await this.getPlaylistTracks(itemId);
+            default:
+              throw new Error(`Unsupported item type: ${itemType}`);
+          }
+        }),
+      ),
     );
 
     const tracks: TrackInfo[] = [];
@@ -279,13 +288,14 @@ class SyncApiImpl implements SyncApi {
       const itemType = itemTypes.get(itemId) ?? 'unknown';
       if (result.status === 'fulfilled') {
         // Tag every track with its parent item ID so callers can group by parent
-        const taggedTracks = result.value.map(t => ({ ...t, parentItemId: itemId }));
+        const taggedTracks = result.value.map((t) => ({ ...t, parentItemId: itemId }));
         tracks.push(...taggedTracks);
       } else {
         const err = result.reason;
-        errors.push(err instanceof ApiError
-          ? `Failed to fetch ${itemType} ${itemId}: ${err.message}`
-          : `Error processing ${itemType} ${itemId}`
+        errors.push(
+          err instanceof ApiError
+            ? `Failed to fetch ${itemType} ${itemId}: ${err.message}`
+            : `Error processing ${itemType} ${itemId}`,
         );
       }
     }
@@ -296,7 +306,7 @@ class SyncApiImpl implements SyncApi {
     try {
       const endpoint = `/Users/${this.userId}/Items/${itemId}`;
       const data = await this.request<{ Id: string; Name: string; Type: string }>(endpoint);
-      
+
       return {
         id: data.Id,
         name: data.Name,
@@ -314,7 +324,7 @@ class SyncApiImpl implements SyncApi {
       AlbumCount?: number;
       SongCount?: number;
     }>(endpoint);
-    
+
     return {
       artists: data.ArtistCount ?? 0,
       albums: data.AlbumCount ?? 0,
@@ -326,10 +336,7 @@ class SyncApiImpl implements SyncApi {
    * Shared logic for downloading an item — fetches the raw HTTP response.
    * Handles URL construction, auth headers, timeout, and error normalization.
    */
-  private async fetchDownloadResponse(
-    itemId: string,
-    timeoutMs: number
-  ): Promise<Response> {
+  private async fetchDownloadResponse(itemId: string, timeoutMs: number): Promise<Response> {
     const url = `${this.baseUrl}/Items/${itemId}/Download`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -346,7 +353,7 @@ class SyncApiImpl implements SyncApi {
       if (!response.ok) {
         throw new ApiError(
           `Download failed: ${response.status} ${response.statusText}`,
-          response.status
+          response.status,
         );
       }
 
@@ -359,7 +366,7 @@ class SyncApiImpl implements SyncApi {
       }
       throw new ApiError(
         `Network error: ${error instanceof Error ? error.message : String(error)}`,
-        0
+        0,
       );
     }
   }
@@ -396,7 +403,10 @@ class SyncApiImpl implements SyncApi {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new ApiError(`Failed to fetch cover art: ${response.status} ${response.statusText}`, response.status);
+        throw new ApiError(
+          `Failed to fetch cover art: ${response.status} ${response.statusText}`,
+          response.status,
+        );
       }
 
       const arrayBuffer = await response.arrayBuffer();
@@ -404,8 +414,12 @@ class SyncApiImpl implements SyncApi {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof ApiError) throw error;
-      if (error instanceof Error && error.name === 'AbortError') throw new ApiError('Cover art request timed out', 408);
-      throw new ApiError(`Failed to fetch cover art: ${error instanceof Error ? error.message : String(error)}`, 0);
+      if (error instanceof Error && error.name === 'AbortError')
+        throw new ApiError('Cover art request timed out', 408);
+      throw new ApiError(
+        `Failed to fetch cover art: ${error instanceof Error ? error.message : String(error)}`,
+        0,
+      );
     }
   }
 
@@ -429,7 +443,10 @@ class SyncApiImpl implements SyncApi {
       }
 
       if (!response.ok) {
-        throw new ApiError(`Failed to fetch lyrics: ${response.status} ${response.statusText}`, response.status);
+        throw new ApiError(
+          `Failed to fetch lyrics: ${response.status} ${response.statusText}`,
+          response.status,
+        );
       }
 
       const text = await response.text();
@@ -447,7 +464,10 @@ class SyncApiImpl implements SyncApi {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new ApiError('Lyrics request timed out', 408);
       }
-      throw new ApiError(`Failed to fetch lyrics: ${error instanceof Error ? error.message : String(error)}`, 0);
+      throw new ApiError(
+        `Failed to fetch lyrics: ${error instanceof Error ? error.message : String(error)}`,
+        0,
+      );
     }
   }
 
@@ -455,11 +475,17 @@ class SyncApiImpl implements SyncApi {
    * Maps a Jellyfin track item to TrackInfo.
    * Year is injected separately (resolved at album level to avoid N+1 requests).
    */
-  private trackItemToInfo(item: JellyfinTrackItem, albumYear?: number, albumName?: string): TrackInfo {
+  private trackItemToInfo(
+    item: JellyfinTrackItem,
+    albumYear?: number,
+    albumName?: string,
+  ): TrackInfo {
     const source = item.MediaSources?.[0];
     const resolvedAlbum = item.Album || item.AlbumName || albumName;
 
-    this.logger?.debug(`trackItemToInfo track="${item.Name}" → item.Album="${item.Album ?? '(empty)'}" item.AlbumName="${item.AlbumName ?? '(empty)'}" albumName="${albumName ?? '(empty)'}" resolved="${resolvedAlbum}"`);
+    this.logger?.debug(
+      `trackItemToInfo track="${item.Name}" → item.Album="${item.Album ?? '(empty)'}" item.AlbumName="${item.AlbumName ?? '(empty)'}" albumName="${albumName ?? '(empty)'}" resolved="${resolvedAlbum}"`,
+    );
 
     return {
       id: item.Id,
@@ -492,9 +518,7 @@ class SyncApiImpl implements SyncApi {
  * @returns Detected server root path ending with "/", or empty string if not detectable
  */
 export function detectServerRootPath(tracks: TrackInfo[]): string {
-  const paths = tracks
-    .map(t => t.path)
-    .filter(p => p && p.length > 0);
+  const paths = tracks.map((t) => t.path).filter((p) => p && p.length > 0);
 
   if (paths.length === 0) {
     return '';
@@ -503,7 +527,7 @@ export function detectServerRootPath(tracks: TrackInfo[]): string {
   // For each track, compute the candidate server prefix by dropping the last 4
   // path components: filename + album_dir + artist_dir + library_name.
   // e.g. /mediamusic/lib/lib/Ace/Album/track.mp3 → /mediamusic/lib/
-  const candidates = paths.map(p => {
+  const candidates = paths.map((p) => {
     const parts = p.split('/'); // ['', 'mediamusic', 'lib', 'lib', 'Ace', 'Album', 'track.mp3']
     if (parts.length < 5) return ''; // path too shallow to infer root
     const prefixParts = parts.slice(0, -4); // ['', 'mediamusic', 'lib']
@@ -513,7 +537,7 @@ export function detectServerRootPath(tracks: TrackInfo[]): string {
 
   // Filter out shallow paths (< 5 components) — they can't infer a root.
   // This prevents a single shallow track from poisoning detection for the whole batch.
-  const validCandidates = candidates.filter(c => c !== '');
+  const validCandidates = candidates.filter((c) => c !== '');
   if (validCandidates.length === 0) {
     return '';
   }

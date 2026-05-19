@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 
 // Mock the track registry before importing useDeviceSelections
 const mockRegistry = {
@@ -14,12 +14,12 @@ const mockRegistry = {
   invalidateDevice: vi.fn(),
   isDeviceLoading: vi.fn().mockReturnValue(false),
   getItemTrackIds: vi.fn().mockReturnValue([]),
-}
+};
 
 vi.mock('./useTrackRegistry', () => ({
   getTrackRegistry: () => mockRegistry,
   createTrackRegistry: () => mockRegistry,
-}))
+}));
 
 const mockApi = {
   getSyncedItems: vi.fn().mockResolvedValue([]),
@@ -30,227 +30,231 @@ const mockApi = {
     items: [],
     totals: { newTracks: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: 0 },
   }),
-}
+};
 
 const defaultOptions = {
   serverUrl: 'https://jellyfin.test',
   apiKey: 'test-key',
   userId: 'user-1',
   itemIds: ['artist-1', 'album-1', 'playlist-1'],
-  itemTypes: { 'artist-1': 'artist' as const, 'album-1': 'album' as const, 'playlist-1': 'playlist' as const },
+  itemTypes: {
+    'artist-1': 'artist' as const,
+    'album-1': 'album' as const,
+    'playlist-1': 'playlist' as const,
+  },
   convertToMp3: false,
   bitrate: '192k' as const,
   coverArtMode: 'embed' as const,
-}
+};
 
 beforeEach(() => {
-  vi.clearAllMocks()
-  Object.defineProperty(window, 'api', { value: mockApi, writable: true })
+  vi.clearAllMocks();
+  Object.defineProperty(window, 'api', { value: mockApi, writable: true });
   // Reset mock registry state
-  mockRegistry.loadDeviceSyncedTracks.mockResolvedValue(undefined)
-  mockRegistry.ensureItemTracks.mockResolvedValue(undefined)
-  mockRegistry.calculateSize.mockReturnValue(null)
-  mockRegistry.countNewTracks.mockReturnValue(0)
-  mockRegistry.getSyncedMusicBytes.mockReturnValue(0)
-  mockRegistry.getItemTrackIds.mockReturnValue([])
-})
+  mockRegistry.loadDeviceSyncedTracks.mockResolvedValue(undefined);
+  mockRegistry.ensureItemTracks.mockResolvedValue(undefined);
+  mockRegistry.calculateSize.mockReturnValue(null);
+  mockRegistry.countNewTracks.mockReturnValue(0);
+  mockRegistry.getSyncedMusicBytes.mockReturnValue(0);
+  mockRegistry.getItemTrackIds.mockReturnValue([]);
+});
 
 afterEach(() => {
-  vi.restoreAllMocks()
-})
+  vi.restoreAllMocks();
+});
 
 // Dynamic import to ensure mocks are set up before module loads
-import { useDeviceSelections } from './useDeviceSelections'
+import { useDeviceSelections } from './useDeviceSelections';
 
 describe('useDeviceSelections', () => {
   describe('activateDevice', () => {
     it('fresh install: getSyncedItems called, analyzeDiff NOT called (idsToAnalyze is empty)', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
-      expect(mockApi.getSyncedItems).toHaveBeenCalledWith('/Volumes/USB')
-      expect(mockApi.analyzeDiff).not.toHaveBeenCalled()
-    })
+      expect(mockApi.getSyncedItems).toHaveBeenCalledWith('/Volumes/USB');
+      expect(mockApi.analyzeDiff).not.toHaveBeenCalled();
+    });
 
     it('with items synced: analyzeDiff called only with idsToAnalyze (not all IDs)', async () => {
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
-      ])
+      ]);
       mockApi.analyzeDiff.mockResolvedValue({
         success: true,
         items: [],
         totals: { newTracks: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: 0 },
-      })
+      });
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1)
-      const analyzeDiffCall = mockApi.analyzeDiff.mock.calls[0][0]
-      expect(analyzeDiffCall.itemIds).toEqual(['artist-1'])
-      expect(analyzeDiffCall.itemIds).not.toEqual(defaultOptions.itemIds)
-    })
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1);
+      const analyzeDiffCall = mockApi.analyzeDiff.mock.calls[0][0];
+      expect(analyzeDiffCall.itemIds).toEqual(['artist-1']);
+      expect(analyzeDiffCall.itemIds).not.toEqual(defaultOptions.itemIds);
+    });
 
     it('calls loadDeviceSyncedTracks for device size calculation', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
-      mockRegistry.loadDeviceSyncedTracks.mockResolvedValue(undefined)
+      mockApi.getSyncedItems.mockResolvedValue([]);
+      mockRegistry.loadDeviceSyncedTracks.mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
-      expect(mockRegistry.loadDeviceSyncedTracks).toHaveBeenCalledWith('/Volumes/USB')
-    })
-  })
+      expect(mockRegistry.loadDeviceSyncedTracks).toHaveBeenCalledWith('/Volumes/USB');
+    });
+  });
 
   describe('toggleItem', () => {
     it('selects an item correctly', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       act(() => {
-        result.current.toggleItem('album-1')
-      })
+        result.current.toggleItem('album-1');
+      });
 
-      expect(result.current.selectedTracks.has('album-1')).toBe(true)
-    })
+      expect(result.current.selectedTracks.has('album-1')).toBe(true);
+    });
 
     it('deselects an already-selected item correctly', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       act(() => {
-        result.current.toggleItem('album-1')
-      })
-      expect(result.current.selectedTracks.has('album-1')).toBe(true)
+        result.current.toggleItem('album-1');
+      });
+      expect(result.current.selectedTracks.has('album-1')).toBe(true);
 
       act(() => {
-        result.current.toggleItem('album-1')
-      })
-      expect(result.current.selectedTracks.has('album-1')).toBe(false)
-    })
-  })
+        result.current.toggleItem('album-1');
+      });
+      expect(result.current.selectedTracks.has('album-1')).toBe(false);
+    });
+  });
 
   describe('selectItems', () => {
     it('adds multiple items to selectedItems', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       act(() => {
-        result.current.selectItems([{ Id: 'artist-1' }, { Id: 'album-2' }, { Id: 'playlist-1' }])
-      })
+        result.current.selectItems([{ Id: 'artist-1' }, { Id: 'album-2' }, { Id: 'playlist-1' }]);
+      });
 
-      expect(result.current.selectedTracks.has('artist-1')).toBe(true)
-      expect(result.current.selectedTracks.has('album-2')).toBe(true)
-      expect(result.current.selectedTracks.has('playlist-1')).toBe(true)
-    })
-  })
+      expect(result.current.selectedTracks.has('artist-1')).toBe(true);
+      expect(result.current.selectedTracks.has('album-2')).toBe(true);
+      expect(result.current.selectedTracks.has('playlist-1')).toBe(true);
+    });
+  });
 
   describe('clearSelection', () => {
     it('empties selectedItems', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       act(() => {
-        result.current.selectItems([{ Id: 'artist-1' }, { Id: 'album-1' }])
-      })
-      expect(result.current.selectedTracks.size).toBeGreaterThan(0)
+        result.current.selectItems([{ Id: 'artist-1' }, { Id: 'album-1' }]);
+      });
+      expect(result.current.selectedTracks.size).toBeGreaterThan(0);
 
       act(() => {
-        result.current.clearSelection()
-      })
+        result.current.clearSelection();
+      });
 
-      expect(result.current.selectedTracks.size).toBe(0)
-    })
-  })
+      expect(result.current.selectedTracks.size).toBe(0);
+    });
+  });
 
   describe('removeDevice', () => {
     it('clears state and activeDevicePath', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
-      expect(result.current.activeDevicePath).toBe('/Volumes/USB')
+      expect(result.current.activeDevicePath).toBe('/Volumes/USB');
 
       act(() => {
-        result.current.removeDevice('/Volumes/USB')
-      })
+        result.current.removeDevice('/Volumes/USB');
+      });
 
-      expect(result.current.activeDevicePath).toBe(null)
-      expect(result.current.selectedTracks.size).toBe(0)
-    })
-  })
+      expect(result.current.activeDevicePath).toBe(null);
+      expect(result.current.selectedTracks.size).toBe(0);
+    });
+  });
 
   describe('rapid device switching', () => {
     it('maintains correct state for the last activated device', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB1', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB1', defaultOptions);
+      });
 
       act(() => {
-        result.current.selectItems([{ Id: 'artist-1' }])
-      })
+        result.current.selectItems([{ Id: 'artist-1' }]);
+      });
 
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'album-1', name: 'Album One', type: 'album' as const },
-      ])
+      ]);
 
       await act(async () => {
         await result.current.activateDevice('/Volumes/USB2', {
           ...defaultOptions,
           itemIds: ['album-1'],
           itemTypes: { 'album-1': 'album' as const },
-        })
-      })
+        });
+      });
 
-      expect(result.current.activeDevicePath).toBe('/Volumes/USB2')
-      expect(result.current.selectedTracks.has('artist-1')).toBe(false)
-    })
-  })
+      expect(result.current.activeDevicePath).toBe('/Volumes/USB2');
+      expect(result.current.selectedTracks.has('artist-1')).toBe(false);
+    });
+  });
 
   describe('outOfSyncItems', () => {
     it('populated when analyzeDiff returns items with changes', async () => {
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
-      ])
+      ]);
       mockApi.analyzeDiff.mockResolvedValue({
         success: true,
         items: [
@@ -263,171 +267,171 @@ describe('useDeviceSelections', () => {
           },
         ],
         totals: { newTracks: 0, metadataChanged: 1, removed: 0, pathChanged: 0, unchanged: 0 },
-      })
+      });
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
-      expect(result.current.outOfSyncItems.has('artist-1')).toBe(true)
-    })
+      expect(result.current.outOfSyncItems.has('artist-1')).toBe(true);
+    });
 
     it('second activateDevice with SAME path+options skips analyzeDiff (no unnecessary recalculation)', async () => {
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
-      ])
+      ]);
       mockApi.analyzeDiff.mockResolvedValue({
         success: true,
         items: [],
         totals: { newTracks: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: 0 },
-      })
+      });
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       // First activation
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       // Second activation — same path AND same options → must NOT trigger analyzeDiff
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       // analyzeDiff should be called exactly once (first activation), not twice
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1)
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1);
       // getSyncedItems also skipped when cache key unchanged and path already active
-      expect(mockApi.getSyncedItems).toHaveBeenCalledTimes(1)
-    })
+      expect(mockApi.getSyncedItems).toHaveBeenCalledTimes(1);
+    });
 
     it('second activateDevice with DIFFERENT itemIds retriggers analyzeDiff', async () => {
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
-      ])
+      ]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       // First activation
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       // Second activation with different selection
       const differentOptions = {
         ...defaultOptions,
         itemIds: ['artist-1', 'album-1'],
         itemTypes: { 'artist-1': 'artist' as const, 'album-1': 'album' as const },
-      }
+      };
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', differentOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', differentOptions);
+      });
 
       // analyzeDiff should be called again for the new itemIds
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2)
-    })
-  })
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2);
+    });
+  });
 
   describe('invalidateCache', () => {
     it('after invalidation, activateDevice re-runs analyzeDiff even with same params', async () => {
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
-      ])
+      ]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       // First activation
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1)
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1);
 
       // Invalidate cache (simulates library refresh detecting server changes)
       act(() => {
-        result.current.invalidateCache()
-      })
+        result.current.invalidateCache();
+      });
 
       // Second activation with SAME params → should re-run because cache was invalidated
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2)
-    })
-  })
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2);
+    });
+  });
 
   describe('revalidateDevice', () => {
     it('re-runs analyzeDiff with the same params as last activation', async () => {
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
-      ])
+      ]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       // First activation with specific options
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1)
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1);
 
       // revalidateDevice should call activateDevice again with same params
       await act(async () => {
-        await result.current.revalidateDevice()
-      })
+        await result.current.revalidateDevice();
+      });
 
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2)
-    })
-  })
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2);
+    });
+  });
 
   describe('updateConvertOptions', () => {
     it('smoke test: calls without throwing', async () => {
-      mockApi.getSyncedItems.mockResolvedValue([])
+      mockApi.getSyncedItems.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
 
       expect(() => {
         act(() => {
-          result.current.updateConvertOptions(true, '320k', 'companion')
-        })
-      }).not.toThrow()
-    })
+          result.current.updateConvertOptions(true, '320k', 'companion');
+        });
+      }).not.toThrow();
+    });
 
     it('persists coverArtMode change across revalidation', async () => {
       mockApi.getSyncedItems.mockResolvedValue([
         { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
-      ])
+      ]);
       mockApi.analyzeDiff.mockResolvedValue({
         success: true,
         items: [],
         totals: { newTracks: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: 0 },
-      })
+      });
 
-      const { result } = renderHook(() => useDeviceSelections())
+      const { result } = renderHook(() => useDeviceSelections());
 
       // First activation with embed mode
       await act(async () => {
-        await result.current.activateDevice('/Volumes/USB', defaultOptions)
-      })
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1)
-      expect(mockApi.analyzeDiff.mock.calls[0][0].options.coverArtMode).toBe('embed')
+        await result.current.activateDevice('/Volumes/USB', defaultOptions);
+      });
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1);
+      expect(mockApi.analyzeDiff.mock.calls[0][0].options.coverArtMode).toBe('embed');
 
       // Change coverArtMode to companion
       act(() => {
-        result.current.updateConvertOptions(false, '192k', 'companion')
-      })
+        result.current.updateConvertOptions(false, '192k', 'companion');
+      });
 
       // Revalidate should use companion mode in the next analyzeDiff call
       await act(async () => {
-        await result.current.revalidateDevice()
-      })
+        await result.current.revalidateDevice();
+      });
 
-      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2)
-      expect(mockApi.analyzeDiff.mock.calls[1][0].options.coverArtMode).toBe('companion')
-    })
-  })
-})
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2);
+      expect(mockApi.analyzeDiff.mock.calls[1][0].options.coverArtMode).toBe('companion');
+    });
+  });
+});

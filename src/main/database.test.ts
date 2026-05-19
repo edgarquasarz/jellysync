@@ -18,34 +18,34 @@ vi.mock('electron', () => ({
 // =============================================================================
 
 interface MockRow {
-  id: number
-  device_id: number
-  item_id: string
-  track_id?: string
-  destination_path: string
-  file_size: number | null
-  metadata_hash?: string | null
-  cover_art_mode?: string
-  encoded_bitrate?: string | null
-  server_path?: string | null
-  synced_at: string
-  mount_point?: string
-  name?: string
-  last_sync_at?: string | null
-  item_name?: string | null
-  item_type?: string | null
-  [key: string]: unknown
+  id: number;
+  device_id: number;
+  item_id: string;
+  track_id?: string;
+  destination_path: string;
+  file_size: number | null;
+  metadata_hash?: string | null;
+  cover_art_mode?: string;
+  encoded_bitrate?: string | null;
+  server_path?: string | null;
+  synced_at: string;
+  mount_point?: string;
+  name?: string;
+  last_sync_at?: string | null;
+  item_name?: string | null;
+  item_type?: string | null;
+  [key: string]: unknown;
 }
 
 interface MockDbState {
-  devices: Map<number, MockRow>
-  synced_tracks: Map<string, MockRow>
-  synced_files: Map<string, MockRow>
-  sync_history: Map<number, MockRow>
-  nextDeviceId: number
-  nextTrackId: number
-  nextFileId: number
-  nextHistoryId: number
+  devices: Map<number, MockRow>;
+  synced_tracks: Map<string, MockRow>;
+  synced_files: Map<string, MockRow>;
+  sync_history: Map<number, MockRow>;
+  nextDeviceId: number;
+  nextTrackId: number;
+  nextFileId: number;
+  nextHistoryId: number;
 }
 
 const state: MockDbState = {
@@ -81,8 +81,12 @@ vi.mock('better-sqlite3', () => {
   return {
     __esModule: true,
     default: class MockDatabase {
-      constructor(_path: string) { /* no-op */ }
-      pragma(_p: string) { return this; }
+      constructor(_path: string) {
+        /* no-op */
+      }
+      pragma(_p: string) {
+        return this;
+      }
       exec(_sql: string) {
         // Table creation — no-op for mock; schema assumed to exist
         return this;
@@ -95,7 +99,12 @@ vi.mock('better-sqlite3', () => {
               const id = state.nextDeviceId++;
               const mountPoint = args[0] as string;
               const name = args[1] as string | undefined;
-              state.devices.set(id, { id, mount_point: mountPoint, name: name ?? mountPoint, last_sync_at: null } as MockRow);
+              state.devices.set(id, {
+                id,
+                mount_point: mountPoint,
+                name: name ?? mountPoint,
+                last_sync_at: null,
+              } as MockRow);
               return { lastInsertRowid: id, changes: 1 };
             }
             if (sql.includes('UPDATE devices SET')) {
@@ -132,7 +141,10 @@ vi.mock('better-sqlite3', () => {
                 const itemId = args[1] as string;
                 let count = 0;
                 for (const [k, v] of state.synced_tracks.entries()) {
-                  if (v.device_id === deviceId && v.item_id === itemId) { state.synced_tracks.delete(k); count++; }
+                  if (v.device_id === deviceId && v.item_id === itemId) {
+                    state.synced_tracks.delete(k);
+                    count++;
+                  }
                 }
                 return { changes: count };
               }
@@ -171,7 +183,10 @@ vi.mock('better-sqlite3', () => {
                 const deviceId = args[0] as number;
                 let count = 0;
                 for (const [k, v] of state.synced_files.entries()) {
-                  if (v.device_id === deviceId) { state.synced_files.delete(k); count++; }
+                  if (v.device_id === deviceId) {
+                    state.synced_files.delete(k);
+                    count++;
+                  }
                 }
                 return { changes: count };
               }
@@ -204,7 +219,7 @@ vi.mock('better-sqlite3', () => {
                 const deviceId = args[0] as number;
                 const trackId = args[1] as string;
                 const row = state.synced_tracks.get(trackId);
-                if (row && row.device_id === deviceId) return row;
+                if (row?.device_id === deviceId) return row;
                 return undefined;
               }
               if (sql.includes('COUNT(*)')) {
@@ -248,31 +263,40 @@ vi.mock('better-sqlite3', () => {
                 ];
               }
               if (tableName === 'devices') {
-                return [{ name: 'id' }, { name: 'mount_point' }, { name: 'name' }, { name: 'last_sync_at' }];
+                return [
+                  { name: 'id' },
+                  { name: 'mount_point' },
+                  { name: 'name' },
+                  { name: 'last_sync_at' },
+                ];
               }
               return [];
             }
             if (sql.includes('SELECT item_id FROM synced_files WHERE device_id = ?')) {
               const deviceId = args[0] as number;
               return [...state.synced_files.values()]
-                .filter(r => r.device_id === deviceId)
-                .map(r => ({ item_id: r.item_id }));
+                .filter((r) => r.device_id === deviceId)
+                .map((r) => ({ item_id: r.item_id }));
             }
             if (sql.includes('SELECT item_id, item_name, item_type FROM synced_files')) {
               const deviceId = args[0] as number;
               return [...state.synced_files.values()]
-                .filter(r => r.device_id === deviceId)
-                .map(r => ({ item_id: r.item_id, item_name: r.item_name, item_type: r.item_type }));
+                .filter((r) => r.device_id === deviceId)
+                .map((r) => ({
+                  item_id: r.item_id,
+                  item_name: r.item_name,
+                  item_type: r.item_type,
+                }));
             }
             if (sql.includes('SELECT') && sql.includes('FROM synced_tracks')) {
               const deviceId = args[0] as number;
               if (sql.includes('AND item_id = ?')) {
                 const itemId = args[1] as string;
-                return [...state.synced_tracks.values()]
-                  .filter(r => r.device_id === deviceId && r.item_id === itemId);
+                return [...state.synced_tracks.values()].filter(
+                  (r) => r.device_id === deviceId && r.item_id === itemId,
+                );
               }
-              return [...state.synced_tracks.values()]
-                .filter(r => r.device_id === deviceId);
+              return [...state.synced_tracks.values()].filter((r) => r.device_id === deviceId);
             }
             if (sql.includes('SELECT') && sql.includes('FROM sync_history')) {
               return [];
@@ -287,7 +311,9 @@ vi.mock('better-sqlite3', () => {
       transaction(fn: () => void) {
         return () => fn();
       }
-      close() { /* no-op */ }
+      close() {
+        /* no-op */
+      }
     } as unknown as new (path: string) => import('better-sqlite3').Database,
   };
 });
@@ -323,9 +349,25 @@ describe('synced_tracks table', () => {
   describe('upsertSyncedTrack', () => {
     it('inserts a new synced track record', () => {
       // Seed device
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb', name: 'USB', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb',
+        name: 'USB',
+        last_sync_at: null,
+      } as MockRow);
 
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-1', '/mnt/usb/track.mp3', 5000000, 'abc123', 'embed', '192k', '/music/track.flac', null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-1',
+        '/mnt/usb/track.mp3',
+        5000000,
+        'abc123',
+        'embed',
+        '192k',
+        '/music/track.flac',
+        null,
+      );
 
       const row = state.synced_tracks.get('track-1');
       expect(row).toBeDefined();
@@ -338,13 +380,40 @@ describe('synced_tracks table', () => {
     });
 
     it('updates existing record on conflict (same device_id, track_id)', () => {
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb', name: 'USB', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb',
+        name: 'USB',
+        last_sync_at: null,
+      } as MockRow);
 
       // Insert initial
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-1', '/mnt/usb/old.mp3', 4000000, 'oldhash', 'off', null, '/old/path.flac', null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-1',
+        '/mnt/usb/old.mp3',
+        4000000,
+        'oldhash',
+        'off',
+        null,
+        '/old/path.flac',
+        null,
+      );
 
       // Update
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-1', '/mnt/usb/new.mp3', 5000000, 'newhash', 'embed', '320k', '/new/path.flac', null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-1',
+        '/mnt/usb/new.mp3',
+        5000000,
+        'newhash',
+        'embed',
+        '320k',
+        '/new/path.flac',
+        null,
+      );
 
       const row = state.synced_tracks.get('track-1');
       expect(row!.destination_path).toBe('/mnt/usb/new.mp3');
@@ -360,14 +429,41 @@ describe('synced_tracks table', () => {
 
   describe('getSyncedTracksForDevice', () => {
     it('returns all tracks for a device', () => {
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb', name: 'USB', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb',
+        name: 'USB',
+        last_sync_at: null,
+      } as MockRow);
 
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-1', '/mnt/usb/t1.mp3', 100, 'h1', 'embed', '192k', null, null);
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-2', '/mnt/usb/t2.mp3', 200, 'h2', 'embed', '192k', null, null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-1',
+        '/mnt/usb/t1.mp3',
+        100,
+        'h1',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-2',
+        '/mnt/usb/t2.mp3',
+        200,
+        'h2',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
 
       // The function queries the DB — since our mock stores in state.synced_tracks
       // and the real function reads from the mock DB, we need to verify via state
-      const rows = [...state.synced_tracks.values()].filter(r => r.device_id === 1);
+      const rows = [...state.synced_tracks.values()].filter((r) => r.device_id === 1);
       expect(rows).toHaveLength(2);
     });
 
@@ -383,12 +479,41 @@ describe('synced_tracks table', () => {
 
   describe('getSyncedTracksForItem', () => {
     it('returns tracks for a specific item on a device', () => {
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb', name: 'USB', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb',
+        name: 'USB',
+        last_sync_at: null,
+      } as MockRow);
 
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-1', '/t1.mp3', 100, 'h1', 'embed', '192k', null, null);
-      upsertSyncedTrack('/mnt/usb', 'album-2', 'track-3', '/t3.mp3', 300, 'h3', 'embed', '192k', null, null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-1',
+        '/t1.mp3',
+        100,
+        'h1',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-2',
+        'track-3',
+        '/t3.mp3',
+        300,
+        'h3',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
 
-      const rows = [...state.synced_tracks.values()].filter(r => r.device_id === 1 && r.item_id === 'album-1');
+      const rows = [...state.synced_tracks.values()].filter(
+        (r) => r.device_id === 1 && r.item_id === 'album-1',
+      );
       expect(rows).toHaveLength(1);
       expect(rows[0].track_id).toBe('track-1');
     });
@@ -400,15 +525,53 @@ describe('synced_tracks table', () => {
 
   describe('removeSyncedTracksForItem', () => {
     it('deletes all tracks for an item on a device', () => {
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb', name: 'USB', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb',
+        name: 'USB',
+        last_sync_at: null,
+      } as MockRow);
 
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-1', '/t1.mp3', 100, 'h1', 'embed', '192k', null, null);
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-2', '/t2.mp3', 200, 'h2', 'embed', '192k', null, null);
-      upsertSyncedTrack('/mnt/usb', 'album-2', 'track-3', '/t3.mp3', 300, 'h3', 'embed', '192k', null, null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-1',
+        '/t1.mp3',
+        100,
+        'h1',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-2',
+        '/t2.mp3',
+        200,
+        'h2',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-2',
+        'track-3',
+        '/t3.mp3',
+        300,
+        'h3',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
 
       removeSyncedTracksForItem('/mnt/usb', 'album-1');
 
-      const remaining = [...state.synced_tracks.values()].filter(r => r.device_id === 1);
+      const remaining = [...state.synced_tracks.values()].filter((r) => r.device_id === 1);
       expect(remaining).toHaveLength(1);
       expect(remaining[0].track_id).toBe('track-3');
     });
@@ -420,10 +583,37 @@ describe('synced_tracks table', () => {
 
   describe('removeSyncedTrack', () => {
     it('deletes a specific track by track_id', () => {
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb', name: 'USB', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb',
+        name: 'USB',
+        last_sync_at: null,
+      } as MockRow);
 
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-1', '/t1.mp3', 100, 'h1', 'embed', '192k', null, null);
-      upsertSyncedTrack('/mnt/usb', 'album-1', 'track-2', '/t2.mp3', 200, 'h2', 'embed', '192k', null, null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-1',
+        '/t1.mp3',
+        100,
+        'h1',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'album-1',
+        'track-2',
+        '/t2.mp3',
+        200,
+        'h2',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
 
       removeSyncedTrack('/mnt/usb', 'track-1');
 
@@ -439,9 +629,25 @@ describe('synced_tracks table', () => {
 
   describe('SyncedTrackRecord interface', () => {
     it('record contains all required fields from the plan', () => {
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb', name: 'USB', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb',
+        name: 'USB',
+        last_sync_at: null,
+      } as MockRow);
 
-      upsertSyncedTrack('/mnt/usb', 'item-1', 'track-x', '/dest.mp3', 12345, 'hashval', 'embed', '320k', '/server/path.mp3', null);
+      upsertSyncedTrack(
+        '/mnt/usb',
+        'item-1',
+        'track-x',
+        '/dest.mp3',
+        12345,
+        'hashval',
+        'embed',
+        '320k',
+        '/server/path.mp3',
+        null,
+      );
 
       const row = state.synced_tracks.get('track-x')!;
       expect(row.id).toBeDefined();
@@ -464,14 +670,46 @@ describe('synced_tracks table', () => {
 
   describe('device isolation', () => {
     it('tracks are isolated between devices', () => {
-      state.devices.set(1, { id: 1, mount_point: '/mnt/usb1', name: 'USB1', last_sync_at: null } as MockRow);
-      state.devices.set(2, { id: 2, mount_point: '/mnt/usb2', name: 'USB2', last_sync_at: null } as MockRow);
+      state.devices.set(1, {
+        id: 1,
+        mount_point: '/mnt/usb1',
+        name: 'USB1',
+        last_sync_at: null,
+      } as MockRow);
+      state.devices.set(2, {
+        id: 2,
+        mount_point: '/mnt/usb2',
+        name: 'USB2',
+        last_sync_at: null,
+      } as MockRow);
 
-      upsertSyncedTrack('/mnt/usb1', 'album-1', 'track-a', '/usb1/track.mp3', 100, 'ha', 'embed', '192k', null, null);
-      upsertSyncedTrack('/mnt/usb2', 'album-1', 'track-b', '/usb2/track.mp3', 200, 'hb', 'off', null, null, null);
+      upsertSyncedTrack(
+        '/mnt/usb1',
+        'album-1',
+        'track-a',
+        '/usb1/track.mp3',
+        100,
+        'ha',
+        'embed',
+        '192k',
+        null,
+        null,
+      );
+      upsertSyncedTrack(
+        '/mnt/usb2',
+        'album-1',
+        'track-b',
+        '/usb2/track.mp3',
+        200,
+        'hb',
+        'off',
+        null,
+        null,
+        null,
+      );
 
-      const usb1Tracks = [...state.synced_tracks.values()].filter(r => r.device_id === 1);
-      const usb2Tracks = [...state.synced_tracks.values()].filter(r => r.device_id === 2);
+      const usb1Tracks = [...state.synced_tracks.values()].filter((r) => r.device_id === 1);
+      const usb2Tracks = [...state.synced_tracks.values()].filter((r) => r.device_id === 2);
 
       expect(usb1Tracks).toHaveLength(1);
       expect(usb2Tracks).toHaveLength(1);

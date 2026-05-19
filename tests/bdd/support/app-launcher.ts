@@ -8,19 +8,19 @@ let electronApp: ElectronApplication | null = null;
 function getElectronPath(): string {
   // Go up from tests/bdd/support/ to project root: ../../.. = 3 levels
   const projectPath = path.resolve(__dirname, '../../../');
-  
+
   // Check for packaged app first
   const macAppPath = path.join(projectPath, 'release/mac/JellyTunes.app/Contents/MacOS/JellyTunes');
   if (fs.existsSync(macAppPath)) {
     return macAppPath;
   }
-  
+
   // Check for electron in node_modules
   const electronBin = path.join(projectPath, 'node_modules/.bin/electron');
   if (fs.existsSync(electronBin)) {
     return electronBin;
   }
-  
+
   return 'electron';
 }
 
@@ -28,12 +28,12 @@ export async function launchApp(): Promise<ElectronApplication> {
   // Go up from tests/bdd/support/ to project root: ../../.. = 3 levels
   const projectPath = path.resolve(__dirname, '../../../');
   const electronPath = getElectronPath();
-  
+
   const isPackaged = electronPath.includes('JellyTunes.app');
-  
+
   let args: string[] = [];
   let cwd = projectPath;
-  
+
   if (isPackaged) {
     // For packaged app, don't pass args - it will use its own
     cwd = path.dirname(electronPath);
@@ -41,7 +41,7 @@ export async function launchApp(): Promise<ElectronApplication> {
     // For dev, run the dist
     args = [path.join(projectPath, 'dist/main/index.js')];
   }
-  
+
   electronApp = await electron.launch({
     executablePath: electronPath !== 'electron' ? electronPath : undefined,
     args: args.length > 0 ? args : undefined,
@@ -58,10 +58,10 @@ export async function launchApp(): Promise<ElectronApplication> {
 export async function getMainWindow(app: ElectronApplication): Promise<Page> {
   // Wait for first window (60 seconds for CI environments)
   const window = await app.waitForEvent('window', { timeout: 60000 });
-  
+
   // Wait for DOM to be ready
   await window.waitForLoadState('domcontentloaded');
-  
+
   return window;
 }
 

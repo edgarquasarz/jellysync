@@ -37,6 +37,7 @@ The app has three Electron processes plus a shared sync module:
 **Renderer** (`src/renderer/src/App.tsx`) — Single large React component handling library navigation (artists/albums/playlists), device selection, and sync UI with progress tracking.
 
 **Sync module** (`src/sync/`) — Standalone, testable sync engine with dependency injection:
+
 - `sync-core.ts` — Main orchestrator that drives the sync phases (fetching → copying → converting → validating → complete)
 - `sync-api.ts` — Jellyfin HTTP client (uses `/Items`, `/Items/{id}/Download`, `/Playlists/{id}/Items`)
 - `sync-config.ts` — Config validation and `buildDestinationPath()` path construction

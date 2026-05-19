@@ -7,4 +7,4 @@ changelog:
     - title: Documentation
       labels: [documentation]
     - title: Other Changes
-      labels: ["*"]
+      labels: ['*']

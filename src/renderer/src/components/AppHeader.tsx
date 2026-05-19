@@ -1,18 +1,31 @@
-import { useState } from 'react'
-import { Check, Info, LogOut } from 'lucide-react'
-import { GradientMusicIcon } from './GradientMusicIcon'
-import { AboutModal } from './AboutModal'
+import { useState } from 'react';
+import { Check, Info, LogOut } from 'lucide-react';
+import { GradientMusicIcon } from './GradientMusicIcon';
+import { AboutModal } from './AboutModal';
 
 interface AppHeaderProps {
-  isConnected: boolean
-  serverUrl?: string | null
-  onDisconnect: () => void
-  isSyncing?: boolean
+  isConnected: boolean;
+  serverUrl?: string | null;
+  onDisconnect: () => void;
+  isSyncing?: boolean;
 }
 
-export function AppHeader({ isConnected, serverUrl, onDisconnect, isSyncing }: AppHeaderProps): JSX.Element {
-  const hostname = serverUrl ? (() => { try { return new URL(serverUrl).hostname } catch { return serverUrl } })() : null
-  const [showAbout, setShowAbout] = useState(false)
+export function AppHeader({
+  isConnected,
+  serverUrl,
+  onDisconnect,
+  isSyncing,
+}: AppHeaderProps): JSX.Element {
+  const hostname = serverUrl
+    ? (() => {
+        try {
+          return new URL(serverUrl).hostname;
+        } catch {
+          return serverUrl;
+        }
+      })()
+    : null;
+  const [showAbout, setShowAbout] = useState(false);
 
   return (
     <header className="h-14 border-b border-outline_variant flex items-center justify-between px-4">
@@ -25,7 +38,10 @@ export function AppHeader({ isConnected, serverUrl, onDisconnect, isSyncing }: A
           </span>
         )}
         {isConnected && (
-          <span data-testid="connection-status" className="text-label-md text-primary flex items-center gap-1">
+          <span
+            data-testid="connection-status"
+            className="text-label-md text-primary flex items-center gap-1"
+          >
             <Check className="w-3 h-3" /> {hostname ?? 'Connected'}
           </span>
         )}
@@ -53,5 +69,5 @@ export function AppHeader({ isConnected, serverUrl, onDisconnect, isSyncing }: A
       </div>
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
     </header>
-  )
+  );
 }

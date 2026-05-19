@@ -23,7 +23,9 @@ const validConfig: SyncConfig = {
   userId: 'abcdef1234567890abcdef1234567890',
 };
 
-function makeMockResponse(overrides: Partial<Response> & { ok: boolean; status: number; statusText: string }): Response {
+function makeMockResponse(
+  overrides: Partial<Response> & { ok: boolean; status: number; statusText: string },
+): Response {
   return {
     headers: new Headers(),
     redirected: false,
@@ -32,7 +34,9 @@ function makeMockResponse(overrides: Partial<Response> & { ok: boolean; status: 
     clone: () => ({}) as any,
     arrayBuffer: async () => new ArrayBuffer(0),
     text: async () => '',
-    json: async () => { throw new Error('not json'); },
+    json: async () => {
+      throw new Error('not json');
+    },
     blob: async () => new Blob(),
     formData: async () => new FormData(),
     bodyUsed: false,
@@ -46,13 +50,14 @@ describe('fetchLyrics', () => {
     const expectedLyrics = '[00:00.00]Hello world\n[00:05.00]This is a test';
     const api = createApiClient({
       ...VALID_API_CONFIG,
-      fetch: async () => makeMockResponse({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        body: new ReadableStream(),
-        text: async () => expectedLyrics,
-      }),
+      fetch: async () =>
+        makeMockResponse({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          body: new ReadableStream(),
+          text: async () => expectedLyrics,
+        }),
     });
 
     const result = await api.fetchLyrics('track-1');
@@ -62,12 +67,13 @@ describe('fetchLyrics', () => {
   it('returns null on HTTP 404 (no lyrics available)', async () => {
     const api = createApiClient({
       ...VALID_API_CONFIG,
-      fetch: async () => makeMockResponse({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-        body: null,
-      }),
+      fetch: async () =>
+        makeMockResponse({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          body: null,
+        }),
     });
 
     const result = await api.fetchLyrics('track-1');
@@ -77,13 +83,14 @@ describe('fetchLyrics', () => {
   it('returns null on empty response body', async () => {
     const api = createApiClient({
       ...VALID_API_CONFIG,
-      fetch: async () => makeMockResponse({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        body: new ReadableStream(),
-        text: async () => '',
-      }),
+      fetch: async () =>
+        makeMockResponse({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          body: new ReadableStream(),
+          text: async () => '',
+        }),
     });
 
     const result = await api.fetchLyrics('track-1');
@@ -93,12 +100,13 @@ describe('fetchLyrics', () => {
   it('throws ApiError on HTTP 500', async () => {
     const api = createApiClient({
       ...VALID_API_CONFIG,
-      fetch: async () => makeMockResponse({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        body: null,
-      }),
+      fetch: async () =>
+        makeMockResponse({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          body: null,
+        }),
     });
 
     await expect(api.fetchLyrics('track-1')).rejects.toThrow(ApiError);
@@ -108,12 +116,13 @@ describe('fetchLyrics', () => {
     // Jellyfin < 10.9 doesn't have the /Audio/{id}/Lyrics endpoint - returns 404
     const api = createApiClient({
       ...VALID_API_CONFIG,
-      fetch: async () => makeMockResponse({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-        body: null,
-      }),
+      fetch: async () =>
+        makeMockResponse({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          body: null,
+        }),
     });
 
     const result = await api.fetchLyrics('track-1');
@@ -126,12 +135,17 @@ describe('embedLyrics FFmpeg integration', () => {
     const { createFFmpegConverter } = await import('./sync-files');
     const converter = createFFmpegConverter();
     const embedFn = converter.embedLyrics;
-      expect(typeof embedFn).toBe('function');
+    expect(typeof embedFn).toBe('function');
   });
 
   it('mock converter supports embedLyrics', async () => {
     const mock = createMockConverter();
-    const result = await mock.embedLyrics?.('/input.mp3', '/output.mp3', '[00:00]Test lyrics', 'mp3');
+    const result = await mock.embedLyrics?.(
+      '/input.mp3',
+      '/output.mp3',
+      '[00:00]Test lyrics',
+      'mp3',
+    );
     expect(result?.success).toBe(true);
   });
 
@@ -156,7 +170,7 @@ describe('embedLyrics FFmpeg integration', () => {
     const unlinkedFiles: string[] = [];
     const fs = require('fs');
     const originalUnlinkSync = fs.unlinkSync;
-    fs.unlinkSync = function(path: string) {
+    fs.unlinkSync = function (path: string) {
       unlinkedFiles.push(path);
       return originalUnlinkSync(path);
     };
@@ -165,11 +179,11 @@ describe('embedLyrics FFmpeg integration', () => {
     const childProcess = require('child_process');
     const spawnArgs: string[][] = [];
     const originalSpawn = childProcess.spawn;
-    childProcess.spawn = function(_cmd: string, args: string[], _opts: any) {
+    childProcess.spawn = function (_cmd: string, args: string[], _opts: any) {
       spawnArgs.push(args);
       // Return a mock proc that simulates successful FFmpeg exit
       const mockProc = {
-        on: function(event: string, cb: Function) {
+        on: function (event: string, cb: (arg: number | Error) => void) {
           if (event === 'close') {
             // Simulate async FFmpeg success after args are captured
             setTimeout(() => cb(0), 0);
@@ -193,17 +207,19 @@ describe('embedLyrics FFmpeg integration', () => {
       await embedFn('/input.mp3', '/output.mp3', '[00:00]Test lyrics');
 
       // Find the args passed to the FFmpeg call
-      const ffmpegCall = spawnArgs.find(args => args.includes('-i') && args.includes('/input.mp3'));
+      const ffmpegCall = spawnArgs.find(
+        (args) => args.includes('-i') && args.includes('/input.mp3'),
+      );
       expect(ffmpegCall).toBeDefined();
 
       // The bug: ffmpegCall would include '-i', '<tempfile>.txt' that gets deleted
       // After fix: MP3 should NOT have a second -i flag with a temp file
-      const tempFileArgs = ffmpegCall!.filter(arg => arg.includes('jt-lrc-'));
+      const tempFileArgs = ffmpegCall!.filter((arg) => arg.includes('jt-lrc-'));
       expect(tempFileArgs).toHaveLength(0);
 
       // Also verify that NO temp file was unlinked before we got here
       // (if bug exists, unlinkedFiles would contain a jt-lrc- file)
-      const deletedTempFiles = unlinkedFiles.filter(f => f.includes('jt-lrc-'));
+      const deletedTempFiles = unlinkedFiles.filter((f) => f.includes('jt-lrc-'));
       expect(deletedTempFiles).toHaveLength(0);
     } finally {
       // Restore
@@ -259,14 +275,24 @@ describe('processLyrics behavior', () => {
     // Track needs to be "new" so it goes through copyOrConvertTrack → processLyrics
     // Set up getTracksForItems to return our track
     const tracks: TrackInfo[] = [
-      { id: 'track-1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track.mp3', format: 'mp3', size: 100 },
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Album/track.mp3',
+        format: 'mp3',
+        size: 100,
+      },
     ];
     mockApi.getTracksForItems = vi.fn().mockResolvedValue({ tracks, errors: [] });
     mockApi.downloadItemStream = async () => {
       const { Readable } = require('stream');
       return Readable.from(Buffer.from('fake audio'));
     };
-    mockApi.getItem = vi.fn().mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
     mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
 
     const deps = createTestDeps({ api: mockApi });
@@ -288,14 +314,24 @@ describe('processLyrics behavior', () => {
     mockApi.fetchLyrics = vi.fn().mockResolvedValue(null); // No lyrics
 
     const tracks: TrackInfo[] = [
-      { id: 'track-1', name: 'Track', album: 'Album', artists: ['Artist'], path: '/music/lib/lib/Artist/Album/track.mp3', format: 'mp3', size: 100 },
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Album/track.mp3',
+        format: 'mp3',
+        size: 100,
+      },
     ];
     mockApi.getTracksForItems = vi.fn().mockResolvedValue({ tracks, errors: [] });
     mockApi.downloadItemStream = async () => {
       const { Readable } = require('stream');
       return Readable.from(Buffer.from('fake audio'));
     };
-    mockApi.getItem = vi.fn().mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
     mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
 
     const deps = createTestDeps({ api: mockApi });

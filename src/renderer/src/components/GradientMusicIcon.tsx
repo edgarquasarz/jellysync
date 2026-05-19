@@ -1,5 +1,5 @@
 interface GradientMusicIconProps {
-  className?: string
+  className?: string;
 }
 
 // Lucide Music icon paths with a gradient stroke matching Jellyfin's purple→cyan palette
@@ -24,5 +24,5 @@ export function GradientMusicIcon({ className = 'w-6 h-6' }: GradientMusicIconPr
       <circle stroke="url(#music-grad)" cx="6" cy="18" r="3" />
       <circle stroke="url(#music-grad)" cx="18" cy="16" r="3" />
     </svg>
-  )
+  );
 }

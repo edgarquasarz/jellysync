@@ -9,7 +9,7 @@ import { join } from 'path';
  */
 export function buildTempPaths(
   trackName: string,
-  timestamp: number
+  timestamp: number,
 ): { sourcePath: string; tempPath: string } {
   const safeName = trackName.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 50);
   return {

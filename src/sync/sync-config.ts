@@ -67,13 +67,13 @@ export function sanitizePathComponent(segment: string, filesystem: FilesystemTyp
  * Valid bitrates for MP3 conversion
  */
 export const VALID_BITRATES = ['128k', '192k', '320k'] as const;
-export type ValidBitrate = typeof VALID_BITRATES[number];
+export type ValidBitrate = (typeof VALID_BITRATES)[number];
 
 /**
  * Valid audio formats
  */
 export const AUDIO_FORMATS = ['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav'] as const;
-export type AudioFormat = typeof AUDIO_FORMATS[number];
+export type AudioFormat = (typeof AUDIO_FORMATS)[number];
 
 /**
  * Formats that support conversion to MP3
@@ -85,18 +85,18 @@ export const CONVERTIBLE_FORMATS = ['flac', 'wav', 'm4a', 'aac', 'ogg'] as const
  */
 export function normalizeServerUrl(url: string): string {
   let normalized = url.trim();
-  
+
   // Remove trailing slashes
   normalized = normalized.replace(/\/+$/, '');
-  
+
   // Ensure protocol
   if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
     normalized = `https://${normalized}`;
   }
-  
+
   // Remove /web, /web/index.html, etc.
   normalized = normalized.replace(/\/web.*$/, '');
-  
+
   return normalized;
 }
 
@@ -107,19 +107,19 @@ export function validateApiKey(apiKey: string): { valid: boolean; error?: string
   if (!apiKey || typeof apiKey !== 'string') {
     return { valid: false, error: 'API key is required' };
   }
-  
+
   const trimmed = apiKey.trim();
-  
+
   if (trimmed.length === 0) {
     return { valid: false, error: 'API key cannot be empty' };
   }
-  
+
   // Jellyfin API keys are typically 32 character hex strings
   if (!/^[a-f0-9]{32}$/i.test(trimmed)) {
     // Accept but warn if format doesn't match expected
     return { valid: true };
   }
-  
+
   return { valid: true };
 }
 
@@ -130,18 +130,18 @@ export function validateUserId(userId: string): { valid: boolean; error?: string
   if (!userId || typeof userId !== 'string') {
     return { valid: false, error: 'User ID is required' };
   }
-  
+
   const trimmed = userId.trim();
-  
+
   if (trimmed.length === 0) {
     return { valid: false, error: 'User ID cannot be empty' };
   }
-  
+
   // Jellyfin IDs are 32 character hex strings
   if (!/^[a-f0-9]{32}$/i.test(trimmed)) {
     return { valid: false, error: 'User ID must be a 32-character hex string' };
   }
-  
+
   return { valid: true };
 }
 
@@ -153,23 +153,23 @@ export function validateServerRootPath(path: string): { valid: boolean; error?: 
     // Optional field, empty is valid
     return { valid: true };
   }
-  
+
   const trimmed = path.trim();
-  
+
   if (trimmed.length === 0) {
     return { valid: true };
   }
-  
+
   // Must start with /
   if (!trimmed.startsWith('/')) {
     return { valid: false, error: 'Server root path must start with /' };
   }
-  
+
   // Must end with /
   if (!trimmed.endsWith('/')) {
     return { valid: false, error: 'Server root path must end with /' };
   }
-  
+
   return { valid: true };
 }
 
@@ -179,13 +179,13 @@ export function validateServerRootPath(path: string): { valid: boolean; error?: 
 export function validateSyncConfig(config: unknown): ConfigValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  
+
   if (!config || typeof config !== 'object') {
     return { valid: false, errors: ['Configuration is required'] };
   }
-  
+
   const cfg = config as Partial<SyncConfig>;
-  
+
   // Server URL validation
   if (!cfg.serverUrl) {
     errors.push('Server URL is required');
@@ -197,7 +197,7 @@ export function validateSyncConfig(config: unknown): ConfigValidationResult {
       errors.push('Server URL is not a valid URL');
     }
   }
-  
+
   // API key validation
   if (!cfg.apiKey) {
     errors.push('API key is required');
@@ -207,7 +207,7 @@ export function validateSyncConfig(config: unknown): ConfigValidationResult {
       errors.push(error);
     }
   }
-  
+
   // User ID validation
   if (!cfg.userId) {
     errors.push('User ID is required');
@@ -217,7 +217,7 @@ export function validateSyncConfig(config: unknown): ConfigValidationResult {
       errors.push(error);
     }
   }
-  
+
   // Server root path validation (optional)
   if (cfg.serverRootPath) {
     const { valid, error } = validateServerRootPath(cfg.serverRootPath);
@@ -225,7 +225,7 @@ export function validateSyncConfig(config: unknown): ConfigValidationResult {
       errors.push(error);
     }
   }
-  
+
   return {
     valid: errors.length === 0,
     errors,
@@ -248,7 +248,7 @@ export function resolveSyncOptions(options?: SyncOptions): Required<SyncOptions>
  */
 export function needsConversion(format: string, options: Required<SyncOptions>): boolean {
   if (!options.convertToMp3) return false;
-  
+
   const normalizedFormat = format.toLowerCase();
   return CONVERTIBLE_FORMATS.includes(normalizedFormat as any);
 }
@@ -268,18 +268,18 @@ export function getOutputExtension(originalFormat: string, options: Required<Syn
  */
 export function buildSyncFilename(
   track: { name: string; path: string; format: string; trackNumber?: number },
-  options: Required<SyncOptions>
+  options: Required<SyncOptions>,
 ): string {
   const baseName = track.path.split('/').pop() || track.name;
   const extension = getOutputExtension(track.format, options);
-  
+
   // If track has number and preserve structure, format accordingly
   if (track.trackNumber && options.preserveStructure) {
     const paddedNumber = String(track.trackNumber).padStart(2, '0');
     const nameWithoutExt = baseName.replace(/\.[^.]+$/, '');
     return `${paddedNumber} - ${nameWithoutExt}.${extension}`;
   }
-  
+
   // Replace extension if converted
   return baseName.replace(/\.[^.]+$/, `.${extension}`);
 }
@@ -289,7 +289,10 @@ export function buildSyncFilename(
  * Normalizes consecutive slashes before splitting.
  */
 export function hasTraversalSegment(pathOrSegment: string): boolean {
-  return pathOrSegment.replace(/\/+/g, '/').split('/').some(s => s === '..');
+  return pathOrSegment
+    .replace(/\/+/g, '/')
+    .split('/')
+    .some((s) => s === '..');
 }
 
 /**
@@ -298,27 +301,27 @@ export function hasTraversalSegment(pathOrSegment: string): boolean {
 export function buildOutputPath(
   track: { name: string; artists?: string[]; album?: string; trackNumber?: number },
   destinationPath: string,
-  options: Required<SyncOptions>
+  options: Required<SyncOptions>,
 ): string {
   if (!options.preserveStructure) {
     return destinationPath;
   }
-  
+
   const parts = [destinationPath];
-  
+
   // Artist folder
   if (track.artists && track.artists.length > 0) {
     // Sanitize artist name for filesystem
     const artistName = track.artists[0].replace(/[<>:"/\\|?*]/g, '_');
     parts.push(artistName);
   }
-  
+
   // Album folder
   if (track.album) {
     const albumName = track.album.replace(/[<>:"/\\|?*]/g, '_');
     parts.push(albumName);
   }
-  
+
   return parts.join('/');
 }
 
@@ -346,9 +349,9 @@ export function createSyncConfig(input: {
     userId: input.userId.trim(),
     serverRootPath: input.serverRootPath?.trim() || undefined,
   };
-  
+
   const validation = validateSyncConfig(config);
-  
+
   return {
     success: validation.valid,
     config: validation.valid ? config : undefined,
@@ -358,7 +361,7 @@ export function createSyncConfig(input: {
 
 /**
  * Build destination path from server path using server root mapping
- * 
+ *
  * @param serverPath - Full path from Jellyfin API (e.g., "/mediamusic/lib/lib/Ace/Five-A-Side/Ace - Five-A-Side - How Long.mp3")
  * @param serverRootPath - Server root to strip (e.g., "/mediamusic/lib/lib/")
  * @param destinationRoot - Local destination root (e.g., "/Volumes/MEDIA/lib")
@@ -368,7 +371,7 @@ export function createSyncConfig(input: {
 export function buildDestinationPath(
   serverPath: string,
   serverRootPath: string,
-  destinationRoot: string
+  destinationRoot: string,
 ): string {
   const normalizedServer = path.normalize(serverPath);
   // Strip trailing separators so we can safely append path.sep for prefix checking
@@ -392,7 +395,7 @@ export function buildDestinationPath(
 
 /**
  * Extract relative path from server path
- * 
+ *
  * @param serverPath - Full path from Jellyfin API
  * @param serverRootPath - Server root to strip
  * @returns Relative path (e.g., "Ace/Five-A-Side/Ace - Five-A-Side - How Long.mp3")
@@ -403,7 +406,7 @@ export function getRelativePath(serverPath: string, serverRootPath: string): str
 
 /**
  * Extract filename from server path
- * 
+ *
  * @param serverPath - Full path from Jellyfin API
  * @returns Filename with extension
  */

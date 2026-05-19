@@ -1,85 +1,84 @@
-import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron';
+import { electronAPI } from '@electron-toolkit/preload';
 
 interface UsbDevice {
-  device: string
-  displayName: string
-  size: number
-  mountpoints: Array<{ path: string }>
-  isRemovable: boolean
-  vendorName?: string
-  serialNumber?: string
+  device: string;
+  displayName: string;
+  size: number;
+  mountpoints: Array<{ path: string }>;
+  isRemovable: boolean;
+  vendorName?: string;
+  serialNumber?: string;
 }
 
 interface DeviceInfo {
-  total: number
-  free: number
-  used: number
+  total: number;
+  free: number;
+  used: number;
 }
 
 interface TrackInfo {
-  id: string
-  name: string
-  path: string
-  size: number
-  format: string
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  format: string;
 }
 
 interface SyncOptions {
-  tracks: TrackInfo[]
-  targetPath: string
-  convertToMp3: boolean
-  mp3Bitrate: string
+  tracks: TrackInfo[];
+  targetPath: string;
+  convertToMp3: boolean;
+  mp3Bitrate: string;
 }
 
 interface SyncResult {
-  success: boolean
-  errors: string[]
-  syncedFiles: number
+  success: boolean;
+  errors: string[];
+  syncedFiles: number;
 }
 
 interface SyncProgress {
-  current: number
-  total: number
-  currentFile: string
-  status: 'syncing' | 'completed' | 'cancelled'
-  phase?: string
-  bytesProcessed?: number
-  totalBytes?: number
-  warning?: string
+  current: number;
+  total: number;
+  currentFile: string;
+  status: 'syncing' | 'completed' | 'cancelled';
+  phase?: string;
+  bytesProcessed?: number;
+  totalBytes?: number;
+  warning?: string;
 }
 
 const api = {
-  listUsbDevices: (): Promise<UsbDevice[]> =>
-    ipcRenderer.invoke('usb:list'),
-  
+  listUsbDevices: (): Promise<UsbDevice[]> => ipcRenderer.invoke('usb:list'),
+
   getDeviceInfo: (devicePath: string): Promise<DeviceInfo> =>
     ipcRenderer.invoke('usb:getDeviceInfo', devicePath),
 
   getFilesystem: (devicePath: string): Promise<string> =>
     ipcRenderer.invoke('device:getFilesystem', devicePath),
-  
+
   getTrackSize: (trackPath: string): Promise<number> =>
     ipcRenderer.invoke('usb:getTrackSize', trackPath),
-  
+
   getTrackFormat: (trackPath: string): Promise<string> =>
     ipcRenderer.invoke('usb:getTrackFormat', trackPath),
-  
+
   onUsbAttach: (callback: () => void) => {
-    const handler = () => callback()
-    ipcRenderer.on('usb:attach', handler)
-    return () => ipcRenderer.removeListener('usb:attach', handler)
+    const handler = () => callback();
+    ipcRenderer.on('usb:attach', handler);
+    return () => ipcRenderer.removeListener('usb:attach', handler);
   },
 
   onUsbDetach: (callback: () => void) => {
-    const handler = () => callback()
-    ipcRenderer.on('usb:detach', handler)
-    return () => ipcRenderer.removeListener('usb:detach', handler)
+    const handler = () => callback();
+    ipcRenderer.on('usb:detach', handler);
+    return () => ipcRenderer.removeListener('usb:detach', handler);
   },
 
   startSync: (options: SyncOptions): Promise<SyncResult> =>
     ipcRenderer.invoke('sync:start', options),
-  
+
   // New sync with itemIds + itemTypes (uses new sync module)
   startSync2: (options: {
     serverUrl: string;
@@ -95,88 +94,160 @@ const api = {
       coverArtMode?: 'off' | 'embed' | 'companion';
       lyricsMode?: 'off' | 'embed' | 'lrc';
     };
-  }): Promise<{ success: boolean; tracksCopied: number; tracksSkipped?: number; tracksRetagged?: number; lyricsAdded?: number; tracksFailed: string[]; errors: string[]; totalSizeBytes?: number }> =>
-    ipcRenderer.invoke('sync:start2', options),
-  
-  cancelSync: (): Promise<{ cancelled: boolean }> =>
-    ipcRenderer.invoke('sync:cancel'),
-  
+  }): Promise<{
+    success: boolean;
+    tracksCopied: number;
+    tracksFailed: string[];
+    errors: string[];
+    totalSizeBytes?: number;
+  }> => ipcRenderer.invoke('sync:start2', options),
+
+  cancelSync: (): Promise<{ cancelled: boolean }> => ipcRenderer.invoke('sync:cancel'),
+
   onSyncProgress: (callback: (progress: SyncProgress) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, progress: SyncProgress) => callback(progress)
-    ipcRenderer.on('sync:progress', handler)
-    return () => ipcRenderer.removeListener('sync:progress', handler)
+    const handler = (_event: Electron.IpcRendererEvent, progress: SyncProgress) =>
+      callback(progress);
+    ipcRenderer.on('sync:progress', handler);
+    return () => ipcRenderer.removeListener('sync:progress', handler);
   },
 
-  isFfmpegAvailable: (): Promise<boolean> =>
-    ipcRenderer.invoke('ffmpeg:isAvailable'),
-  
+  isFfmpegAvailable: (): Promise<boolean> => ipcRenderer.invoke('ffmpeg:isAvailable'),
+
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
-  
-  selectFolder: (): Promise<string | null> =>
-    ipcRenderer.invoke('dialog:selectFolder'),
-  
-  getFolderStats: (folderPath: string): Promise<{exists: boolean, isDirectory?: boolean, size?: number, modified?: string, error?: string}> =>
-    ipcRenderer.invoke('fs:getFolderStats', folderPath),
+
+  selectFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectFolder'),
+
+  getFolderStats: (
+    folderPath: string,
+  ): Promise<{
+    exists: boolean;
+    isDirectory?: boolean;
+    size?: number;
+    modified?: string;
+    error?: string;
+  }> => ipcRenderer.invoke('fs:getFolderStats', folderPath),
 
   // Get synced tracks for a device from DB (for useTrackRegistry)
-  getSyncedTracks: (mountPoint: string): Promise<Array<{
-    trackId: string; itemId: string; fileSize: number; destinationPath: string
-  }>> =>
-    ipcRenderer.invoke('sync:getSyncedTracks', mountPoint),
+  getSyncedTracks: (
+    mountPoint: string,
+  ): Promise<
+    Array<{
+      trackId: string;
+      itemId: string;
+      fileSize: number;
+      destinationPath: string;
+    }>
+  > => ipcRenderer.invoke('sync:getSyncedTracks', mountPoint),
 
   // Fetch tracks for an item from Jellyfin (lazy loading for useTrackRegistry)
   getTracksForItem: (options: {
-    serverUrl: string; apiKey: string; userId: string
-    itemId: string; itemType: 'artist' | 'album' | 'playlist'
-  }): Promise<{ tracks: Array<{
-    id: string; name: string; path: string; size?: number; format: string
-    bitrate?: number; album?: string; artists?: string[]; albumArtist?: string
-  }>; errors: string[] }> =>
-    ipcRenderer.invoke('sync:getTracksForItem', options),
+    serverUrl: string;
+    apiKey: string;
+    userId: string;
+    itemId: string;
+    itemType: 'artist' | 'album' | 'playlist';
+  }): Promise<{
+    tracks: Array<{
+      id: string;
+      name: string;
+      path: string;
+      size?: number;
+      format: string;
+      bitrate?: number;
+      album?: string;
+      artists?: string[];
+      albumArtist?: string;
+    }>;
+    errors: string[];
+  }> => ipcRenderer.invoke('sync:getTracksForItem', options),
 
-  getDeviceSyncInfo: (mountPoint: string): Promise<{
-    lastSync: string | null; totalTracks: number; totalBytes: number; syncCount: number
-  } | null> =>
-    ipcRenderer.invoke('sync:getDeviceInfo', mountPoint),
+  getDeviceSyncInfo: (
+    mountPoint: string,
+  ): Promise<{
+    lastSync: string | null;
+    totalTracks: number;
+    totalBytes: number;
+    syncCount: number;
+  } | null> => ipcRenderer.invoke('sync:getDeviceInfo', mountPoint),
 
-  getSyncHistory: (): Promise<Array<{
-    id: number; deviceMountPoint: string; startedAt: string; completedAt: string | null
-    tracksSynced: number; bytesTransferred: number; status: string
-  }>> =>
-    ipcRenderer.invoke('sync:getHistory'),
+  getSyncHistory: (): Promise<
+    Array<{
+      id: number;
+      deviceMountPoint: string;
+      startedAt: string;
+      completedAt: string | null;
+      tracksSynced: number;
+      bytesTransferred: number;
+      status: string;
+    }>
+  > => ipcRenderer.invoke('sync:getHistory'),
 
-  getSyncedItems: (mountPoint: string): Promise<Array<{ id: string; name: string; type: 'artist' | 'album' | 'playlist' }>> =>
+  getSyncedItems: (
+    mountPoint: string,
+  ): Promise<Array<{ id: string; name: string; type: 'artist' | 'album' | 'playlist' }>> =>
     ipcRenderer.invoke('sync:getSyncedItems', mountPoint),
 
   analyzeDiff: (options: {
-    serverUrl: string; apiKey: string; userId: string
-    itemIds: string[]; itemTypes: Record<string, 'artist' | 'album' | 'playlist'>
-    destinationPath: string
-    options: { convertToMp3: boolean; bitrate: '128k' | '192k' | '320k'; coverArtMode: 'off' | 'embed' | 'companion' }
-  }): Promise<{ success: boolean; items: Array<{ itemId: string; itemName: string; itemType: string; changes: Array<{ trackId: string; trackName: string; changeType: string }>; summary: { new: number; metadataChanged: number; removed: number; pathChanged: number; unchanged: number } }>; totals: { newTracks: number; metadataChanged: number; removed: number; pathChanged: number; unchanged: number }; errors?: string[] }> =>
-    ipcRenderer.invoke('sync:analyzeDiff', options),
+    serverUrl: string;
+    apiKey: string;
+    userId: string;
+    itemIds: string[];
+    itemTypes: Record<string, 'artist' | 'album' | 'playlist'>;
+    destinationPath: string;
+    options: {
+      convertToMp3: boolean;
+      bitrate: '128k' | '192k' | '320k';
+      coverArtMode: 'off' | 'embed' | 'companion';
+    };
+  }): Promise<{
+    success: boolean;
+    items: Array<{
+      itemId: string;
+      itemName: string;
+      itemType: string;
+      changes: Array<{ trackId: string; trackName: string; changeType: string }>;
+      summary: {
+        new: number;
+        metadataChanged: number;
+        removed: number;
+        pathChanged: number;
+        unchanged: number;
+      };
+    }>;
+    totals: {
+      newTracks: number;
+      metadataChanged: number;
+      removed: number;
+      pathChanged: number;
+      unchanged: number;
+    };
+    errors?: string[];
+  }> => ipcRenderer.invoke('sync:analyzeDiff', options),
 
   removeItems: (options: {
-    serverUrl: string; apiKey: string; userId: string
-    itemIds: string[]; itemTypes: Record<string, 'artist' | 'album' | 'playlist'>
-    destinationPath: string
+    serverUrl: string;
+    apiKey: string;
+    userId: string;
+    itemIds: string[];
+    itemTypes: Record<string, 'artist' | 'album' | 'playlist'>;
+    destinationPath: string;
   }): Promise<{ removed: number; errors: string[] }> =>
     ipcRenderer.invoke('sync:removeItems', options),
 
   clearDestination: (options: {
-    serverUrl: string; apiKey: string; userId: string
-    destinationPath: string
+    serverUrl: string;
+    apiKey: string;
+    userId: string;
+    destinationPath: string;
   }): Promise<{ deleted: number; errors: string[] }> =>
     ipcRenderer.invoke('sync:clearDestination', options),
 
   saveSession: (data: string): Promise<{ success: boolean; reason?: string }> =>
     ipcRenderer.invoke('session:save', data),
 
-  loadSession: (): Promise<string | null> =>
-    ipcRenderer.invoke('session:load'),
+  loadSession: (): Promise<string | null> => ipcRenderer.invoke('session:load'),
 
-  clearSession: (): Promise<void> =>
-    ipcRenderer.invoke('session:clear'),
+  clearSession: (): Promise<void> => ipcRenderer.invoke('session:clear'),
 
   // Logging — write renderer errors/warnings to the main process log file
   logError: (message: string): void => ipcRenderer.send('log:write', 'error', message),
@@ -191,26 +262,27 @@ const api = {
 
   // Check for updates via GitHub Releases API (max once per 24h, no telemetry)
   // Pass force=true to bypass the cache (e.g. manual check button)
-  checkForUpdates: (force?: boolean): Promise<{ updateAvailable: boolean; latestVersion: string; releaseUrl: string }> =>
+  checkForUpdates: (
+    force?: boolean,
+  ): Promise<{ updateAvailable: boolean; latestVersion: string; releaseUrl: string }> =>
     ipcRenderer.invoke('app:checkForUpdates', force ?? false),
 
   // Preferences
-  getPreferences: (): Promise<{ analyticsEnabled: boolean }> =>
-    ipcRenderer.invoke('prefs:get'),
+  getPreferences: (): Promise<{ analyticsEnabled: boolean }> => ipcRenderer.invoke('prefs:get'),
   setPreferences: (prefs: { analyticsEnabled?: boolean }): Promise<void> =>
     ipcRenderer.invoke('prefs:set', prefs),
-}
+};
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
+    contextBridge.exposeInMainWorld('electron', electronAPI);
+    contextBridge.exposeInMainWorld('api', api);
   } catch (error) {
     // contextBridge setup failed — nothing we can do here, app will not function
   }
 } else {
   // @ts-ignore
-  window.electron = electronAPI
+  window.electron = electronAPI;
   // @ts-ignore
-  window.api = api
+  window.api = api;
 }

@@ -1,56 +1,69 @@
-import { useEffect, useState } from 'react'
-import { GradientMusicIcon } from './GradientMusicIcon'
+import { useEffect, useState } from 'react';
+import { GradientMusicIcon } from './GradientMusicIcon';
 
 interface AboutModalProps {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
-  const [version, setVersion] = useState<string>('')
-  const [reporting, setReporting] = useState(false)
-  const [updateInfo, setUpdateInfo] = useState<{ latestVersion: string; releaseUrl: string } | null>(null)
-  const [checkingUpdate, setCheckingUpdate] = useState(false)
-  const [upToDate, setUpToDate] = useState(false)
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
+  const [version, setVersion] = useState<string>('');
+  const [reporting, setReporting] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{
+    latestVersion: string;
+    releaseUrl: string;
+  } | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [upToDate, setUpToDate] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
 
   useEffect(() => {
-    window.api.getVersion().then(setVersion).catch(() => {})
-    window.api.checkForUpdates().then(result => {
-      if (result.updateAvailable) setUpdateInfo({ latestVersion: result.latestVersion, releaseUrl: result.releaseUrl })
-    }).catch(() => {})
-    window.api.getPreferences().then(p => setAnalyticsEnabled(p.analyticsEnabled)).catch(() => {})
-  }, [])
+    window.api
+      .getVersion()
+      .then(setVersion)
+      .catch(() => {});
+    window.api
+      .checkForUpdates()
+      .then((result) => {
+        if (result.updateAvailable)
+          setUpdateInfo({ latestVersion: result.latestVersion, releaseUrl: result.releaseUrl });
+      })
+      .catch(() => {});
+    window.api
+      .getPreferences()
+      .then((p) => setAnalyticsEnabled(p.analyticsEnabled))
+      .catch(() => {});
+  }, []);
 
   const handleReportBug = async (): Promise<void> => {
-    setReporting(true)
+    setReporting(true);
     try {
-      await window.api.reportBug()
+      await window.api.reportBug();
     } finally {
-      setReporting(false)
+      setReporting(false);
     }
-  }
+  };
 
   const handleCheckUpdate = async (): Promise<void> => {
-    setCheckingUpdate(true)
-    setUpdateInfo(null)
-    setUpToDate(false)
+    setCheckingUpdate(true);
+    setUpdateInfo(null);
+    setUpToDate(false);
     try {
-      const result = await window.api.checkForUpdates(true)
+      const result = await window.api.checkForUpdates(true);
       if (result.updateAvailable) {
-        setUpdateInfo({ latestVersion: result.latestVersion, releaseUrl: result.releaseUrl })
+        setUpdateInfo({ latestVersion: result.latestVersion, releaseUrl: result.releaseUrl });
       } else {
-        setUpToDate(true)
+        setUpToDate(true);
       }
     } finally {
-      setCheckingUpdate(false)
+      setCheckingUpdate(false);
     }
-  }
+  };
 
   const handleAnalyticsToggle = async (): Promise<void> => {
-    const next = !analyticsEnabled
-    setAnalyticsEnabled(next)
-    await window.api.setPreferences({ analyticsEnabled: next })
-  }
+    const next = !analyticsEnabled;
+    setAnalyticsEnabled(next);
+    await window.api.setPreferences({ analyticsEnabled: next });
+  };
 
   return (
     <div
@@ -60,7 +73,7 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
       <div
         data-testid="about-modal"
         className="bg-surface_container_low border border-outline_variant rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col items-center gap-2 mb-4">
           <GradientMusicIcon className="w-10 h-10" />
@@ -87,7 +100,10 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
 
           <a
             href="#"
-            onClick={e => { e.preventDefault(); window.open('mailto:hi@orainlabs.dev') }}
+            onClick={(e) => {
+              e.preventDefault();
+              window.open('mailto:hi@orainlabs.dev');
+            }}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-4 h-12 text-body-md rounded-lg bg-primary_container/10 border border-primary_container/40 text-primary hover:bg-primary_container/20 transition-colors font-medium"
           >
             Contact Us
@@ -96,7 +112,10 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
           {updateInfo ? (
             <a
               href="#"
-              onClick={e => { e.preventDefault(); window.open(updateInfo.releaseUrl) }}
+              onClick={(e) => {
+                e.preventDefault();
+                window.open(updateInfo.releaseUrl);
+              }}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-4 h-12 text-body-md rounded-lg bg-primary_container/10 border border-primary_container/40 text-primary hover:bg-primary_container/20 transition-colors font-medium"
             >
               v{updateInfo.latestVersion}
@@ -120,7 +139,10 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
         <div className="flex flex-row gap-4 mb-4 items-stretch">
           <a
             href="#"
-            onClick={e => { e.preventDefault(); window.open('https://github.com/orainlabs/jellytunes') }}
+            onClick={(e) => {
+              e.preventDefault();
+              window.open('https://github.com/orainlabs/jellytunes');
+            }}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-4 h-12 text-body-md text-on_surface_variant border border-transparent hover:border-outline_variant/40 hover:text-on_surface hover:bg-surface_container_high rounded-lg transition-colors"
           >
             View on GitHub ↗
@@ -128,7 +150,10 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
 
           <a
             href="#"
-            onClick={e => { e.preventDefault(); window.open('https://ko-fi.com/orainlabs') }}
+            onClick={(e) => {
+              e.preventDefault();
+              window.open('https://ko-fi.com/orainlabs');
+            }}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-4 h-12 text-body-md text-on_surface_variant border border-transparent hover:border-outline_variant/40 hover:text-on_surface hover:bg-surface_container_high rounded-lg transition-colors"
           >
             Support on Ko-fi ☕
@@ -147,15 +172,25 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
             aria-checked={analyticsEnabled}
             role="switch"
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              analyticsEnabled ? 'translate-x-6' : 'translate-x-1'
-            }`} />
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                analyticsEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
         <p className="text-caption text-on_surface_variant/60 text-center mb-4">
           No personal data collected.{' '}
-          <a href="#" onClick={e => { e.preventDefault(); window.open('https://github.com/orainlabs/jellytunes/blob/main/PRIVACY.md') }}
-             className="underline">Privacy Policy</a>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              window.open('https://github.com/orainlabs/jellytunes/blob/main/PRIVACY.md');
+            }}
+            className="underline"
+          >
+            Privacy Policy
+          </a>
         </p>
 
         {/* ── Close ── */}
@@ -168,5 +203,5 @@ export function AboutModal({ onClose }: AboutModalProps): JSX.Element {
         </button>
       </div>
     </div>
-  )
+  );
 }

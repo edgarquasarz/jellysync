@@ -7,29 +7,26 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './features',
   timeout: 60 * 1000,
-  
+
   /* Esperar hasta que todos los hooks terminen */
   expect: {
     timeout: 10000,
   },
-  
+
   /* Reporterios */
-  reporter: [
-    ['html', { outputFolder: './reports/playwright-report' }],
-    ['list'],
-  ],
-  
+  reporter: [['html', { outputFolder: './reports/playwright-report' }], ['list']],
+
   /* Configuración de proyectos */
   projects: [
     {
       name: 'electron',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
         channel: 'electron',
       },
     },
   ],
-  
+
   /* Directorio de output */
   outputDir: './test-results/',
 });
