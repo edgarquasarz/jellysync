@@ -309,6 +309,33 @@ describe('DeviceSyncPanel', () => {
     })
   })
 
+  describe('cover art mode', () => {
+    it('calls onCoverArtModeChange when a button is clicked', async () => {
+      const onCoverArtModeChange = vi.fn()
+      await renderPanelAndSettle({ coverArtMode: 'embed', onCoverArtModeChange })
+      // Use getByText with exact match to find specific button
+      await userEvent.click(screen.getByText('Folder image'))
+      expect(onCoverArtModeChange).toHaveBeenCalledWith('companion')
+    })
+
+    it('buttons are disabled when isSyncing is true', async () => {
+      await renderPanelAndSettle({ isSyncing: true })
+      // Each button should be disabled when syncing
+      expect(screen.getByText('None')).toBeDisabled()
+      expect(screen.getByText('Embedded')).toBeDisabled()
+      expect(screen.getByText('Folder image')).toBeDisabled()
+    })
+
+    it('active button has different styling than inactive buttons', async () => {
+      await renderPanelAndSettle({ coverArtMode: 'embed' })
+      // Active button (embed) has bg-primary_container
+      expect(screen.getByText('Embedded')).toHaveClass('bg-primary_container')
+      // Inactive buttons (off, companion) have bg-surface_container_highest
+      expect(screen.getByText('None')).toHaveClass('bg-surface_container_highest')
+      expect(screen.getByText('Folder image')).toHaveClass('bg-surface_container_highest')
+    })
+  })
+
   describe('isActivatingDevice', () => {
     it('skeleton is hidden after device info loads when isActivatingDevice is false', async () => {
       // renderPanelAndSettle waits for skeleton to disappear

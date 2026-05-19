@@ -379,4 +379,55 @@ describe('useDeviceSelections', () => {
       expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2)
     })
   })
+
+  describe('updateConvertOptions', () => {
+    it('smoke test: calls without throwing', async () => {
+      mockApi.getSyncedItems.mockResolvedValue([])
+
+      const { result } = renderHook(() => useDeviceSelections())
+
+      await act(async () => {
+        await result.current.activateDevice('/Volumes/USB', defaultOptions)
+      })
+
+      expect(() => {
+        act(() => {
+          result.current.updateConvertOptions(true, '320k', 'companion')
+        })
+      }).not.toThrow()
+    })
+
+    it('persists coverArtMode change across revalidation', async () => {
+      mockApi.getSyncedItems.mockResolvedValue([
+        { id: 'artist-1', name: 'The Beatles', type: 'artist' as const },
+      ])
+      mockApi.analyzeDiff.mockResolvedValue({
+        success: true,
+        items: [],
+        totals: { newTracks: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: 0 },
+      })
+
+      const { result } = renderHook(() => useDeviceSelections())
+
+      // First activation with embed mode
+      await act(async () => {
+        await result.current.activateDevice('/Volumes/USB', defaultOptions)
+      })
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(1)
+      expect(mockApi.analyzeDiff.mock.calls[0][0].options.coverArtMode).toBe('embed')
+
+      // Change coverArtMode to companion
+      act(() => {
+        result.current.updateConvertOptions(false, '192k', 'companion')
+      })
+
+      // Revalidate should use companion mode in the next analyzeDiff call
+      await act(async () => {
+        await result.current.revalidateDevice()
+      })
+
+      expect(mockApi.analyzeDiff).toHaveBeenCalledTimes(2)
+      expect(mockApi.analyzeDiff.mock.calls[1][0].options.coverArtMode).toBe('companion')
+    })
+  })
 })

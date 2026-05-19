@@ -189,7 +189,7 @@ function App(): JSX.Element {
     const savedCover = forcedCover ?? savedDest?.coverArtMode ?? 'embed'
 
     // Sync global state to saved prefs so the panel shows correct values on arrival
-    if (savedDest && (savedConvert !== sync.convertToMp3 || savedBitrate !== sync.bitrate)) {
+    if (savedDest && (savedConvert !== sync.convertToMp3 || savedBitrate !== sync.bitrate || savedCover !== sync.coverArtMode)) {
       sync.setConvertToMp3(savedConvert)
       sync.setBitrate(savedBitrate)
       sync.setCoverArtMode(savedCover)
@@ -460,6 +460,7 @@ function App(): JSX.Element {
           tracksCopied={sync.syncSuccessData.tracksCopied}
           tracksSkipped={sync.syncSuccessData.tracksSkipped}
           tracksRetagged={sync.syncSuccessData.tracksRetagged}
+          lyricsAdded={sync.syncSuccessData.lyricsAdded}
           removed={sync.syncSuccessData.removed}
           errors={sync.syncSuccessData.errors}
           onClose={() => sync.setSyncSuccessData(null)}
