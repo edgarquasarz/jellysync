@@ -43,7 +43,7 @@ import {
   type SyncedTrackRecord,
 } from '../main/database';
 
-import { createApiClient, type SyncApi, detectServerRootPath } from './sync-api';
+import { createApiClient, ApiError, type SyncApi, detectServerRootPath } from './sync-api';
 
 import {
   createNodeFileSystem,
@@ -1739,9 +1739,13 @@ class SyncCoreImpl {
       return 0;
     } catch (error) {
       // Non-fatal: skip lyrics for this track
-      this.log.debug(
-        `Could not process lyrics for ${track.name}: ${error instanceof Error ? error.message : 'unknown error'}`,
-      );
+      const message = `Could not process lyrics for ${track.name}: ${error instanceof Error ? error.message : 'unknown error'}`;
+      // Pre-10.9 servers may return 501/405/etc. — distinguish from 404 to make production errors visible
+      if (error instanceof ApiError && error.statusCode === 404) {
+        this.log.debug(message);
+      } else {
+        this.log.warn(message);
+      }
       return 0;
     }
   }

@@ -30,7 +30,6 @@ beforeEach(() => {
   mockGetSyncedItems.mockReset();
   mockGetSyncedItems.mockReturnValue([]);
 });
-
 const VALID_API_CONFIG = {
   baseUrl: 'https://jellyfin.example.com',
   apiKey: '0123456789abcdef0123456789abcdef',
@@ -498,5 +497,132 @@ describe('processLyrics behavior', () => {
     });
 
     expect(result.lyricsAdded).toBe(0);
+  });
+
+  it('logs warn (not debug) for non-404 API errors in processLyrics', async () => {
+    const mockApi = createMockApiClient();
+    // Simulate pre-10.9 server returning 501 (not implemented)
+    const fetchLyricsSpy = vi.fn().mockRejectedValue(
+      new ApiError('Failed to fetch lyrics: 501 Not Implemented', 501),
+    );
+    mockApi.fetchLyrics = fetchLyricsSpy;
+
+    const tracks: TrackInfo[] = [
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Album/track.mp3',
+        format: 'mp3',
+        size: 100,
+      },
+    ];
+    mockApi.getTracksForItems = vi.fn().mockResolvedValue({ tracks, errors: [] });
+    mockApi.downloadItemStream = async () => {
+      const { Readable } = require('stream');
+      return Readable.from(Buffer.from('fake audio'));
+    };
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
+
+    const mockFs = createMockFileSystem();
+    mockFs.isDirectory = async () => true; // Simulate /usb being a real directory
+
+    // Spy on the logger
+    const warnSpy = vi.fn();
+    const debugSpy = vi.fn();
+    const deps = createTestDeps({
+      api: mockApi,
+      fs: mockFs,
+      logger: { info: vi.fn(), warn: warnSpy, error: vi.fn(), debug: debugSpy },
+    });
+    const core = createTestSyncCore(validConfig, deps);
+
+    const result = await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/usb',
+      options: { lyricsMode: 'lrc', embedMetadata: false },
+    });
+
+    // Non-fatal: sync completes with 0 lyrics added
+    expect(result.lyricsAdded).toBe(0);
+
+    // Verify fetchLyrics was called (so we know processLyrics ran)
+    expect(fetchLyricsSpy).toHaveBeenCalledOnce();
+
+    // Non-404 error should use warn (not debug)
+    // Note: warnSpy may also receive "Failed to load synced records" — filter by the lyrics message
+    const lyricsWarnings = warnSpy.mock.calls.filter(([msg]) =>
+      msg.includes('Could not process lyrics'),
+    );
+    expect(lyricsWarnings).toHaveLength(1);
+    expect(lyricsWarnings[0][0]).toContain('Could not process lyrics');
+    expect(debugSpy).not.toHaveBeenCalled();
+  });
+
+  it('logs debug (not warn) for 404 in processLyrics', async () => {
+    const mockApi = createMockApiClient();
+    // 404 = no lyrics available (non-fatal, should stay debug)
+    const fetchLyricsSpy = vi.fn().mockRejectedValue(
+      new ApiError('Failed to fetch lyrics: 404 Not Found', 404),
+    );
+    mockApi.fetchLyrics = fetchLyricsSpy;
+
+    const tracks: TrackInfo[] = [
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Album/track.mp3',
+        format: 'mp3',
+        size: 100,
+      },
+    ];
+    mockApi.getTracksForItems = vi.fn().mockResolvedValue({ tracks, errors: [] });
+    mockApi.downloadItemStream = async () => {
+      const { Readable } = require('stream');
+      return Readable.from(Buffer.from('fake audio'));
+    };
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
+
+    const mockFs = createMockFileSystem();
+    mockFs.isDirectory = async () => true;
+
+    const warnSpy = vi.fn();
+    const debugSpy = vi.fn();
+    const deps = createTestDeps({
+      api: mockApi,
+      fs: mockFs,
+      logger: { info: vi.fn(), warn: warnSpy, error: vi.fn(), debug: debugSpy },
+    });
+    const core = createTestSyncCore(validConfig, deps);
+
+    const result = await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/usb',
+      options: { lyricsMode: 'lrc', embedMetadata: false },
+    });
+
+    expect(result.lyricsAdded).toBe(0);
+
+    // Verify fetchLyrics was called (so we know processLyrics ran)
+    expect(fetchLyricsSpy).toHaveBeenCalledOnce();
+
+    // 404 should use debug, not warn
+    const lyricsDebugs = debugSpy.mock.calls.filter(([msg]) =>
+      msg.includes('Could not process lyrics'),
+    );
+    expect(lyricsDebugs).toHaveLength(1);
+    expect(lyricsDebugs[0][0]).toContain('Could not process lyrics');
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
