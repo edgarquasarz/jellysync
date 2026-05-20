@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { ActiveSection, LibraryTab, Artist, Album, Playlist, Bitrate } from './appTypes';
 
 import { AppHeader } from './components/AppHeader';
@@ -331,15 +331,31 @@ function App(): JSX.Element {
     return parts.length > 0 ? parts.join(', ') : 'None selected';
   };
 
-  const selectAllInCurrentView = () => {
-    const items =
-      lib.activeLibrary === 'artists'
-        ? lib.artists
-        : lib.activeLibrary === 'albums'
-          ? lib.albums
-          : lib.playlists;
-    deviceSelections.selectItems(items);
-  };
+  // Select All - uses pagination-aware version that fetches all items first
+  const [isSelectingAll, setIsSelectingAll] = useState(false);
+
+  const selectAllInCurrentView = useCallback(async () => {
+    setIsSelectingAll(true);
+    try {
+      await lib.selectAllWithCompleteSet(lib.activeLibrary, (allIds) => {
+        // Get item type mapping for the callback to use
+        const items = allIds
+          .map((id) => {
+            const artists = lib.artists.find((a) => a.Id === id);
+            if (artists) return { Id: id };
+            const albums = lib.albums.find((a) => a.Id === id);
+            if (albums) return { Id: id };
+            const playlists = lib.playlists.find((p) => p.Id === id);
+            if (playlists) return { Id: id };
+            return null;
+          })
+          .filter((item): item is { Id: string } => item !== null);
+        deviceSelections.selectItems(items);
+      });
+    } finally {
+      setIsSelectingAll(false);
+    }
+  }, [lib, deviceSelections]);
 
   // While a sync is running, lock the view to the syncing device
   const effectiveSection = sync.isSyncing ? 'device' : activeSection;
@@ -430,7 +446,7 @@ function App(): JSX.Element {
               selectedTracks={deviceSelections.selectedTracks}
               previouslySyncedItems={inferredSyncedItems}
               outOfSyncItems={deviceSelections.outOfSyncItems}
-              isLoadingMore={lib.isLoadingMore}
+              isLoadingMore={lib.isLoadingMore || isSelectingAll}
               error={lib.error}
               onToggle={deviceSelections.toggleItem}
               onSelectAll={selectAllInCurrentView}

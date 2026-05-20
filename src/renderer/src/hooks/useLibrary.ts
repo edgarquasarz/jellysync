@@ -19,6 +19,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [activeLibrary, setActiveLibrary] = useState<LibraryTab>('artists');
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isSelectingAll, setIsSelectingAll] = useState(false);
   const [loadedTabs, setLoadedTabs] = useState<Set<LibraryTab>>(new Set(['artists']));
   const [error, setError] = useState<string | null>(null);
 
@@ -126,7 +127,6 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       playlists: { items: [], total: 0, startIndex: 0, hasMore: true, scrollPos: 0 },
     });
     itemTypeIndexRef.current = { artists: new Set(), albums: new Set(), playlists: new Set() };
-    setLoadedTabs(new Set(['artists', 'albums', 'playlists']));
 
     try {
       const res = await fetch(
@@ -139,13 +139,14 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       setArtists(items);
       itemTypeIndexRef.current.artists = new Set(items.map((a) => a.Id));
       updateArtistIndex(items);
+      const totalCount = data.TotalRecordCount || items.length;
       setPagination((prev) => ({
         ...prev,
         artists: {
           items,
-          total: data.TotalRecordCount || items.length,
-          startIndex: PAGE_SIZE,
-          hasMore: items.length < (data.TotalRecordCount || items.length),
+          total: totalCount,
+          startIndex: items.length,
+          hasMore: items.length < totalCount,
           scrollPos: 0,
         },
       }));
@@ -169,13 +170,14 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       setAlbums(items);
       itemTypeIndexRef.current.albums = new Set(items.map((a) => a.Id));
       updateAlbumIndex(items);
+      const totalCount = data.TotalRecordCount || items.length;
       setPagination((prev) => ({
         ...prev,
         albums: {
           items,
-          total: data.TotalRecordCount || items.length,
-          startIndex: PAGE_SIZE,
-          hasMore: items.length < (data.TotalRecordCount || items.length),
+          total: totalCount,
+          startIndex: items.length,
+          hasMore: items.length < totalCount,
           scrollPos: 0,
         },
       }));
@@ -198,13 +200,14 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       setPlaylists(items);
       itemTypeIndexRef.current.playlists = new Set(items.map((p) => p.Id));
       updatePlaylistIndex(items);
+      const totalCount = data.TotalRecordCount || items.length;
       setPagination((prev) => ({
         ...prev,
         playlists: {
           items,
-          total: data.TotalRecordCount || items.length,
-          startIndex: PAGE_SIZE,
-          hasMore: items.length < (data.TotalRecordCount || items.length),
+          total: totalCount,
+          startIndex: items.length,
+          hasMore: items.length < totalCount,
           scrollPos: 0,
         },
       }));
@@ -212,7 +215,13 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       logger.error('Failed to load playlists: ' + (e instanceof Error ? e.message : String(e)));
       setPlaylists([]);
     }
-    // Build artist→album map for bidirectional sync inference (called after all tabs loaded via useEffect)
+
+    // Mark tabs as loaded AFTER all data has been fetched to avoid the sync effect
+    // overwriting valid data with empty initial pagination state
+    // Use Promise.resolve() to defer to next microtask so sync effect runs first
+    Promise.resolve().then(() => {
+      setLoadedTabs(new Set(['artists', 'albums', 'playlists']));
+    });
   };
 
   // Rebuild artist→album map whenever artists or albums change
@@ -249,13 +258,14 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         const items: Artist[] = data.Items || [];
         setArtists(items);
         updateArtistIndex(items);
+        const totalCount = data.TotalRecordCount || items.length;
         setPagination((prev) => ({
           ...prev,
           artists: {
             items,
-            total: data.TotalRecordCount || items.length,
-            startIndex: PAGE_SIZE,
-            hasMore: items.length < (data.TotalRecordCount || items.length),
+            total: totalCount,
+            startIndex: items.length,
+            hasMore: items.length < totalCount,
             scrollPos: 0,
           },
         }));
@@ -272,13 +282,14 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         const items: Album[] = data.Items || [];
         setAlbums(items);
         updateAlbumIndex(items);
+        const totalCount = data.TotalRecordCount || items.length;
         setPagination((prev) => ({
           ...prev,
           albums: {
             items,
-            total: data.TotalRecordCount || items.length,
-            startIndex: PAGE_SIZE,
-            hasMore: items.length < (data.TotalRecordCount || items.length),
+            total: totalCount,
+            startIndex: items.length,
+            hasMore: items.length < totalCount,
             scrollPos: 0,
           },
         }));
@@ -295,13 +306,14 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         const items: Playlist[] = data.Items || [];
         setPlaylists(items);
         updatePlaylistIndex(items);
+        const totalCount = data.TotalRecordCount || items.length;
         setPagination((prev) => ({
           ...prev,
           playlists: {
             items,
-            total: data.TotalRecordCount || items.length,
-            startIndex: PAGE_SIZE,
-            hasMore: items.length < (data.TotalRecordCount || items.length),
+            total: totalCount,
+            startIndex: items.length,
+            hasMore: items.length < totalCount,
             scrollPos: 0,
           },
         }));
@@ -411,6 +423,91 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     await loadLibrary(jellyfinConfig.url, jellyfinConfig.apiKey, userId);
   }, [jellyfinConfig, userId, loadLibrary]);
 
+  /**
+   * Fetches all item IDs for a given tab, loading additional pages if needed.
+   * Returns all IDs (including already-loaded ones) after ensuring complete coverage.
+   * Accepts explicit pagination state to avoid stale closure issues.
+   */
+  const fetchAllIds = useCallback(
+    async (
+      type: LibraryTab,
+      explicitPagination?: PaginationState[LibraryTab],
+    ): Promise<string[]> => {
+      if (!jellyfinConfig || !userId) return [];
+      const headers = jellyfinHeaders(jellyfinConfig.apiKey);
+      const baseUrl = jellyfinConfig.url.replace(/\/$/, '');
+      const currentPagination = explicitPagination ?? pagination[type];
+
+      // If all items already loaded, return current IDs
+      if (!currentPagination.hasMore) {
+        return currentPagination.items.map((item) => item.Id);
+      }
+
+      const allIds = new Set(currentPagination.items.map((item) => item.Id));
+      let startIndex = currentPagination.startIndex;
+      let totalCount = currentPagination.total;
+      let hasMore: boolean = currentPagination.hasMore;
+
+      // Fetch remaining pages
+      while (hasMore) {
+        let endpoint = '';
+        if (type === 'artists')
+          endpoint = `/Artists?SortBy=Name&Limit=${PAGE_SIZE}&StartIndex=${startIndex}`;
+        else if (type === 'albums')
+          endpoint = `/Items?IncludeItemTypes=MusicAlbum&Limit=${PAGE_SIZE}&StartIndex=${startIndex}&Recursive=true`;
+        else
+          endpoint = `/Items?IncludeItemTypes=Playlist&Limit=${PAGE_SIZE}&StartIndex=${startIndex}&Recursive=true`;
+
+        const res = await fetch(buildUrl(baseUrl, endpoint), { headers });
+        if (!res.ok) break;
+        const data = await res.json();
+        const newItems: Array<{ Id: string }> = data.Items || [];
+        newItems.forEach((item) => allIds.add(item.Id));
+        startIndex += newItems.length;
+        totalCount = data.TotalRecordCount || totalCount;
+        hasMore = startIndex < totalCount;
+
+        // Update pagination state to track progress (only if not using explicit pagination)
+        if (!explicitPagination) {
+          setPagination((prev) => ({
+            ...prev,
+            [type]: {
+              ...prev[type],
+              items: [...prev[type].items, ...newItems],
+              startIndex,
+              hasMore,
+            },
+          }));
+        }
+
+        // Break when we've fetched all items (startIndex >= totalCount)
+        // A partial page doesn't mean end of results — we must check against totalCount
+        if (startIndex >= totalCount) break;
+      }
+
+      return [...allIds];
+    },
+    [jellyfinConfig, userId, pagination],
+  );
+
+  /**
+   * Selects all items for a given tab, fetching remaining pages if needed.
+   * Calls the provided callback with all selected IDs once complete.
+   * Shows loading state when fetching additional pages.
+   */
+  const selectAllWithCompleteSet = useCallback(
+    async (type: LibraryTab, onSelectAllIds: (ids: string[]) => void): Promise<void> => {
+      setIsSelectingAll(true);
+      try {
+        const allIds = await fetchAllIds(type);
+        onSelectAllIds(allIds);
+      } finally {
+        setIsSelectingAll(false);
+      }
+    },
+    [fetchAllIds],
+  );
+
   return {
     artists: uniqueArtists,
     albums: uniqueAlbums,
@@ -419,6 +516,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     activeLibrary,
     pagination,
     isLoadingMore,
+    isSelectingAll,
     loadedTabs,
     error,
     setError,
@@ -432,5 +530,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     loadMore,
     handleTabChange,
     refreshLibrary,
+    fetchAllIds,
+    selectAllWithCompleteSet,
   };
 }

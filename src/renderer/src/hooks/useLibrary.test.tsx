@@ -28,9 +28,45 @@ function createMockFetch() {
 }
 
 describe('useLibrary', () => {
+  // URL-based mock helper - matches URL against patterns
+  function setupFetchMock(responses: Record<string, { items: unknown[]; total: number }>) {
+    mockFetch.mockImplementation((url: string) => {
+      // Try exact match first
+      if (responses[url]) {
+        const { items, total } = responses[url];
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ Items: items, TotalRecordCount: total }),
+        });
+      }
+      // Fallback to pattern matching - check if URL contains the pattern
+      for (const pattern of Object.keys(responses)) {
+        if (url.includes(pattern)) {
+          const { items, total } = responses[pattern];
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ Items: items, TotalRecordCount: total }),
+          });
+        }
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ Items: [], TotalRecordCount: 0 }),
+      });
+    });
+  }
+
   describe('loadLibrary', () => {
     it('fetches 3 tabs in parallel', async () => {
-      mockFetch.mockResolvedValue(createMockFetch());
+      setupFetchMock({
+        // Pattern matching - partial URL that will be found via includes()
+        'SortBy=Name&Limit=50&StartIndex=0': {
+          items: [{ Id: 'artist-1', Name: 'Artist 1', AlbumCount: 5, ImageTags: {} }],
+          total: 1,
+        },
+        'IncludeItemTypes=MusicAlbum': { items: [], total: 0 },
+        'IncludeItemTypes=Playlist': { items: [], total: 0 },
+      });
 
       const { result } = renderHook(() => useLibrary(mockConfig, 'user-1'));
 
@@ -45,26 +81,22 @@ describe('useLibrary', () => {
 
   describe('loadMore', () => {
     it('appends items with deduplication by Id', async () => {
-      // Initial load
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            Items: [{ Id: 'artist-1', Name: 'Artist 1', AlbumCount: 5, ImageTags: {} }],
-            TotalRecordCount: 4,
-          }),
-      });
-      // Load more
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            Items: [
-              { Id: 'artist-1', Name: 'Artist 1', AlbumCount: 5, ImageTags: {} }, // duplicate
-              { Id: 'artist-2', Name: 'Artist 2', AlbumCount: 3, ImageTags: {} }, // new
-            ],
-            TotalRecordCount: 4,
-          }),
+      setupFetchMock({
+        // Initial load - 1 artist
+        'SortBy=Name&Limit=50&StartIndex=0': {
+          items: [{ Id: 'artist-1', Name: 'Artist 1', AlbumCount: 5, ImageTags: {} }],
+          total: 4,
+        },
+        // Load more - 2 artists (1 duplicate, 1 new)
+        'SortBy=Name&Limit=50&StartIndex=1': {
+          items: [
+            { Id: 'artist-1', Name: 'Artist 1', AlbumCount: 5, ImageTags: {} }, // duplicate
+            { Id: 'artist-2', Name: 'Artist 2', AlbumCount: 3, ImageTags: {} }, // new
+          ],
+          total: 4,
+        },
+        'IncludeItemTypes=MusicAlbum': { items: [], total: 0 },
+        'IncludeItemTypes=Playlist': { items: [], total: 0 },
       });
 
       const { result } = renderHook(() => useLibrary(mockConfig, 'user-1'));
@@ -72,6 +104,10 @@ describe('useLibrary', () => {
       await act(async () => {
         await result.current.loadLibrary('https://jellyfin.test', 'test-key', 'user-1');
       });
+
+      // Verify initial load
+      expect(result.current.artists).toHaveLength(1);
+      expect(result.current.artists[0].Id).toBe('artist-1');
 
       await act(async () => {
         await result.current.loadMore('artists');
