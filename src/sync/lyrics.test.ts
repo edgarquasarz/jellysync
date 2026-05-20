@@ -221,10 +221,7 @@ describe('embedLyrics FFmpeg integration', () => {
       return mockProc;
     } as typeof childProcess.spawn;
 
-    // Use type guard since AudioConverter marks embedLyrics as optional but the real impl has it
-    if (!converter.embedLyrics) {
-      throw new Error('embedLyrics should be available on FFmpeg converter');
-    }
+    // Direct call — embedLyrics is a required method on AudioConverter
     try {
       await converter.embedLyrics('/input.mp3', '/output.mp3', '[00:00]Test lyrics', 'mp3');
 
