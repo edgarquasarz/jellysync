@@ -82,6 +82,45 @@ Closes JELLY-0005, JELLY-0009
 - Last line: references to issues/tasks (Closes, Fixes, Relates to)
 - Use imperative mood ("add" not "added")
 
+## Editor Setup
+
+This project uses ESLint and Prettier to enforce consistent code style. Configure your editor to apply formatting automatically on save.
+
+### VS Code Setup
+
+**Required Extensions:**
+
+Install these extensions from the VS Code Marketplace:
+
+- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) — `dbaeumer.vscode-eslint`
+- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) — `esbenp.prettier-vscode`
+
+**Recommended Settings:**
+
+Add these to your `.vscode/settings.json`:
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+}
+```
+
+### Verifying Format Works
+
+1. Open any TypeScript/React file in the project
+2. Make a small change and save (Ctrl+S / Cmd+S)
+3. The file should be automatically formatted according to the project's style
+4. If you see linting errors, check the Problems panel (View → Problems) for details
+
+### Alternative: Auto-Install Extensions
+
+If you open this project in VS Code, it will prompt you to install the recommended extensions. You can also trigger this manually:
+
+```
+Extensions: Show Recommended Extensions
+```
+
 ## License
 
 By contributing to JellyTunes, you agree that your contributions will be licensed under the [GNU General Public License v3.0](LICENSE).
