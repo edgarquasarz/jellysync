@@ -221,10 +221,12 @@ describe('embedLyrics FFmpeg integration', () => {
       return mockProc;
     } as typeof childProcess.spawn;
 
-    // cast through any since AudioConverter marks embedLyrics as optional but the real impl has it
-    const embedFn = converter.embedLyrics as any;
+    // Use type guard since AudioConverter marks embedLyrics as optional but the real impl has it
+    if (!converter.embedLyrics) {
+      throw new Error('embedLyrics should be available on FFmpeg converter');
+    }
     try {
-      await embedFn('/input.mp3', '/output.mp3', '[00:00]Test lyrics');
+      await converter.embedLyrics('/input.mp3', '/output.mp3', '[00:00]Test lyrics', 'mp3');
 
       // Find the args passed to the FFmpeg call
       const ffmpegCall = spawnArgs.find(
