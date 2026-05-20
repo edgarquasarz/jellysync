@@ -32,6 +32,9 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
+      - name: Install Python setuptools (required by node-gyp for native modules)
+        run: pip install setuptools
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

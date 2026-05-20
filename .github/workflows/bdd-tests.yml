@@ -27,6 +27,10 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
+      - name: Install Python setuptools (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pip install setuptools
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
