@@ -1,11 +1,18 @@
 name: BDD Tests
 
-on:
-  workflow_dispatch: # manual only — BDD tests require a real Electron environment, run locally
+on: workflow_dispatch # manual only — BDD tests require a real Electron environment, run locally
+
+permissions:
+  contents: read
 
 jobs:
   bdd-tests:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -26,17 +33,24 @@ jobs:
       - name: Build app
         run: pnpm build
 
-      - name: Install xvfb and system dependencies
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y xvfb libudev-dev
 
-      - name: Run BDD tests with XVFB
+      # Windows does not need xvfb — Electron runs natively
+      - name: Run BDD tests
+        if: matrix.os == 'ubuntu-latest'
         run: xvfb-run --auto-servernum pnpm test:bdd:ci
+
+      - name: Run BDD tests (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pnpm test:bdd:ci
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bdd-test-results
+          name: bdd-test-results-${{ matrix.os }}
           path: |
             tests/bdd/reports/
             tests/bdd/screenshots/

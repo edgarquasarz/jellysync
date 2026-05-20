@@ -1,0 +1,116 @@
+name: Windows Smoke Test
+
+# Smoke test for Windows to catch platform-specific bugs:
+# - Path traversal (issue #1)
+# - FFmpeg ENOENT in app.asar (issue #2)
+# - /tmp hardcoded path failure (issue #3)
+#
+# Runs on every push to main and on PRs targeting main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run sync unit tests (covers ffmpeg-path, temp-path, sync-config)
+        run: |
+          pnpm vitest run src/sync/ffmpeg-path.test.ts src/sync/temp-path.test.ts src/sync/sync-config.test.ts
+
+      - name: Build and package for Windows
+        run: |
+          pnpm build
+          pnpm exec electron-builder --win --x64 --publish never
+
+      - name: Verify app.asar.unpacked contains FFmpeg binary
+        shell: pwsh
+        run: |
+          $unpacked = Get-ChildItem -Recurse -Path "release/win-unpacked/resources" -Filter "ffmpeg.exe" -ErrorAction SilentlyContinue
+          if (-not $unpacked) {
+            Write-Error "FFmpeg binary not found in app.asar.unpacked"
+            exit 1
+          }
+          Write-Output "FFmpeg found at: $($unpacked.FullName)"
+          Write-Output "Size: $($unpacked.Length) bytes"
+
+      - name: Run smoke test (FFmpeg resolution + temp paths + FFmpeg executability)
+        shell: pwsh
+        run: |
+          # Write a Node.js test script to a .js file and execute it
+          $script = @'
+          const { buildTempPaths } = require('./dist/sync/temp-path.js');
+          const { resolveFFmpegPath } = require('./dist/sync/ffmpeg-path.js');
+          const { execSync } = require('child_process');
+          const os = require('os');
+
+          // 1. Verify FFmpeg path resolves — must NOT be inside app.asar/node_modules
+          const ffmpegPath = resolveFFmpegPath();
+          console.log('FFmpeg path:', ffmpegPath);
+          if (ffmpegPath.includes('app.asar' + '/' + 'node_modules') ||
+              ffmpegPath.includes('app.asar' + '\\' + 'node_modules')) {
+            console.error('FAIL: FFmpeg path inside app.asar — will cause ENOENT on Windows');
+            process.exit(1);
+          }
+
+          // 2. Verify temp paths use os.tmpdir(), not hardcoded /tmp
+          const tmp = os.tmpdir();
+          const { sourcePath, tempPath } = buildTempPaths('test-track', Date.now());
+          console.log('os.tmpdir():', tmp);
+          console.log('sourcePath:', sourcePath);
+          console.log('tempPath:', tempPath);
+          if (!sourcePath.startsWith(tmp)) {
+            console.error('FAIL: sourcePath does not start with os.tmpdir()');
+            process.exit(1);
+          }
+          if (!tempPath.startsWith(tmp)) {
+            console.error('FAIL: tempPath does not start with os.tmpdir()');
+            process.exit(1);
+          }
+          if (sourcePath.toLowerCase().startsWith('/tmp') || tempPath.toLowerCase().startsWith('/tmp')) {
+            console.error('FAIL: path contains hardcoded /tmp — will fail on Windows');
+            process.exit(1);
+          }
+
+          // 3. Verify FFmpeg binary is actually executable on Windows
+          try {
+            const version = execSync('"' + ffmpegPath + '" -version', { encoding: 'utf8', timeout: 10000 });
+            if (!version.includes('ffmpeg')) {
+              console.error('FAIL: FFmpeg -version output unexpected:', version.slice(0, 200));
+              process.exit(1);
+            }
+            console.log('FFmpeg version check passed');
+          } catch (e) {
+            console.error('FAIL: Cannot execute FFmpeg at', ffmpegPath, ':', e.message);
+            process.exit(1);
+          }
+
+          console.log('All smoke tests PASSED');
+          '@
+
+          $script | Out-File -FilePath "smoke-test.js" -Encoding UTF8
+          node smoke-test.js
