@@ -498,9 +498,9 @@ describe('processLyrics behavior', () => {
   it('logs warn (not debug) for non-404 API errors in processLyrics', async () => {
     const mockApi = createMockApiClient();
     // Simulate pre-10.9 server returning 501 (not implemented)
-    const fetchLyricsSpy = vi.fn().mockRejectedValue(
-      new ApiError('Failed to fetch lyrics: 501 Not Implemented', 501),
-    );
+    const fetchLyricsSpy = vi
+      .fn()
+      .mockRejectedValue(new ApiError('Failed to fetch lyrics: 501 Not Implemented', 501));
     mockApi.fetchLyrics = fetchLyricsSpy;
 
     const tracks: TrackInfo[] = [
@@ -563,9 +563,9 @@ describe('processLyrics behavior', () => {
   it('logs debug (not warn) for 404 in processLyrics', async () => {
     const mockApi = createMockApiClient();
     // 404 = no lyrics available (non-fatal, should stay debug)
-    const fetchLyricsSpy = vi.fn().mockRejectedValue(
-      new ApiError('Failed to fetch lyrics: 404 Not Found', 404),
-    );
+    const fetchLyricsSpy = vi
+      .fn()
+      .mockRejectedValue(new ApiError('Failed to fetch lyrics: 404 Not Found', 404));
     mockApi.fetchLyrics = fetchLyricsSpy;
 
     const tracks: TrackInfo[] = [

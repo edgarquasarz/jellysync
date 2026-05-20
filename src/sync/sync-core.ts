@@ -630,7 +630,13 @@ class SyncCoreImpl {
         syncedRecord.destinationPath,
         options.lyricsMode ?? 'off',
       );
-      return { retagged: false, moved: false, processed: false, skipped: true, lyricsAdded: lyricsResult };
+      return {
+        retagged: false,
+        moved: false,
+        processed: false,
+        skipped: true,
+        lyricsAdded: lyricsResult,
+      };
     }
 
     if (!pathChanged && (metadataChanged || bitrateChanged || coverArtChanged)) {
