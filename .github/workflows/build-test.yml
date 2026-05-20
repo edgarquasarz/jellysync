@@ -54,6 +54,9 @@ jobs:
         env:
           npm_config_arch: ${{ matrix.arch }}
 
+      - name: Run lint
+        run: pnpm lint
+
       - name: Set dev version
         shell: bash
         run: echo "DEV_VERSION=$(node -p "require('./package.json').version")-dev.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
