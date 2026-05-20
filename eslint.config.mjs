@@ -72,16 +72,17 @@ export default tseslint.config(
     },
   },
 
-  // Security
-  {
-    plugins: {
-      security: securityPlugin,
-    },
+  // Security - activate plugin with recommended rules
+  // detect-child-process is particularly relevant for JellyTunes (uses FFmpeg)
+  ...securityPlugin.configs.recommended.map((config) => ({
+    ...config,
     rules: {
+      ...config.rules,
+      // Disable rules with too many false positives
       'security/detect-object-injection': 'off',
       'security/detect-non-literal-fs-filename': 'off',
     },
-  },
+  })),
 
   // Test files - relaxed rules
   {
