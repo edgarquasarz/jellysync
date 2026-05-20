@@ -623,8 +623,14 @@ class SyncCoreImpl {
           lyricsAdded: lyricsResult,
         };
       }
-      // Truly unchanged — skip
-      return { retagged: false, moved: false, processed: false, skipped: true, lyricsAdded: 0 };
+
+      // Truly unchanged — but still process lyrics if lyricsMode is not 'off'
+      const lyricsResult = await this.processLyrics(
+        track,
+        syncedRecord.destinationPath,
+        options.lyricsMode ?? 'off',
+      );
+      return { retagged: false, moved: false, processed: false, skipped: true, lyricsAdded: lyricsResult };
     }
 
     if (!pathChanged && (metadataChanged || bitrateChanged || coverArtChanged)) {

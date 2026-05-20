@@ -3,12 +3,33 @@
  * Tests for fetchLyrics API, embedding by format, LRC sidecar, and fallback behavior.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApiClient, ApiError, createMockApiClient } from './sync-api';
 import { createMockConverter, createMockFileSystem } from './sync-files';
 import { createTestSyncCore, type SyncDependencies } from './sync-core';
 import type { SyncConfig, TrackInfo, ItemType, LyricsMode } from './types';
 import { LyricsModes } from './types';
+
+const mockGetSyncedTracksForDevice = vi.hoisted(() => vi.fn(() => []));
+const mockGetSyncedItems = vi.hoisted(() => vi.fn(() => []));
+
+vi.mock('../main/database', () => ({
+  initDatabase: vi.fn(),
+  closeDatabase: vi.fn(),
+  upsertSyncedTrack: vi.fn(),
+  getSyncedTracksForDevice: mockGetSyncedTracksForDevice,
+  getSyncedTracksForItem: mockGetSyncedTracksForDevice,
+  getSyncedItems: mockGetSyncedItems,
+  removeSyncedTracksForItem: vi.fn(),
+  removeSyncedTrack: vi.fn(),
+}));
+
+beforeEach(() => {
+  mockGetSyncedTracksForDevice.mockReset();
+  mockGetSyncedTracksForDevice.mockReturnValue([]);
+  mockGetSyncedItems.mockReset();
+  mockGetSyncedItems.mockReturnValue([]);
+});
 
 const VALID_API_CONFIG = {
   baseUrl: 'https://jellyfin.example.com',
@@ -250,6 +271,140 @@ describe('lyrics sync config', () => {
     expect(modes).toContain('lrc');
     expect(modes).toContain('embed');
     expect(modes).toContain('off');
+  });
+});
+
+describe('processLyrics for unchanged files — ORAIN-0313', () => {
+  // Bug: when a track is unchanged (same metadata, bitrate, coverArt, path),
+  // handleSyncedRecord returns { skipped: true, lyricsAdded: 0 } without processing lyrics.
+  // If the user changes lyricsMode after an initial sync, existing files should still get lyrics.
+
+  function makeTrack(overrides?: Partial<TrackInfo>): TrackInfo {
+    return {
+      id: 'track-x',
+      name: 'Track',
+      album: 'Album',
+      artists: ['Artist'],
+      path: '/music/Artist/Album/track.mp3',
+      format: 'mp3',
+      size: 5_000_000,
+      trackNumber: 1,
+      ...overrides,
+    };
+  }
+
+  it('processes lyrics for unchanged file when lyricsMode is lrc', async () => {
+    const { upsertSyncedTrack, getSyncedTracksForDevice, getSyncedTracksForItem } = await import(
+      '../main/database'
+    );
+
+    const mockApi = createMockApiClient();
+    const fetchLyricsSpy = vi.fn().mockResolvedValue('[00:00]Test lyrics');
+    mockApi.fetchLyrics = fetchLyricsSpy;
+    mockApi.getTracksForItems = vi.fn().mockResolvedValue({ tracks: [makeTrack()], errors: [] });
+    mockApi.downloadItemStream = async () => {
+      const { Readable } = require('stream');
+      return Readable.from(Buffer.from('fake audio'));
+    };
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
+
+    // Existing synced record with SAME metadata hash — track is "unchanged"
+    // but lyricsMode changed from 'off' → 'lrc'
+    const existingRecord = {
+      id: 1,
+      deviceId: 1,
+      itemId: 'album-1',
+      trackId: 'track-x',
+      destinationPath: '/usb/Artist/Album/track.mp3',
+      fileSize: 5_000_000,
+      metadataHash: '937fa605ca04', // matches computeMetadataHash(buildMetadata(track))
+      coverArtMode: 'embed' as const,
+      encodedBitrate: '192k' as const,
+      serverPath: '/music/Artist/Album/track.mp3',
+      serverRootPath: null,
+      syncedAt: new Date().toISOString(),
+    } as const;
+
+    mockGetSyncedTracksForDevice.mockReturnValueOnce([existingRecord] as any);
+    mockGetSyncedTracksForDevice.mockReturnValueOnce([existingRecord] as any);
+
+    const deps = {
+      api: mockApi,
+      fs: createMockFileSystem(),
+      converter: createMockConverter(),
+    };
+
+    const core = createTestSyncCore(validConfig, deps);
+
+    await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/usb',
+      options: { lyricsMode: 'lrc' },
+    });
+
+    // fetchLyrics MUST be called even though the file is unchanged
+    expect(fetchLyricsSpy).toHaveBeenCalledWith('track-x');
+    expect(vi.mocked(upsertSyncedTrack)).toHaveBeenCalled();
+  });
+
+  it('processes lyrics for unchanged file when lyricsMode is embed', async () => {
+    const { upsertSyncedTrack, getSyncedTracksForDevice, getSyncedTracksForItem } = await import(
+      '../main/database'
+    );
+
+    const mockApi = createMockApiClient();
+    const fetchLyricsSpy = vi.fn().mockResolvedValue('[00:00]Embedded lyrics');
+    mockApi.fetchLyrics = fetchLyricsSpy;
+    mockApi.getTracksForItems = vi.fn().mockResolvedValue({ tracks: [makeTrack()], errors: [] });
+    mockApi.downloadItemStream = async () => {
+      const { Readable } = require('stream');
+      return Readable.from(Buffer.from('fake audio'));
+    };
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
+
+    const existingRecord = {
+      id: 1,
+      deviceId: 1,
+      itemId: 'album-1',
+      trackId: 'track-x',
+      destinationPath: '/usb/Artist/Album/track.mp3',
+      fileSize: 5_000_000,
+      metadataHash: '4291b888db42e390',
+      coverArtMode: 'embed' as const,
+      encodedBitrate: '192k' as const,
+      serverPath: '/music/Artist/Album/track.mp3',
+      serverRootPath: null,
+      syncedAt: new Date().toISOString(),
+    } as const;
+
+    mockGetSyncedTracksForDevice.mockReturnValueOnce([existingRecord] as any);
+    mockGetSyncedTracksForDevice.mockReturnValueOnce([existingRecord] as any);
+
+    const deps = {
+      api: mockApi,
+      fs: createMockFileSystem(),
+      converter: createMockConverter(),
+    };
+
+    const core = createTestSyncCore(validConfig, deps);
+
+    await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/usb',
+      options: { lyricsMode: 'embed' },
+    });
+
+    // fetchLyrics MUST be called even though the file is unchanged
+    expect(fetchLyricsSpy).toHaveBeenCalledWith('track-x');
+    expect(vi.mocked(upsertSyncedTrack)).toHaveBeenCalled();
   });
 });
 
