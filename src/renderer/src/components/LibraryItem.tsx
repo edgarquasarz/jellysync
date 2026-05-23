@@ -84,9 +84,6 @@ export function LibraryItem({
       const runtime = formatRunTimeTicks(album.RunTimeTicks);
       if (runtime) parts.push(runtime);
       if (parts.length === 0) return null;
-      if (parts.length === 1 && album.AlbumArtist) return album.AlbumArtist;
-      if (parts.length === 2 && album.AlbumArtist && album.ProductionYear)
-        return `${album.AlbumArtist} · ${album.ProductionYear}`;
       return parts.join(' · ');
     }
 
