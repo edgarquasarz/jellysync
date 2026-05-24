@@ -273,5 +273,33 @@ describe('useSync', () => {
 
       expect(revalidateDevice).toHaveBeenCalled();
     });
+
+    it('calls revalidateDevice with current coverArtMode after successful sync', async () => {
+      // Test that revalidateDevice is called after sync completes.
+      // Note: The actual coverArtMode passed to analyzeDiff is tested in useDeviceSelections.test.tsx
+      // as it requires the integration between hooks to be properly simulated.
+      const revalidateDevice = vi.fn().mockResolvedValue(undefined);
+      const props = {
+        ...defaultProps,
+        selectedTracks: new Set(['artist-1']),
+        revalidateDevice,
+      };
+      const { result } = renderHook(() => useSync(props));
+
+      await act(async () => {
+        await result.current.handleSelectSyncFolder('/Volumes/USB');
+      });
+
+      // User has companion mode active
+      await act(async () => {
+        result.current.setCoverArtMode('companion');
+      });
+
+      await act(async () => {
+        await result.current.executeSyncNow();
+      });
+
+      expect(revalidateDevice).toHaveBeenCalled();
+    });
   });
 });
