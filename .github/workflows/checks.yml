@@ -1,9 +1,13 @@
-name: Unit Tests
+name: Checks
 
-on: push
+on:
+  push:
+    branches: [main, develop, '**']
+  pull_request:
+    branches: [main, develop, '**']
 
 jobs:
-  unit-tests:
+  checks:
     strategy:
       fail-fast: false
       matrix:
@@ -38,8 +42,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Run lint
+      - name: Run ESLint
         run: pnpm lint
+
+      - name: Check Prettier formatting
+        run: pnpm format:check
 
       - name: Run unit tests
         run: pnpm test:unit

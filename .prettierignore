@@ -15,3 +15,7 @@ Thumbs.db
 !.vscode/extensions.json
 .claude
 *.local
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+bun.lockb
