@@ -7,6 +7,7 @@ interface SyncSuccessModalProps {
   lyricsAdded?: number;
   removed: number;
   errors: string[];
+  lyricsMode?: string;
   onClose: () => void;
 }
 
@@ -32,6 +33,7 @@ export function SyncSuccessModal({
   lyricsAdded,
   removed,
   errors,
+  lyricsMode,
   onClose,
 }: SyncSuccessModalProps): JSX.Element {
   const [cta] = useState(() => CTAS[Math.floor(Date.now() / (24 * 60 * 60 * 1000)) % CTAS.length]);
@@ -72,10 +74,18 @@ export function SyncSuccessModal({
                 <span className="text-on_surface">{tracksRetagged} tracks</span>
               </p>
             )}
-            {lyricsAdded && lyricsAdded > 0 && (
-              <p>
-                Lyrics added: <span className="text-on_surface">{lyricsAdded} tracks</span>
-              </p>
+            {lyricsMode !== 'off' && (
+              <>
+                {lyricsAdded !== undefined && lyricsAdded > 0 ? (
+                  <p>
+                    Lyrics added: <span className="text-on_surface">{lyricsAdded} tracks</span>
+                  </p>
+                ) : lyricsAdded === 0 ? (
+                  <p>
+                    Lyrics added: <span className="text-on_surface">No lyrics synced</span>
+                  </p>
+                ) : null}
+              </>
             )}
             {tracksSkipped > 0 && (
               <p>

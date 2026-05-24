@@ -64,6 +64,7 @@ export function useSync({
     lyricsAdded?: number;
     removed: number;
     errors: string[];
+    lyricsMode?: string;
   } | null>(null);
 
   const handleSelectSyncFolder = async (path?: string): Promise<void> => {
@@ -218,6 +219,7 @@ export function useSync({
           lyricsAdded: result.lyricsAdded,
           removed: toDeleteIds.length,
           errors: result.errors,
+          lyricsMode,
         });
         // Re-run analyzeDiff in background to update out-of-sync indicators
         // Pass current coverArtMode to avoid stale ref in revalidateDevice

@@ -1058,3 +1058,235 @@ describe('processLyrics behavior', () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('embed mode uses temp file — AC-1', () => {
+  // Bug: processLyrics called embedLyrics(outputPath, outputPath) — FFmpeg cannot use
+  // same path as input and output. Fix: use temp file + atomic rename (already done in
+  // sync-files.ts for tagFile; embedLyrics also had this logic but it wasn't being used).
+
+  it('embedLyrics called with inputPath === outputPath still uses temp file internally', async () => {
+    // When sync-files.ts embedLyrics receives equal input/output paths, it sets
+    // useTempOutput = true and writes to temp file first, then renames.
+    // This test verifies the temp file pattern is used.
+    const { createFFmpegConverter } = await import('./sync-files');
+    const converter = createFFmpegConverter();
+
+    const childProcess = require('child_process');
+    const spawnCalls: { args: string[]; closeCode: number }[] = [];
+    const originalSpawn = childProcess.spawn;
+    childProcess.spawn = function (_cmd: string, args: string[], _opts: any) {
+      // Intercept the close event to return success
+      const mockProc = {
+        on: function (event: string, cb: (arg: number | Error) => void) {
+          if (event === 'close') setTimeout(() => cb(0), 0);
+          if (event === 'error') setTimeout(() => cb(new Error('mock')), 0);
+          return mockProc;
+        },
+        emit: () => mockProc,
+        removeAllListeners: () => mockProc,
+        kill: () => {},
+        stderr: { on: () => {} },
+      };
+      // Capture args at spawn time so we can inspect temp output usage
+      const captured = { args, closeCode: -1 };
+      spawnCalls.push(captured);
+      return mockProc;
+    } as typeof childProcess.spawn;
+
+    // Write a temp input file so FFmpeg can read it
+    const fs = require('fs');
+    const os = require('os');
+    const tmpInput = `${os.tmpdir()}/jt-test-embed-${Date.now()}.mp3`;
+    fs.writeFileSync(tmpInput, Buffer.from('fake mp3 data'));
+
+    try {
+      // Call embedLyrics with equal input/output (the bug scenario)
+      await converter.embedLyrics(tmpInput, tmpInput, '[00:00]Test lyrics', 'mp3');
+
+      // The last spawn call should have the temp output file as the last arg
+      // (and NOT have outputPath as both input and output — temp file is used instead)
+      expect(spawnCalls.length).toBeGreaterThan(0);
+      const lastCall = spawnCalls[spawnCalls.length - 1];
+      const outputArg = lastCall.args[lastCall.args.length - 1];
+
+      // Output should be a temp file, not the same as input
+      // (jt-lyrics- prefix + .mp3 extension)
+      expect(outputArg).toMatch(/^.*jt-lyrics-.*\.mp3$/);
+      expect(outputArg).not.toBe(tmpInput);
+    } finally {
+      childProcess.spawn = originalSpawn;
+      try {
+        fs.unlinkSync(tmpInput);
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  it('processLyrics embed mode calls converter.embedLyrics', async () => {
+    // Verify processLyrics actually calls embedLyrics (not skipping it)
+    const mockApi = createMockApiClient();
+    const lyricsResponse = '[00:00]Embedded lyrics\n[00:05]Line two';
+    mockApi.fetchLyrics = vi.fn().mockResolvedValue(lyricsResponse);
+
+    const tracks: TrackInfo[] = [
+      {
+        id: 'track-1',
+        name: 'Track',
+        album: 'Album',
+        artists: ['Artist'],
+        path: '/music/lib/lib/Artist/Album/track.mp3',
+        format: 'mp3',
+        size: 100,
+      },
+    ];
+    mockApi.getTracksForItems = vi.fn().mockResolvedValue({ tracks, errors: [] });
+    mockApi.downloadItemStream = async () => {
+      const { Readable } = require('stream');
+      return Readable.from(Buffer.from('fake audio'));
+    };
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
+
+    const embedLyricsSpy = vi.fn().mockResolvedValue({ success: true });
+    const mockConverter = createMockConverter();
+    mockConverter.embedLyrics = embedLyricsSpy;
+
+    const deps = createTestDeps({ api: mockApi, converter: mockConverter });
+    const core = createTestSyncCore(validConfig, deps);
+
+    const result = await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/usb',
+      options: { lyricsMode: 'embed', embedMetadata: false },
+    });
+
+    expect(embedLyricsSpy).toHaveBeenCalledOnce();
+    expect(result.lyricsAdded).toBe(1);
+  });
+});
+
+describe('embed mode cleans up prior LRC files — AC-2', () => {
+  const configWithServerRoot: SyncConfig = {
+    serverUrl: 'https://jellyfin.example.com',
+    apiKey: '0123456789abcdef0123456789abcdef',
+    userId: 'abcdef1234567890abcdef1234567890',
+    serverRootPath: '/music/',
+  };
+
+  it('removes .lrc file from prior sync when switching to embed mode', async () => {
+    // Bug: cleanOrphanedLrcFiles only removes .lrc without corresponding audio.
+    // When switching from LRC→Embed, audio exists so .lrc persists. Fix: explicit
+    // cleanup of .lrc files for tracks synced in embed mode.
+    const mockApi = createMockApiClient();
+    mockApi.getTracksForItems = vi.fn().mockResolvedValue({
+      tracks: [
+        {
+          id: 'track-1',
+          name: 'Track',
+          album: 'Album',
+          artists: ['Artist'],
+          path: '/music/Artist/Album/track.mp3',
+          format: 'mp3',
+          size: 100,
+        },
+      ],
+      errors: [],
+    });
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
+    mockApi.fetchLyrics = vi.fn().mockResolvedValue('[00:00]Embedded lyrics');
+
+    // Override isDirectory to return true for our directory paths
+    const mockFs = createMockFileSystem({
+      isDirectory: async (path: string) => {
+        const dirs = ['/music', '/music/Artist', '/music/Artist/Album'];
+        return dirs.includes(path);
+      },
+    }) as any;
+    // Simulate existing audio file and orphaned .lrc (from prior LRC sync)
+    mockFs.__setFile('/music/Artist/Album/track.mp3', Buffer.from('audio'));
+    mockFs.__setFile('/music/Artist/Album/track.lrc', Buffer.from('[00:00]old lrc'));
+
+    const embedLyricsSpy = vi.fn().mockResolvedValue({ success: true });
+    const mockConverter = createMockConverter();
+    mockConverter.embedLyrics = embedLyricsSpy;
+
+    const deps = createTestDeps({ api: mockApi, fs: mockFs, converter: mockConverter });
+    const core = createTestSyncCore(configWithServerRoot, deps);
+
+    // Sync with embed mode — .lrc from prior sync should be removed
+    const result = await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/music',
+      options: { lyricsMode: 'embed', embedMetadata: false },
+    });
+
+    expect(result.success).toBe(true);
+    // The .lrc file should be removed by cleanLrcFilesForEmbedMode
+    expect(mockFs.__getFile('/music/Artist/Album/track.lrc')).toBeUndefined();
+  });
+
+  it('leaves unrelated .lrc files untouched during embed sync', async () => {
+    // Verify that only .lrc files matching synced track basenames are removed.
+    // Other .lrc files (for tracks not in this sync) should survive.
+    const mockApi = createMockApiClient();
+    mockApi.getTracksForItems = vi.fn().mockResolvedValue({
+      tracks: [
+        {
+          id: 'track-1',
+          name: 'Track',
+          album: 'Album',
+          artists: ['Artist'],
+          path: '/music/Artist/Album/track.mp3',
+          format: 'mp3',
+          size: 100,
+        },
+      ],
+      errors: [],
+    });
+    mockApi.getItem = vi
+      .fn()
+      .mockResolvedValue({ id: 'album-1', name: 'Album', type: 'MusicAlbum' });
+    mockApi.getAlbumTracks = vi.fn().mockResolvedValue([]);
+    mockApi.fetchLyrics = vi.fn().mockResolvedValue('[00:00]Embedded lyrics');
+
+    // Override isDirectory to return true for our directory paths
+    const mockFs = createMockFileSystem({
+      isDirectory: async (path: string) => {
+        const dirs = ['/music', '/music/Artist', '/music/Artist/Album'];
+        return dirs.includes(path);
+      },
+    }) as any;
+    mockFs.__setFile('/music/Artist/Album/track.mp3', Buffer.from('audio'));
+    // .lrc for the synced track — should be removed
+    mockFs.__setFile('/music/Artist/Album/track.lrc', Buffer.from('[00:00]old lrc'));
+    // .lrc for a different track — should survive
+    mockFs.__setFile('/music/Artist/Album/other.lrc', Buffer.from('[00:00]other lyrics'));
+
+    const mockConverter = createMockConverter();
+    mockConverter.embedLyrics = vi.fn().mockResolvedValue({ success: true });
+
+    const deps = createTestDeps({ api: mockApi, fs: mockFs, converter: mockConverter });
+    const core = createTestSyncCore(configWithServerRoot, deps);
+
+    const result = await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/music',
+      options: { lyricsMode: 'embed', embedMetadata: false },
+    });
+
+    expect(result.success).toBe(true);
+    // Synced track's .lrc removed
+    expect(mockFs.__getFile('/music/Artist/Album/track.lrc')).toBeUndefined();
+    // Unrelated .lrc survives
+    expect(mockFs.__getFile('/music/Artist/Album/other.lrc')).toBeDefined();
+  });
+});

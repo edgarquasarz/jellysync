@@ -319,6 +319,12 @@ class SyncCoreImpl {
       // Phase 4: Cleanup
       await this.runCleanupPhase(input.itemIds, input.itemTypes, input.destinationPath, options);
 
+      // AC-2: When lyricsMode is embed, clean up stale .lrc files from prior syncs
+      if (options.lyricsMode === 'embed') {
+        const syncedBasenames = new Set(copyResult.syncedBasenames ?? []);
+        await this.cleanLrcFilesForEmbedMode(input.destinationPath, syncedBasenames);
+      }
+
       phaseManager.complete(stats);
 
       return {
@@ -411,7 +417,12 @@ class SyncCoreImpl {
     tracksFailed: string[],
     errors: string[],
     stats: ReturnType<typeof createProgressStats>,
-  ): Promise<{ statsRetagged: number; statsMoved: number; lyricsAdded: number }> {
+  ): Promise<{
+    statsRetagged: number;
+    statsMoved: number;
+    lyricsAdded: number;
+    syncedBasenames: string[];
+  }> {
     this.currentPhase = 'copying';
     phaseManager.startCopying(tracks.length);
 
@@ -424,6 +435,7 @@ class SyncCoreImpl {
     let statsRetagged = 0;
     let statsMoved = 0;
     let lyricsAdded = 0;
+    const syncedBasenames: string[] = [];
 
     let allSyncedRecords: SyncedTrackRecord[] = [];
     try {
@@ -460,6 +472,11 @@ class SyncCoreImpl {
           errors.push(result.error);
           tracksFailed.push(track.id);
         }
+
+        // Collect basenames for embed-mode LRC cleanup
+        if (result.processed) {
+          syncedBasenames.push(getFilenameFromPath(track.path ?? track.id).replace(/\.[^.]+$/, ''));
+        }
       } finally {
         completed++;
         phaseManager.updateCopying(completed, tracks.length, track.name);
@@ -467,7 +484,7 @@ class SyncCoreImpl {
     });
 
     this.cancellation.throwIfCancelled();
-    return { statsRetagged, statsMoved, lyricsAdded };
+    return { statsRetagged, statsMoved, lyricsAdded, syncedBasenames };
   }
 
   private async runCleanupPhase(
@@ -1623,6 +1640,60 @@ class SyncCoreImpl {
       } catch {
         // non-fatal: continue to next extension
       }
+    }
+  }
+
+  /**
+   * Clean up .lrc sidecar files for tracks that were synced with embed mode.
+   * When switching to embed, existing .lrc files from prior syncs should be removed
+   * silently as part of the cleanup phase.
+   */
+  private async cleanLrcFilesForEmbedMode(
+    destinationPath: string,
+    syncedBasenames: Set<string>,
+  ): Promise<void> {
+    if (syncedBasenames.size === 0) return;
+
+    // Walk the destination tree to find and remove .lrc files whose base name
+    // matches any of the synced track basenames
+    const toRemove: string[] = [];
+    await this.walkAndCleanLrc(destinationPath, syncedBasenames, toRemove);
+
+    for (const lrcPath of toRemove) {
+      try {
+        await this.deps.fs.unlink(lrcPath);
+        this.log.debug(`Removed stale LRC: ${lrcPath}`);
+      } catch {
+        /* non-fatal */
+      }
+    }
+  }
+
+  private async walkAndCleanLrc(
+    dir: string,
+    basenames: Set<string>,
+    toRemove: string[],
+  ): Promise<void> {
+    try {
+      const entries = await this.deps.fs.readdir(dir);
+      for (const entry of entries) {
+        const fullPath = `${dir}/${entry}`;
+        try {
+          const isDir = await this.deps.fs.isDirectory(fullPath);
+          if (isDir) {
+            await this.walkAndCleanLrc(fullPath, basenames, toRemove);
+          } else if (entry.toLowerCase().endsWith('.lrc')) {
+            const baseName = entry.replace(/\.lrc$/i, '');
+            if (basenames.has(baseName)) {
+              toRemove.push(fullPath);
+            }
+          }
+        } catch {
+          /* skip unreadable entries */
+        }
+      }
+    } catch {
+      /* ignore inaccessible directories */
     }
   }
 

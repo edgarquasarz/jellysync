@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { DeviceSyncPanel } from './DeviceSyncPanel';
@@ -174,6 +174,11 @@ describe('DeviceSyncPanel', () => {
   });
 
   describe('cover art mode', () => {
+    const getCoverArtSection = () =>
+      screen
+        .getByText('Cover art')
+        .closest('div[class*="bg-surface_container_low"]') as HTMLElement;
+
     it('shows cover art section', async () => {
       await renderPanelAndSettle();
       expect(screen.getByText('Cover art')).toBeInTheDocument();
@@ -181,29 +186,34 @@ describe('DeviceSyncPanel', () => {
 
     it('shows three cover art mode buttons: None, Embedded, Folder image', async () => {
       await renderPanelAndSettle();
-      expect(screen.getByRole('button', { name: 'None' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Embedded' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Folder image' })).toBeInTheDocument();
+      const coverArtSection = getCoverArtSection();
+      const { getByRole } = within(coverArtSection);
+      expect(getByRole('button', { name: 'None' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'Embedded' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'Folder image' })).toBeInTheDocument();
     });
 
     it('calls onCoverArtModeChange with "off" when None is clicked', async () => {
       const onCoverArtModeChange = vi.fn();
       await renderPanelAndSettle({ coverArtMode: 'embed', onCoverArtModeChange });
-      await userEvent.click(screen.getByRole('button', { name: 'None' }));
+      const coverArtSection = getCoverArtSection();
+      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'None' }));
       expect(onCoverArtModeChange).toHaveBeenCalledWith('off');
     });
 
     it('calls onCoverArtModeChange with "embed" when Embedded is clicked', async () => {
       const onCoverArtModeChange = vi.fn();
       await renderPanelAndSettle({ coverArtMode: 'off', onCoverArtModeChange });
-      await userEvent.click(screen.getByRole('button', { name: 'Embedded' }));
+      const coverArtSection = getCoverArtSection();
+      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'Embedded' }));
       expect(onCoverArtModeChange).toHaveBeenCalledWith('embed');
     });
 
     it('calls onCoverArtModeChange with "companion" when Folder image is clicked', async () => {
       const onCoverArtModeChange = vi.fn();
       await renderPanelAndSettle({ coverArtMode: 'embed', onCoverArtModeChange });
-      await userEvent.click(screen.getByRole('button', { name: 'Folder image' }));
+      const coverArtSection = getCoverArtSection();
+      await userEvent.click(within(coverArtSection).getByText('Folder image'));
       expect(onCoverArtModeChange).toHaveBeenCalledWith('companion');
     });
 
@@ -220,6 +230,26 @@ describe('DeviceSyncPanel', () => {
     it('shows description for "companion" mode', async () => {
       await renderPanelAndSettle({ coverArtMode: 'companion' });
       expect(screen.getByText('Cover saved as cover.jpg in album folder')).toBeInTheDocument();
+    });
+
+    it('buttons are disabled when isSyncing is true', async () => {
+      await renderPanelAndSettle({ isSyncing: true });
+      const coverArtSection = getCoverArtSection();
+      const { getByRole } = within(coverArtSection);
+      expect(getByRole('button', { name: 'None' })).toBeDisabled();
+      expect(getByRole('button', { name: 'Embedded' })).toBeDisabled();
+      expect(getByRole('button', { name: 'Folder image' })).toBeDisabled();
+    });
+
+    it('active button has different styling than inactive buttons', async () => {
+      await renderPanelAndSettle({ coverArtMode: 'embed' });
+      const coverArtSection = getCoverArtSection();
+      const { getByRole } = within(coverArtSection);
+      expect(getByRole('button', { name: 'Embedded' })).toHaveClass('bg-primary_container');
+      expect(getByRole('button', { name: 'None' })).toHaveClass('bg-surface_container_highest');
+      expect(getByRole('button', { name: 'Folder image' })).toHaveClass(
+        'bg-surface_container_highest',
+      );
     });
   });
 
@@ -303,36 +333,44 @@ describe('DeviceSyncPanel', () => {
   });
 
   describe('lyrics mode', () => {
+    const getLyricsSection = () =>
+      screen.getByText('Lyrics').closest('div[class*="bg-surface_container_low"]') as HTMLElement;
+
     it('shows lyrics section', async () => {
       await renderPanelAndSettle();
       expect(screen.getByText('Lyrics')).toBeInTheDocument();
     });
 
-    it('shows three lyrics mode buttons: Off, LRC, Embed', async () => {
+    it('shows three lyrics mode buttons: None, LRC File, Embed', async () => {
       await renderPanelAndSettle();
-      expect(screen.getByRole('button', { name: 'Off' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'LRC' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Embed' })).toBeInTheDocument();
+      const lyricsSection = getLyricsSection();
+      const { getByRole } = within(lyricsSection);
+      expect(getByRole('button', { name: 'None' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'LRC File' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'Embed' })).toBeInTheDocument();
     });
 
-    it('calls onLyricsModeChange with "off" when Off is clicked', async () => {
+    it('calls onLyricsModeChange with "off" when None is clicked', async () => {
       const onLyricsModeChange = vi.fn();
       await renderPanelAndSettle({ lyricsMode: 'lrc', onLyricsModeChange });
-      await userEvent.click(screen.getByRole('button', { name: 'Off' }));
+      const lyricsSection = getLyricsSection();
+      await userEvent.click(within(lyricsSection).getByRole('button', { name: 'None' }));
       expect(onLyricsModeChange).toHaveBeenCalledWith('off');
     });
 
-    it('calls onLyricsModeChange with "lrc" when LRC is clicked', async () => {
+    it('calls onLyricsModeChange with "lrc" when LRC File is clicked', async () => {
       const onLyricsModeChange = vi.fn();
       await renderPanelAndSettle({ lyricsMode: 'off', onLyricsModeChange });
-      await userEvent.click(screen.getByRole('button', { name: 'LRC' }));
+      const lyricsSection = getLyricsSection();
+      await userEvent.click(within(lyricsSection).getByRole('button', { name: 'LRC File' }));
       expect(onLyricsModeChange).toHaveBeenCalledWith('lrc');
     });
 
     it('calls onLyricsModeChange with "embed" when Embed is clicked', async () => {
       const onLyricsModeChange = vi.fn();
       await renderPanelAndSettle({ lyricsMode: 'off', onLyricsModeChange });
-      await userEvent.click(screen.getByRole('button', { name: 'Embed' }));
+      const lyricsSection = getLyricsSection();
+      await userEvent.click(within(lyricsSection).getByRole('button', { name: 'Embed' }));
       expect(onLyricsModeChange).toHaveBeenCalledWith('embed');
     });
 
@@ -353,22 +391,22 @@ describe('DeviceSyncPanel', () => {
 
     it('buttons are disabled when isSyncing is true', async () => {
       await renderPanelAndSettle({ isSyncing: true });
-      expect(screen.getByRole('button', { name: 'Off' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'LRC' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Embed' })).toBeDisabled();
+      const lyricsSection = getLyricsSection();
+      const { getByRole } = within(lyricsSection);
+      expect(getByRole('button', { name: 'None' })).toBeDisabled();
+      expect(getByRole('button', { name: 'LRC File' })).toBeDisabled();
+      expect(getByRole('button', { name: 'Embed' })).toBeDisabled();
     });
 
     it('active button has different styling than inactive buttons', async () => {
       await renderPanelAndSettle({ lyricsMode: 'lrc' });
+      const lyricsSection = getLyricsSection();
+      const { getByRole } = within(lyricsSection);
       // Active button (lrc) has bg-primary_container
-      expect(screen.getByRole('button', { name: 'LRC' })).toHaveClass('bg-primary_container');
+      expect(getByRole('button', { name: 'LRC File' })).toHaveClass('bg-primary_container');
       // Inactive buttons (off, embed) have bg-surface_container_highest
-      expect(screen.getByRole('button', { name: 'Off' })).toHaveClass(
-        'bg-surface_container_highest',
-      );
-      expect(screen.getByRole('button', { name: 'Embed' })).toHaveClass(
-        'bg-surface_container_highest',
-      );
+      expect(getByRole('button', { name: 'None' })).toHaveClass('bg-surface_container_highest');
+      expect(getByRole('button', { name: 'Embed' })).toHaveClass('bg-surface_container_highest');
     });
   });
 
@@ -433,29 +471,47 @@ describe('DeviceSyncPanel', () => {
   });
 
   describe('cover art mode', () => {
-    it('calls onCoverArtModeChange when a button is clicked', async () => {
+    const getCoverArtSection = () =>
+      screen
+        .getByText('Cover art')
+        .closest('div[class*="bg-surface_container_low"]') as HTMLElement;
+
+    it('shows cover art section', async () => {
+      await renderPanelAndSettle();
+      expect(screen.getByText('Cover art')).toBeInTheDocument();
+    });
+
+    it('shows three cover art mode buttons: None, Embedded, Folder image', async () => {
+      await renderPanelAndSettle();
+      const coverArtSection = getCoverArtSection();
+      const { getByRole } = within(coverArtSection);
+      expect(getByRole('button', { name: 'None' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'Embedded' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'Folder image' })).toBeInTheDocument();
+    });
+
+    it('calls onCoverArtModeChange with "off" when None is clicked', async () => {
       const onCoverArtModeChange = vi.fn();
       await renderPanelAndSettle({ coverArtMode: 'embed', onCoverArtModeChange });
-      // Use getByText with exact match to find specific button
-      await userEvent.click(screen.getByText('Folder image'));
+      const coverArtSection = getCoverArtSection();
+      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'None' }));
+      expect(onCoverArtModeChange).toHaveBeenCalledWith('off');
+    });
+
+    it('calls onCoverArtModeChange with "embed" when Embedded is clicked', async () => {
+      const onCoverArtModeChange = vi.fn();
+      await renderPanelAndSettle({ coverArtMode: 'off', onCoverArtModeChange });
+      const coverArtSection = getCoverArtSection();
+      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'Embedded' }));
+      expect(onCoverArtModeChange).toHaveBeenCalledWith('embed');
+    });
+
+    it('calls onCoverArtModeChange with "companion" when Folder image is clicked', async () => {
+      const onCoverArtModeChange = vi.fn();
+      await renderPanelAndSettle({ coverArtMode: 'embed', onCoverArtModeChange });
+      const coverArtSection = getCoverArtSection();
+      await userEvent.click(within(coverArtSection).getByText('Folder image'));
       expect(onCoverArtModeChange).toHaveBeenCalledWith('companion');
-    });
-
-    it('buttons are disabled when isSyncing is true', async () => {
-      await renderPanelAndSettle({ isSyncing: true });
-      // Each button should be disabled when syncing
-      expect(screen.getByText('None')).toBeDisabled();
-      expect(screen.getByText('Embedded')).toBeDisabled();
-      expect(screen.getByText('Folder image')).toBeDisabled();
-    });
-
-    it('active button has different styling than inactive buttons', async () => {
-      await renderPanelAndSettle({ coverArtMode: 'embed' });
-      // Active button (embed) has bg-primary_container
-      expect(screen.getByText('Embedded')).toHaveClass('bg-primary_container');
-      // Inactive buttons (off, companion) have bg-surface_container_highest
-      expect(screen.getByText('None')).toHaveClass('bg-surface_container_highest');
-      expect(screen.getByText('Folder image')).toHaveClass('bg-surface_container_highest');
     });
   });
 

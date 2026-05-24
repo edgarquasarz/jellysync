@@ -566,6 +566,7 @@ function App(): JSX.Element {
           lyricsAdded={sync.syncSuccessData.lyricsAdded}
           removed={sync.syncSuccessData.removed}
           errors={sync.syncSuccessData.errors}
+          lyricsMode={sync.syncSuccessData.lyricsMode}
           onClose={() => sync.setSyncSuccessData(null)}
         />
       )}
