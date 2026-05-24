@@ -32,7 +32,6 @@
     "test:unit:watch": "vitest",
     "test:renderer": "vitest run --config vitest.renderer.config.ts",
     "test": "pnpm run test:unit",
-    "prepare": "husky",
     "postinstall": "electron-builder install-app-deps",
     "build-icon": "node scripts/build-icon.mjs",
     "release": "bash scripts/release.sh"
@@ -75,7 +74,6 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-security": "^4.0.0",
-    "husky": "^9.1.7",
     "jsdom": "^28.1.0",
     "playwright": "^1.40.1",
     "postcss": "^8.4.49",
