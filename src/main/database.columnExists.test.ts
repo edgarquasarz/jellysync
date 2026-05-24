@@ -2,9 +2,6 @@
  * columnExists helper unit tests
  * Tests PRAGMA table_info-based column existence checking.
  */
-
-/* eslint-disable @typescript-eslint/consistent-type-imports */
-
 import { describe, it, expect } from 'vitest';
 
 describe('columnExists', () => {

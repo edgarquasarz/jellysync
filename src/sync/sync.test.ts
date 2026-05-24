@@ -4,7 +4,6 @@
  * Comprehensive tests for the sync module using Vitest.
  * Tests use mocked dependencies to isolate unit behavior.
  */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { SyncConfig, SyncInput, TrackInfo, ItemType } from './types';
 import { createSyncCore, createTestSyncCore, type SyncDependencies } from './sync-core';
@@ -893,6 +892,7 @@ describe('Integration: Full Sync Flow', () => {
     const result = await syncPromise;
 
     // Should either cancel or complete (race condition)
+
     expect(result.cancelled || result.success).toBe(true);
   });
 });
@@ -1072,7 +1072,6 @@ describe('Error Handling', () => {
       });
 
       vi.spyOn(require('child_process'), 'spawn').mockImplementation(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const proc = new (require('events').EventEmitter)() as any;
         proc.stdin = mockStdin;
         proc.stderr = new (require('events').EventEmitter)();
@@ -1108,7 +1107,6 @@ describe('Error Handling', () => {
       });
 
       vi.spyOn(require('child_process'), 'spawn').mockImplementation(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const proc = new (require('events').EventEmitter)() as any;
         proc.stdin = mockStdin;
         proc.stderr = new (require('events').EventEmitter)();
@@ -1153,7 +1151,6 @@ describe('Error Handling', () => {
       });
 
       vi.spyOn(require('child_process'), 'spawn').mockImplementation(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const proc = new (require('events').EventEmitter)() as any;
         proc.stdin = mockStdin;
         proc.stderr = new (require('events').EventEmitter)();
@@ -2049,7 +2046,6 @@ describe('Server Root Path - Original Path Usage', () => {
           serverPath: '/music/lib/lib/Artist/Old Album/track2.mp3',
           serverRootPath: '/music/lib/lib/', // stored at sync time
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
 
       const deps = createMockDeps({
@@ -2153,7 +2149,6 @@ describe('Server Root Path - Original Path Usage', () => {
           serverPath: '/music/lib/lib/Artist/Old Album/track2.mp3',
           serverRootPath: '/music/lib/lib/', // stored at sync time
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
 
       const deps = createMockDeps({
@@ -2288,7 +2283,6 @@ describe('Server Root Path - Original Path Usage', () => {
           serverPath: null, // legacy: never stored
           serverRootPath: null, // legacy: NULL from v1 migration
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
 
       const deps = createMockDeps({
@@ -2353,7 +2347,6 @@ describe('Server Root Path - Original Path Usage', () => {
           serverPath: '/music/lib/lib/Artist/Album/track1.mp3',
           serverRootPath: '/music/lib/lib/', // stored at sync time (v2)
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
 
       const deps = createMockDeps({

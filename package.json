@@ -14,7 +14,7 @@
     "build:dev": "VITE_DEV_BUILD=true NODE_ENV=development electron-vite build",
     "typecheck": "tsc --noEmit",
     "check": "pnpm run typecheck && pnpm run build",
-    "lint": "eslint src",
+    "lint": "eslint src --ignore-pattern .claude/**",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src tests",
     "format:check": "prettier --check src tests",

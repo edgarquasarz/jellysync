@@ -60,11 +60,11 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       if (res.ok) {
         const data = await res.json();
         setStats({
-          ArtistCount: data.ArtistCount || 0,
-          AlbumCount: data.AlbumCount || 0,
-          SongCount: data.ChildCount || data.TotalCount || 0,
-          PlaylistCount: data.PlaylistCount || 0,
-          ItemCount: data.ItemCount || 0,
+          ArtistCount: data.ArtistCount ?? 0,
+          AlbumCount: data.AlbumCount ?? 0,
+          SongCount: data.ChildCount ?? data.TotalCount ?? 0,
+          PlaylistCount: data.PlaylistCount ?? 0,
+          ItemCount: data.ItemCount ?? 0,
         });
       } else {
         setStats(null);
@@ -131,11 +131,11 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const items: Artist[] = (data.Items || []).map(normalizeArtist);
+      const items: Artist[] = (data.Items ?? []).map(normalizeArtist);
       setArtists(items);
       itemTypeIndexRef.current.artists = new Set(items.map((a) => a.Id));
       updateArtistIndex(items);
-      const totalCount = data.TotalRecordCount || items.length;
+      const totalCount = data.TotalRecordCount ?? items.length;
       setPagination((prev) => ({
         ...prev,
         artists: {
@@ -162,11 +162,11 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const items: Album[] = (data.Items || []).map(normalizeAlbum);
+      const items: Album[] = (data.Items ?? []).map(normalizeAlbum);
       setAlbums(items);
       itemTypeIndexRef.current.albums = new Set(items.map((a) => a.Id));
       updateAlbumIndex(items);
-      const totalCount = data.TotalRecordCount || items.length;
+      const totalCount = data.TotalRecordCount ?? items.length;
       setPagination((prev) => ({
         ...prev,
         albums: {
@@ -192,11 +192,11 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const items: Playlist[] = (data.Items || []).map(normalizePlaylist);
+      const items: Playlist[] = (data.Items ?? []).map(normalizePlaylist);
       setPlaylists(items);
       itemTypeIndexRef.current.playlists = new Set(items.map((p) => p.Id));
       updatePlaylistIndex(items);
-      const totalCount = data.TotalRecordCount || items.length;
+      const totalCount = data.TotalRecordCount ?? items.length;
       setPagination((prev) => ({
         ...prev,
         playlists: {
@@ -215,7 +215,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     // Mark tabs as loaded AFTER all data has been fetched to avoid the sync effect
     // overwriting valid data with empty initial pagination state
     // Use Promise.resolve() to defer to next microtask so sync effect runs first
-    Promise.resolve().then(() => {
+    void Promise.resolve().then(() => {
       setLoadedTabs(new Set(['artists', 'albums', 'playlists']));
     });
   };
@@ -247,10 +247,10 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const items: Artist[] = (data.Items || []).map(normalizeArtist);
+        const items: Artist[] = (data.Items ?? []).map(normalizeArtist);
         setArtists(items);
         updateArtistIndex(items);
-        const totalCount = data.TotalRecordCount || items.length;
+        const totalCount = data.TotalRecordCount ?? items.length;
         setPagination((prev) => ({
           ...prev,
           artists: {
@@ -271,10 +271,10 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const items: Album[] = (data.Items || []).map(normalizeAlbum);
+        const items: Album[] = (data.Items ?? []).map(normalizeAlbum);
         setAlbums(items);
         updateAlbumIndex(items);
-        const totalCount = data.TotalRecordCount || items.length;
+        const totalCount = data.TotalRecordCount ?? items.length;
         setPagination((prev) => ({
           ...prev,
           albums: {
@@ -295,10 +295,10 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const items: Playlist[] = (data.Items || []).map(normalizePlaylist);
+        const items: Playlist[] = (data.Items ?? []).map(normalizePlaylist);
         setPlaylists(items);
         updatePlaylistIndex(items);
-        const totalCount = data.TotalRecordCount || items.length;
+        const totalCount = data.TotalRecordCount ?? items.length;
         setPagination((prev) => ({
           ...prev,
           playlists: {
@@ -339,7 +339,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         const res = await fetch(buildUrl(baseUrl, endpoint), { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const rawItems: Array<Record<string, unknown>> = data.Items || [];
+        const rawItems: Array<Record<string, unknown>> = data.Items ?? [];
         const normalized =
           type === 'artists'
             ? rawItems.map(normalizeArtist)
@@ -357,10 +357,10 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
           ...prev,
           [type]: {
             items: [...prev[type].items, ...uniqueNewItems],
-            total: data.TotalRecordCount || prev[type].total,
+            total: data.TotalRecordCount ?? prev[type].total,
             startIndex: startIndex + uniqueNewItems.length,
             hasMore:
-              startIndex + uniqueNewItems.length < (data.TotalRecordCount || prev[type].total),
+              startIndex + uniqueNewItems.length < (data.TotalRecordCount ?? prev[type].total),
             scrollPos: prev[type].scrollPos,
           },
         }));
@@ -459,7 +459,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         const res = await fetch(buildUrl(baseUrl, endpoint), { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const rawItems: Array<Record<string, unknown>> = data.Items || [];
+        const rawItems: Array<Record<string, unknown>> = data.Items ?? [];
         const normalized =
           type === 'artists'
             ? rawItems.map(normalizeArtist)
@@ -468,7 +468,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
               : rawItems.map(normalizePlaylist);
         normalized.forEach((item) => allIds.add(item.Id));
         startIndex += normalized.length;
-        totalCount = data.TotalRecordCount || totalCount;
+        totalCount = data.TotalRecordCount ?? totalCount;
         hasMore = startIndex < totalCount;
 
         // Update pagination state to track progress (only if not using explicit pagination)

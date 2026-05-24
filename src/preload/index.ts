@@ -97,6 +97,9 @@ const api = {
   }): Promise<{
     success: boolean;
     tracksCopied: number;
+    tracksSkipped: number;
+    tracksRetagged?: number;
+    lyricsAdded?: number;
     tracksFailed: string[];
     errors: string[];
     totalSizeBytes?: number;
@@ -281,8 +284,9 @@ if (process.contextIsolated) {
     // contextBridge setup failed — nothing we can do here, app will not function
   }
 } else {
-  // @ts-ignore Context bridging required when contextIsolation is disabled
-  window.electron = electronAPI;
-  // @ts-ignore Context bridging required when contextIsolation is disabled
+// Electron renderer context (non-browser) — window types are not available
+
+   window.electron = electronAPI;
+
   window.api = api;
 }

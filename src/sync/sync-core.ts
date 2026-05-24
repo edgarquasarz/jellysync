@@ -1668,7 +1668,7 @@ class SyncCoreImpl {
     return {
       title: track.name,
       artist: track.artists?.join('; '),
-      albumArtist: track.albumArtist,
+      albumArtist: track.albumArtist || undefined,
       album: track.album,
       year: track.year?.toString(),
       trackNumber: track.trackNumber !== undefined ? String(track.trackNumber) : undefined,

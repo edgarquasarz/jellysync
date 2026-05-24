@@ -3,9 +3,6 @@
  * Tests for Phase 1: track-level sync tracking
  * Uses vi.mock for better-sqlite3 to avoid native module issues in test env.
  */
-
-/* eslint-disable @typescript-eslint/consistent-type-imports */
-
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
 // Mock electron app

@@ -69,9 +69,9 @@ export function LibraryItem({
     if (type === 'artist') {
       const albumCount = artist.ChildCount;
       const runtime = formatRunTimeTicks(artist.RunTimeTicks);
-      if (albumCount != null && runtime) return `${albumCount} albums · ${runtime}`;
+      if (albumCount !== null && runtime) return `${albumCount} albums · ${runtime}`;
       if (runtime) return runtime;
-      if (albumCount != null) return `${albumCount} album${albumCount !== 1 ? 's' : ''}`;
+      if (albumCount !== null) return `${albumCount} album${albumCount !== 1 ? 's' : ''}`;
       return null;
     }
 
@@ -79,7 +79,7 @@ export function LibraryItem({
       const parts: string[] = [];
       if (album.AlbumArtist) parts.push(album.AlbumArtist);
       if (album.ProductionYear) parts.push(String(album.ProductionYear));
-      if (album.ChildCount != null)
+      if (album.ChildCount !== null)
         parts.push(`${album.ChildCount} track${album.ChildCount !== 1 ? 's' : ''}`);
       const runtime = formatRunTimeTicks(album.RunTimeTicks);
       if (runtime) parts.push(runtime);
@@ -90,8 +90,8 @@ export function LibraryItem({
     // type === 'playlist'
     const trackCount = playlist.ChildCount;
     const runtime = formatRunTimeTicks(playlist.RunTimeTicks);
-    if (trackCount != null && runtime) return `${trackCount} tracks · ${runtime}`;
-    if (trackCount != null) return `${trackCount} track${trackCount !== 1 ? 's' : ''}`;
+    if (trackCount !== null && runtime) return `${trackCount} tracks · ${runtime}`;
+    if (trackCount !== null) return `${trackCount} track${trackCount !== 1 ? 's' : ''}`;
     if (runtime) return runtime;
     return null;
   })();

@@ -21,6 +21,8 @@ export default tseslint.config(
       '*.min.js',
       '.claude/**',
       '.git/**',
+      // Ignore all worktree directories to prevent duplicate linting
+      '**/.claude/**',
     ],
   },
 
@@ -84,21 +86,9 @@ export default tseslint.config(
     },
   },
 
-  // Test files - relaxed rules
-  {
-    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
-    rules: {
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/consistent-type-imports': 'off',
-      '@typescript-eslint/no-floating-promises': 'off',
-      'no-console': 'off',
-    },
-  },
-
   // Specific file overrides for legacy issues
   {
-    files: ['src/sync/*.ts', 'src/renderer/src/components/LibraryContent.tsx'],
+    files: ['src/sync/**/*.ts', 'src/renderer/src/components/LibraryContent.tsx'],
     rules: {
       // Allow console in sync module (needed for sync progress)
       'no-console': 'off',
@@ -109,8 +99,23 @@ export default tseslint.config(
     },
   },
 
-  // Project-specific rules
+  // Test files - relaxed rules
   {
+    files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      'no-console': 'off',
+    },
+  },
+
+  // Project-specific rules (for non-test files)
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
     rules: {
       // TypeScript
       '@typescript-eslint/no-unused-vars': [
