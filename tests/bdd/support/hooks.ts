@@ -2,8 +2,7 @@ import { Before, After, Status } from '@cucumber/cucumber';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ICustomWorld } from './world';
-
-const { launchApp, closeApp, getMainWindow } = require('./app-launcher');
+import { launchApp, closeApp, getMainWindow } from './app-launcher';
 
 const ELECTRON_TIMEOUT = 60000;
 const SCREENSHOTS_DIR = path.join(__dirname, '..', 'screenshots');

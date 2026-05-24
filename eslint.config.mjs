@@ -23,6 +23,8 @@ export default tseslint.config(
       '.git/**',
       // Ignore all worktree directories to prevent duplicate linting
       '**/.claude/**',
+      // Ignore JS files in tests directory (cucumber config etc)
+      'tests/**/*.js',
     ],
   },
 
@@ -36,7 +38,7 @@ export default tseslint.config(
       ...config.languageOptions,
       parserOptions: {
         ...config.languageOptions?.parserOptions,
-        project: './tsconfig.json',
+        project: ['./tsconfig.json', './tests/tsconfig.json'],
         tsconfigRootDir: __dirname,
       },
     },
