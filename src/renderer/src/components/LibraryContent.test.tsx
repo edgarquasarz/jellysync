@@ -215,11 +215,10 @@ describe('LibraryContent', () => {
   });
 
   it('disables Unselected button when all items are selected', () => {
-    // When all items are selected, "unselected" filter would show nothing
     render(
       <LibraryContent
         {...defaultProps}
-        selectedTracks={new Set(['artist-1', 'artist-2'])} // All items selected
+        selectedTracks={new Set(['artist-1', 'artist-2'])}
         selectionSummary={'2 selected'}
       />,
     );
@@ -241,10 +240,91 @@ describe('LibraryContent', () => {
     render(
       <LibraryContent
         {...defaultProps}
-        selectedTracks={new Set(['artist-1'])} // Only some selected
+        selectedTracks={new Set(['artist-1'])}
         selectionSummary={'1 selected'}
       />,
     );
     expect(screen.getByTestId('sync-filter-unselected')).toBeEnabled();
+  });
+
+  // ORAIN-0384: Selection label shows count for current tab only (not mixed types)
+  it('shows only artists count when on artists tab', () => {
+    render(
+      <LibraryContent
+        {...defaultProps}
+        activeLibrary="artists"
+        selectedTracks={new Set(['artist-1'])}
+        selectionSummary="5 artists selected"
+      />,
+    );
+    expect(screen.getByText('5 artists selected')).toBeInTheDocument();
+  });
+
+  it('shows only albums count when on albums tab', () => {
+    render(
+      <LibraryContent
+        {...defaultProps}
+        activeLibrary="albums"
+        selectedTracks={new Set(['album-1'])}
+        selectionSummary="3 albums selected"
+      />,
+    );
+    expect(screen.getByText('3 albums selected')).toBeInTheDocument();
+  });
+
+  it('shows only playlists count when on playlists tab', () => {
+    render(
+      <LibraryContent
+        {...defaultProps}
+        activeLibrary="playlists"
+        selectedTracks={new Set(['playlist-1'])}
+        selectionSummary="7 playlists selected"
+      />,
+    );
+    expect(screen.getByText('7 playlists selected')).toBeInTheDocument();
+  });
+
+  // ORAIN-0384: Toggles (All/Clear) appear above the checkboxes (label to the left)
+  it('renders selection controls with correct visual order', () => {
+    render(
+      <LibraryContent
+        {...defaultProps}
+        selectedTracks={new Set(['artist-1'])}
+        selectionSummary="1 selected"
+      />,
+    );
+    const allFlexContainers = document.querySelectorAll(
+      'div[class*="flex items-center justify-between"]',
+    );
+    const selectionControls = Array.from(allFlexContainers).find(
+      (el) => el.firstElementChild?.tagName.toLowerCase() === 'span',
+    );
+    expect(selectionControls).toBeInTheDocument();
+    if (selectionControls) {
+      const children = Array.from(selectionControls.children);
+      expect(children.length).toBeGreaterThanOrEqual(2);
+      expect(selectionControls.firstElementChild?.tagName.toLowerCase()).toBe('span');
+      expect(selectionControls.lastElementChild?.tagName.toLowerCase()).toBe('div');
+    }
+  });
+
+  it('label appears to the left of toggle buttons', () => {
+    render(
+      <LibraryContent
+        {...defaultProps}
+        selectedTracks={new Set(['artist-1'])}
+        selectionSummary="1 selected"
+      />,
+    );
+    const label = screen.getByText('1 selected');
+    const selectAllButton = screen.getByTestId('select-all-button');
+    const clearButton = screen.getByTestId('clear-selection-button');
+
+    const labelBox = label.getBoundingClientRect();
+    const selectAllBox = selectAllButton.getBoundingClientRect();
+    const clearBox = clearButton.getBoundingClientRect();
+
+    expect(labelBox.right).toBeLessThanOrEqual(selectAllBox.left);
+    expect(labelBox.right).toBeLessThanOrEqual(clearBox.left);
   });
 });

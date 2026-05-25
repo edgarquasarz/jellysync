@@ -205,7 +205,7 @@ export function LibraryContent({
             )}
           </div>
 
-          {/* Selection controls */}
+          {/* Selection controls — above the list checkboxes */}
           <div className="flex items-center justify-between">
             <span className="text-caption text-on_surface_variant">
               {selectedTracks.size > 0 ? selectionSummary : 'None selected'}

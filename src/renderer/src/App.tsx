@@ -333,15 +333,29 @@ function AppConnected({
     deviceSelections.selectedTracks.has(p.Id),
   ).length;
 
+  // ORAIN-0384: Selection summary only for the currently active tab (not mixed types)
   const getSelectionSummary = (): string => {
-    const parts: string[] = [];
-    if (selectedArtistsCount > 0)
-      parts.push(`${selectedArtistsCount} artist${selectedArtistsCount !== 1 ? 's' : ''}`);
-    if (selectedAlbumsCount > 0)
-      parts.push(`${selectedAlbumsCount} album${selectedAlbumsCount !== 1 ? 's' : ''}`);
-    if (selectedPlaylistsCount > 0)
-      parts.push(`${selectedPlaylistsCount} playlist${selectedPlaylistsCount !== 1 ? 's' : ''}`);
-    return parts.length > 0 ? parts.join(', ') : 'None selected';
+    const countForTab = (count: number, label: string): string => {
+      if (count === 0) return '';
+      return `${count} ${label}${count !== 1 ? 's' : ''} selected`;
+    };
+
+    switch (lib.activeLibrary) {
+      case 'artists':
+        return selectedArtistsCount > 0
+          ? countForTab(selectedArtistsCount, 'artist')
+          : 'None selected';
+      case 'albums':
+        return selectedAlbumsCount > 0
+          ? countForTab(selectedAlbumsCount, 'album')
+          : 'None selected';
+      case 'playlists':
+        return selectedPlaylistsCount > 0
+          ? countForTab(selectedPlaylistsCount, 'playlist')
+          : 'None selected';
+      default:
+        return 'None selected';
+    }
   };
 
   // Active search mode detection (searchQuery >= 2 triggers search)
