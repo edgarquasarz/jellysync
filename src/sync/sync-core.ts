@@ -731,6 +731,14 @@ class SyncCoreImpl {
           track.path ?? null,
           this.serverRootPath || null,
         );
+        const outputDir = syncedRecord.destinationPath.substring(
+          0,
+          syncedRecord.destinationPath.lastIndexOf('/'),
+        );
+        if (coverArtMode === 'companion') {
+          const coverBuffer = await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode);
+          if (coverBuffer) await this.writeCompanionCover(outputDir, coverBuffer);
+        }
         const lyricsResult = await this.processLyrics(
           track,
           syncedRecord.destinationPath,
@@ -742,10 +750,7 @@ class SyncCoreImpl {
           processed: false,
           skipped: false,
           lyricsAdded: lyricsResult,
-          companionCoverPath:
-            coverArtMode === 'companion'
-              ? syncedRecord.destinationPath.replace(/\.[^.]+$/, '') + '-cover.jpg'
-              : undefined,
+          companionCoverPath: coverArtMode === 'companion' ? `${outputDir}/cover.jpg` : undefined,
         };
       }
       this.log.warn(`Re-tag failed for ${track.name}, falling back to re-download`);

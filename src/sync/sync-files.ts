@@ -888,6 +888,9 @@ export function createFFmpegConverter(): AudioConverter {
       assertFilesystemPath(inputPath, 'inputPath');
       assertFilesystemPath(outputPath, 'outputPath');
       const { spawn } = require('child_process');
+      const fs = require('fs');
+      const os = require('os');
+      const path = require('path');
 
       // Step 1: ffprobe to check for video/cover streams (early exit optimization)
       const hadCover = await new Promise<boolean>((resolveProbe) => {
@@ -908,6 +911,9 @@ export function createFFmpegConverter(): AudioConverter {
         probeProcess.stdout.on('data', (data: Buffer) => {
           stdout += data.toString();
         });
+        probeProcess.on('error', () => {
+          resolveProbe(false);
+        });
         probeProcess.on('close', (_code: number) => {
           // disposition=attached_pic indicates cover art
           const hasAttachedPic = stdout.includes('attached_pic');
@@ -920,7 +926,15 @@ export function createFFmpegConverter(): AudioConverter {
         return { success: true, hadCover: false };
       }
 
-      // Step 2: Strip cover using -vn to skip video/cover streams, copy audio codec
+      // Step 2: Strip cover using -vn to skip video/cover streams, copy audio codec.
+      // FFmpeg cannot edit files in-place: use a temp file when inputPath === outputPath.
+      const useTempOutput = inputPath === outputPath;
+      const finalOutputPath = outputPath;
+      const ext = path.extname(inputPath);
+      const tempOutputPath = useTempOutput
+        ? `${os.tmpdir()}/jt-strip-${Date.now()}${ext}`
+        : outputPath;
+
       return new Promise((resolve) => {
         const args = [
           '-i',
@@ -929,12 +943,19 @@ export function createFFmpegConverter(): AudioConverter {
           '-c',
           'copy', // passthrough audio encoding
           '-y', // overwrite output
-          outputPath,
+          tempOutputPath,
         ];
 
         const process = spawn(ffmpegPath, args, { stdio: 'ignore' });
 
         process.on('error', (err: Error) => {
+          if (useTempOutput) {
+            try {
+              fs.unlinkSync(tempOutputPath);
+            } catch (_e) {
+              /* non-fatal cleanup */
+            }
+          }
           resolve({
             success: false,
             error: `FFmpeg strip error: ${err.message}`,
@@ -943,6 +964,31 @@ export function createFFmpegConverter(): AudioConverter {
         });
 
         process.on('close', (code: number) => {
+          if (useTempOutput) {
+            if (code === 0) {
+              try {
+                fs.renameSync(tempOutputPath, finalOutputPath);
+              } catch (renameErr) {
+                try {
+                  fs.unlinkSync(tempOutputPath);
+                } catch (_e) {
+                  /* non-fatal cleanup */
+                }
+                resolve({
+                  success: false,
+                  error: `Failed to replace file: ${renameErr}`,
+                  hadCover: true,
+                });
+                return;
+              }
+            } else {
+              try {
+                fs.unlinkSync(tempOutputPath);
+              } catch (_e) {
+                /* non-fatal cleanup */
+              }
+            }
+          }
           resolve({
             success: code === 0,
             error: code !== 0 ? `FFmpeg exited with code ${code}` : undefined,

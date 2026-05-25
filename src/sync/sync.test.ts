@@ -3423,6 +3423,62 @@ describe('strip embed cover when switching to companion mode (AC-2)', () => {
 
     expect(stripCoverArtSpy).not.toHaveBeenCalled();
   });
+
+  it('writes companion cover.jpg after stripping embedded cover on embed→companion switch (AC-2)', async () => {
+    const coverData = Buffer.alloc(1024, 0xff);
+
+    const mockConverter = {
+      ...createMockConverter(),
+      stripCoverArt: vi.fn().mockResolvedValue({ success: true, hadCover: true }),
+    };
+
+    const mockFs = createMockFileSystem() as any;
+    mockFs.__setFile('/mnt/usb/Artist/Album/track.mp3', Buffer.alloc(100));
+
+    const mockApi = createMockApiClient({
+      getTracksForItems: async () => ({
+        tracks: [
+          {
+            id: 'track-1',
+            name: 'Track',
+            album: 'Album',
+            artists: ['Artist'],
+            path: '/music/Artist/Album/track.mp3',
+            format: 'mp3',
+            parentItemId: 'album-1',
+          },
+        ],
+        errors: [],
+      }),
+      getCoverArt: async () => coverData,
+    });
+
+    const deps: SyncDependencies = { api: mockApi, fs: mockFs, converter: mockConverter as any };
+    const core = createTestSyncCore(configWithServerRoot, deps);
+
+    const existingRecord = {
+      trackId: 'track-1',
+      itemId: 'album-1',
+      destinationPath: '/mnt/usb/Artist/Album/track.mp3',
+      fileSize: 100,
+      metadataHash: 'abc123def456abc1',
+      coverArtMode: 'embed' as const,
+      encodedBitrate: '192k',
+      serverPath: '/music/Artist/Album/track.mp3',
+      serverRootPath: '/music/',
+    };
+    vi.mocked(getSyncedTracksForDevice).mockReturnValueOnce([existingRecord] as any);
+    vi.mocked(getSyncedTracksForItem).mockReturnValueOnce([existingRecord] as any);
+
+    await core.sync({
+      itemIds: ['album-1'],
+      itemTypes: new Map([['album-1', 'album' as ItemType]]),
+      destinationPath: '/mnt/usb',
+      options: { coverArtMode: 'companion' },
+    });
+
+    expect(mockFs.__getFile('/mnt/usb/Artist/Album/cover.jpg')).toBeDefined();
+  });
 });
 
 describe('removeItems cover.jpg cleanup (AC-3)', () => {
