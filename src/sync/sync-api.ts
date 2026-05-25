@@ -600,18 +600,6 @@ export function parseLyricsResponse(responseText: string): string {
 }
 
 /**
- * Convert parsed lyrics to plain text for embedding (no timestamps).
- * Used for embed mode where FFmpeg metadata doesn't support synchronized lyrics.
- */
-export function lyricsToPlainText(parsedLyrics: string): string {
-  // Extract Text fields from LRC format, removing timestamps
-  return parsedLyrics
-    .split('\n')
-    .map((line) => line.replace(/^\[\d{2}:\d{2}\.\d{2}\]/, ''))
-    .join('\n');
-}
-
-/**
  * Create mock API client for testing
  */
 export function createMockApiClient(overrides?: Partial<SyncApi>): SyncApi {
