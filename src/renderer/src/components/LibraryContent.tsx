@@ -227,7 +227,7 @@ export function LibraryContent({
                   Select all
                 </button>
               )}
-              {selectedTracks.size > 0 && (
+              {!isSearchActive && selectedTracks.size > 0 && (
                 <button
                   data-testid="clear-selection-button"
                   onClick={onClearSelection}

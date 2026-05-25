@@ -344,31 +344,47 @@ function AppConnected({
     return parts.length > 0 ? parts.join(', ') : 'None selected';
   };
 
-  // Select All - uses pagination-aware version that fetches all items first
+  // Active search mode detection (searchQuery >= 2 triggers search)
+  const isSearchActive = searchQuery.length >= 2;
+
+  // Select All - uses pagination-aware version that fetches all items first,
+  // OR selects all search results when search is active
   const [isSelectingAll, setIsSelectingAll] = useState(false);
 
   const selectAllInCurrentView = useCallback(async () => {
     setIsSelectingAll(true);
     try {
-      await lib.selectAllWithCompleteSet(lib.activeLibrary, (allIds) => {
-        // Get item type mapping for the callback to use
-        const items = allIds
-          .map((id) => {
-            const artists = lib.artists.find((a) => a.Id === id);
-            if (artists) return { Id: id };
-            const albums = lib.albums.find((a) => a.Id === id);
-            if (albums) return { Id: id };
-            const playlists = lib.playlists.find((p) => p.Id === id);
-            if (playlists) return { Id: id };
-            return null;
-          })
-          .filter((item): item is { Id: string } => item !== null);
+      if (isSearchActive && searchResults) {
+        // During search: select all items from search results
+        const currentItems =
+          lib.activeLibrary === 'artists'
+            ? searchResults.artists
+            : lib.activeLibrary === 'albums'
+              ? searchResults.albums
+              : searchResults.playlists;
+        const items = currentItems.map((item) => ({ Id: item.Id }));
         deviceSelections.selectItems(items);
-      });
+      } else {
+        // Normal mode: fetch all items from library via pagination
+        await lib.selectAllWithCompleteSet(lib.activeLibrary, (allIds) => {
+          const items = allIds
+            .map((id) => {
+              const artists = lib.artists.find((a) => a.Id === id);
+              if (artists) return { Id: id };
+              const albums = lib.albums.find((a) => a.Id === id);
+              if (albums) return { Id: id };
+              const playlists = lib.playlists.find((p) => p.Id === id);
+              if (playlists) return { Id: id };
+              return null;
+            })
+            .filter((item): item is { Id: string } => item !== null);
+          deviceSelections.selectItems(items);
+        });
+      }
     } finally {
       setIsSelectingAll(false);
     }
-  }, [lib, deviceSelections]);
+  }, [isSearchActive, searchResults, lib, deviceSelections]);
 
   // While a sync is running, lock the view to the syncing device
   const effectiveSection = sync.isSyncing ? 'device' : activeSection;
