@@ -190,7 +190,15 @@ export function useSync({
         setIsSyncing(false);
         const updatedItems = await window.api.getSyncedItems(syncFolder);
         setPreviouslySyncedItems(updatedItems);
-        alert(`Sync complete!\n\nRemoved: ${toDeleteIds.length} item(s)\nNothing left to sync.`);
+        setSyncSuccessData({
+          tracksCopied: 0,
+          tracksSkipped: 0,
+          tracksRetagged: 0,
+          lyricsAdded: 0,
+          removed: toDeleteIds.length,
+          errors: [],
+          lyricsMode,
+        });
         return;
       }
 
@@ -234,28 +242,56 @@ export function useSync({
           errors: result.errors,
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       unsubscribe?.();
       logger.error('Sync error: ' + (error instanceof Error ? error.message : String(error)));
       setSyncProgress(null);
       setIsSyncing(false);
-      alert('Sync error: ' + (error instanceof Error ? error.message : String(error)));
+      setSyncSuccessData({
+        tracksCopied: 0,
+        tracksSkipped: 0,
+        tracksRetagged: 0,
+        lyricsAdded: 0,
+        removed: 0,
+        errors: [error instanceof Error ? error.message : String(error)],
+      });
     }
   };
 
   const handleStartSync = (): void => {
     if (!syncFolder) {
-      alert('Please select a sync destination folder first');
+      setSyncSuccessData({
+        tracksCopied: 0,
+        tracksSkipped: 0,
+        tracksRetagged: 0,
+        lyricsAdded: 0,
+        removed: 0,
+        errors: ['Please select a sync destination folder first'],
+      });
       return;
     }
     if (!jellyfinConfig || !userId) {
-      alert('Not connected to Jellyfin');
+      setSyncSuccessData({
+        tracksCopied: 0,
+        tracksSkipped: 0,
+        tracksRetagged: 0,
+        lyricsAdded: 0,
+        removed: 0,
+        errors: ['Not connected to Jellyfin'],
+      });
       return;
     }
 
     const toDeleteIds = buildToDeleteIds();
     if (selectedTracks.size === 0 && toDeleteIds.length === 0) {
-      alert('Please select at least one item to sync');
+      setSyncSuccessData({
+        tracksCopied: 0,
+        tracksSkipped: 0,
+        tracksRetagged: 0,
+        lyricsAdded: 0,
+        removed: 0,
+        errors: ['Please select at least one item to sync'],
+      });
       return;
     }
 

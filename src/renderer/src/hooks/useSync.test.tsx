@@ -49,6 +49,7 @@ const createMockApi = (overrides?: Record<string, ReturnType<typeof vi.fn>>) => 
   removeItems: vi.fn().mockResolvedValue({ removed: 0, errors: [] }),
   cancelSync: vi.fn().mockResolvedValue({ cancelled: true }),
   onSyncProgress: vi.fn().mockReturnValue(() => {}),
+  logError: vi.fn(),
   ...overrides,
 });
 
@@ -212,6 +213,53 @@ describe('useSync', () => {
       });
 
       expect(mockApi.cancelSync).toHaveBeenCalled();
+    });
+  });
+
+  describe('no native alerts', () => {
+    it('does NOT call native alert() on delete-only sync complete', async () => {
+      const props = {
+        ...defaultProps,
+        selectedTracks: new Set<string>(),
+        previouslySyncedItems: new Set(['album-1']),
+      };
+      const { result } = renderHook(() => useSync(props));
+
+      await act(async () => {
+        await result.current.handleSelectSyncFolder('/Volumes/USB');
+      });
+
+      await act(async () => {
+        await result.current.executeSyncNow();
+      });
+
+      // AC: native alert must NOT appear in any sync flow
+      expect(window.alert).not.toHaveBeenCalled();
+    });
+
+    it('does NOT call native alert() on sync error', async () => {
+      const errorApi = createMockApi({
+        startSync2: vi.fn().mockRejectedValue(new Error('Network failure')),
+      });
+      Object.defineProperty(window, 'api', { value: errorApi, writable: true });
+      vi.stubGlobal('alert', vi.fn());
+
+      const props = {
+        ...defaultProps,
+        selectedTracks: new Set(['artist-1']),
+      };
+      const { result } = renderHook(() => useSync(props));
+
+      await act(async () => {
+        await result.current.handleSelectSyncFolder('/Volumes/USB');
+      });
+
+      await act(async () => {
+        await result.current.executeSyncNow();
+      });
+
+      // AC: native alert must NOT appear on error
+      expect(window.alert).not.toHaveBeenCalled();
     });
   });
 
