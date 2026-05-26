@@ -25,6 +25,12 @@ export default tseslint.config(
       '**/.claude/**',
       // Ignore JS files in tests directory (cucumber config etc)
       'tests/**/*.js',
+      // Ignore vitest config files (not part of app source)
+      'vitest.config.ts',
+      'vitest.*.config.ts',
+      // Ignore test setup files (conditional code is intentional)
+      '**/__tests__/setup.ts',
+      '**/__tests__/**/setup.ts',
     ],
   },
 

@@ -1,6 +1,13 @@
 import '@testing-library/jest-dom';
 import { afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
+
+// Conditionally load renderer-specific setup only when jsdom is active
+// This avoids crashes when running with node environment
+if (typeof window !== 'undefined') {
+  import('@testing-library/react').then(({ cleanup }) => {
+    afterEach(() => cleanup());
+  });
+}
 
 // Mock IntersectionObserver for jsdom
 class MockIntersectionObserver implements IntersectionObserver {
@@ -18,9 +25,9 @@ class MockIntersectionObserver implements IntersectionObserver {
   }
 }
 
-Object.defineProperty(window, 'IntersectionObserver', {
-  value: MockIntersectionObserver,
-  writable: true,
-});
-
-afterEach(() => cleanup());
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'IntersectionObserver', {
+    value: MockIntersectionObserver,
+    writable: true,
+  });
+}

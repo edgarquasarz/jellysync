@@ -6,7 +6,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
+    // Default environment for tests that don't match environmentMatchGlobs
     environment: 'jsdom',
+    // Setup file for jsdom tests (renderer components)
     setupFiles: [resolve(__dirname, 'src/renderer/src/__tests__/setup.ts')],
     include: [
       'src/sync/**/*.test.ts',
@@ -14,6 +16,15 @@ export default defineConfig({
       'tests/unit/**/*.test.ts',
       'src/renderer/**/*.test.tsx',
       'src/renderer/**/*.test.ts',
+    ],
+    // Node environment for pure logic tests - no jsdom overhead
+    environmentMatchGlobs: [
+      // sync module tests - pure Node, no DOM needed
+      ['src/sync/**/*.test.ts', 'node'],
+      // main process tests - pure Node, no DOM needed
+      ['src/main/**/*.test.ts', 'node'],
+      // unit tests - mostly pure logic, no DOM needed
+      ['tests/unit/**/*.test.ts', 'node'],
     ],
     coverage: {
       provider: 'v8',
