@@ -854,9 +854,12 @@ export function createFFmpegConverter(): AudioConverter {
         });
 
         proc.on('close', (code: number) => {
-          if (code === 0 && useTempOutput) {
+          if (code === 0) {
             try {
-              if (outputPath !== tempOutputPath) {
+              // Only unlink original if we wrote to a different temp path
+              // When useTempOutput is true: tempOutputPath is different (the temp file), keep original
+              // When useTempOutput is false: outputPath IS the temp path, nothing to unlink
+              if (!useTempOutput && outputPath !== tempOutputPath) {
                 fs.unlinkSync(outputPath);
               }
               fs.renameSync(tempOutputPath, outputPath);
