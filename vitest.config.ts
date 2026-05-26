@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
+    // Default timeout for tests using user.type() with long strings in jsdom
+    testTimeout: 15000,
     // Default environment for tests that don't match environmentMatchGlobs
     environment: 'jsdom',
     // Setup file for jsdom tests (renderer components)
