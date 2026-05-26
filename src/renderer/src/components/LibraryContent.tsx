@@ -205,11 +205,8 @@ export function LibraryContent({
             )}
           </div>
 
-          {/* Selection controls — above the list checkboxes */}
+          {/* ORAIN-0421: Selection controls — controls LEFT, label RIGHT */}
           <div className="flex items-center justify-between">
-            <span className="text-caption text-on_surface_variant">
-              {selectedTracks.size > 0 ? selectionSummary : 'None selected'}
-            </span>
             <div className="flex gap-3">
               {!isSearchActive && (
                 <button
@@ -237,6 +234,9 @@ export function LibraryContent({
                 </button>
               )}
             </div>
+            <span className="text-caption text-on_surface_variant">
+              {selectedTracks.size > 0 ? selectionSummary : 'None selected'}
+            </span>
           </div>
         </div>
       </div>

@@ -284,8 +284,8 @@ describe('LibraryContent', () => {
     expect(screen.getByText('7 playlists selected')).toBeInTheDocument();
   });
 
-  // ORAIN-0384: Toggles (All/Clear) appear above the checkboxes (label to the left)
-  it('renders selection controls with correct visual order', () => {
+  // ORAIN-0421: Select All/Clear controls on LEFT, "X selected" label on RIGHT
+  it('renders selection controls with correct visual order (buttons left, label right)', () => {
     render(
       <LibraryContent
         {...defaultProps}
@@ -296,19 +296,21 @@ describe('LibraryContent', () => {
     const allFlexContainers = document.querySelectorAll(
       'div[class*="flex items-center justify-between"]',
     );
+    // Find the selection controls container: buttons FIRST (left), span LAST (right)
     const selectionControls = Array.from(allFlexContainers).find(
-      (el) => el.firstElementChild?.tagName.toLowerCase() === 'span',
+      (el) => el.firstElementChild?.tagName.toLowerCase() === 'div',
     );
     expect(selectionControls).toBeInTheDocument();
     if (selectionControls) {
       const children = Array.from(selectionControls.children);
       expect(children.length).toBeGreaterThanOrEqual(2);
-      expect(selectionControls.firstElementChild?.tagName.toLowerCase()).toBe('span');
-      expect(selectionControls.lastElementChild?.tagName.toLowerCase()).toBe('div');
+      // Buttons come first (left), label span comes last (right)
+      expect(selectionControls.firstElementChild?.tagName.toLowerCase()).toBe('div');
+      expect(selectionControls.lastElementChild?.tagName.toLowerCase()).toBe('span');
     }
   });
 
-  it('label appears to the left of toggle buttons', () => {
+  it('toggle buttons appear to the left of label', () => {
     render(
       <LibraryContent
         {...defaultProps}
@@ -316,15 +318,16 @@ describe('LibraryContent', () => {
         selectionSummary="1 selected"
       />,
     );
-    const label = screen.getByText('1 selected');
     const selectAllButton = screen.getByTestId('select-all-button');
     const clearButton = screen.getByTestId('clear-selection-button');
+    const label = screen.getByText('1 selected');
 
-    const labelBox = label.getBoundingClientRect();
     const selectAllBox = selectAllButton.getBoundingClientRect();
     const clearBox = clearButton.getBoundingClientRect();
+    const labelBox = label.getBoundingClientRect();
 
-    expect(labelBox.right).toBeLessThanOrEqual(selectAllBox.left);
-    expect(labelBox.right).toBeLessThanOrEqual(clearBox.left);
+    // Buttons should be to the LEFT of the label
+    expect(selectAllBox.right).toBeLessThanOrEqual(labelBox.left);
+    expect(clearBox.right).toBeLessThanOrEqual(labelBox.left);
   });
 });
