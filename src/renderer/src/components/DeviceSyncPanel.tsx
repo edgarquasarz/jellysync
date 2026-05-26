@@ -509,7 +509,7 @@ export function DeviceSyncPanel({
                   : 'Synced lyrics saved as .lrc file alongside each track'}
             </p>
             <div className="flex items-center gap-2 mt-3">
-              {(['off', 'lrc', 'embed'] as const).map((m) => (
+              {(['off', 'embed', 'lrc'] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => onLyricsModeChange(m)}
