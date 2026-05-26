@@ -334,28 +334,36 @@ function AppConnected({
   ).length;
 
   // ORAIN-0384: Selection summary only for the currently active tab (not mixed types)
-  const getSelectionSummary = (): string => {
-    const countForTab = (count: number, label: string): string => {
-      if (count === 0) return '';
-      return `${count} ${label}${count !== 1 ? 's' : ''} selected`;
-    };
-
+  // ORAIN-0399: Refactored to eliminate unreachable guard in countForTab closure
+  const selectedCount = (() => {
     switch (lib.activeLibrary) {
       case 'artists':
-        return selectedArtistsCount > 0
-          ? countForTab(selectedArtistsCount, 'artist')
-          : 'None selected';
+        return selectedArtistsCount;
       case 'albums':
-        return selectedAlbumsCount > 0
-          ? countForTab(selectedAlbumsCount, 'album')
-          : 'None selected';
+        return selectedAlbumsCount;
       case 'playlists':
-        return selectedPlaylistsCount > 0
-          ? countForTab(selectedPlaylistsCount, 'playlist')
-          : 'None selected';
+        return selectedPlaylistsCount;
       default:
-        return 'None selected';
+        return 0;
     }
+  })();
+
+  const selectedLabel = (() => {
+    switch (lib.activeLibrary) {
+      case 'artists':
+        return selectedCount !== 1 ? 'artists' : 'artist';
+      case 'albums':
+        return selectedCount !== 1 ? 'albums' : 'album';
+      case 'playlists':
+        return selectedCount !== 1 ? 'playlists' : 'playlist';
+      default:
+        return '';
+    }
+  })();
+
+  const getSelectionSummary = (): string => {
+    if (selectedCount === 0) return 'None selected';
+    return `${selectedCount} ${selectedLabel} selected`;
   };
 
   const isSearchActive = currentTabSearchQuery.length >= 2;
