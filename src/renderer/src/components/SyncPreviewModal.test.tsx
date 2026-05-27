@@ -239,31 +239,6 @@ describe('SyncPreviewModal', () => {
     expect(screen.queryByText(/FLAC\/lossless/)).not.toBeInTheDocument();
   });
 
-  // 6. shows track count summary and duration
-  it('shows track count summary with plural form', () => {
-    render(<SyncPreviewModal {...defaultProps} data={samplePreviewDataNewTracks} />);
-    expect(screen.getByTestId('preview-track-count')).toHaveTextContent('150 tracks');
-  });
-
-  it('shows singular "track" for single track count', () => {
-    const singleTrackData = {
-      ...samplePreviewDataNoUpdates,
-      trackCount: 1,
-      totalDurationSeconds: 0,
-    };
-    render(<SyncPreviewModal {...defaultProps} data={singleTrackData} />);
-    expect(screen.getByTestId('preview-track-count')).toHaveTextContent('1 track');
-  });
-
-  it('shows duration when totalDurationSeconds > 0', () => {
-    render(<SyncPreviewModal {...defaultProps} data={samplePreviewDataNewTracks} />);
-    // 18000 seconds = 5:00:00
-    expect(screen.getByTestId('preview-duration')).toHaveTextContent('5:00:00');
-  });
-
-  it('does not show duration when totalDurationSeconds is 0', () => {
-    const noDurationData = { ...samplePreviewDataNoUpdates, totalDurationSeconds: 0 };
-    render(<SyncPreviewModal {...defaultProps} data={noDurationData} />);
-    expect(screen.queryByTestId('preview-duration')).not.toBeInTheDocument();
-  });
+  // 6. No summary block — AC1: remove "N tracks · duration" summary below "Sync Preview" title
+  // Track count summary tests were removed — the summary block was eliminated per AC1
 });

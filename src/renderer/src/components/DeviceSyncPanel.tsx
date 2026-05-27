@@ -492,7 +492,7 @@ export function DeviceSyncPanel({
                   disabled={isSyncing}
                   className={`px-2.5 py-1 text-label-sm rounded-lg disabled:cursor-default disabled:opacity-50 ${coverArtMode === m ? 'bg-primary_container text-on_primary_container' : 'bg-surface_container_highest text-on_surface hover:bg-surface_bright'}`}
                 >
-                  {m === 'off' ? 'None' : m === 'embed' ? 'Embedded' : 'Folder image'}
+                  {m === 'off' ? 'None' : m === 'embed' ? 'Embed' : 'Folder image'}
                 </button>
               ))}
             </div>

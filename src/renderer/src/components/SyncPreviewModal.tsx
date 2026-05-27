@@ -48,16 +48,6 @@ export function SyncPreviewModal({
           Sync Preview
         </h2>
 
-        {/* Summary stats */}
-        <div className="flex gap-4 mb-4 text-body-sm text-on_surface_variant shrink-0">
-          <span data-testid="preview-track-count">
-            {data.trackCount.toLocaleString()} track{data.trackCount !== 1 ? 's' : ''}
-          </span>
-          {data.totalDurationSeconds > 0 && (
-            <span data-testid="preview-duration">{formatDuration(data.totalDurationSeconds)}</span>
-          )}
-        </div>
-
         {/* Scrollable items list */}
         <div className="flex-1 overflow-y-auto space-y-2 mb-4">
           {/* Will remove */}
@@ -90,14 +80,16 @@ export function SyncPreviewModal({
           {/* New tracks */}
           {showNew && (
             <div data-testid="preview-new-tracks-section">
-              <div className="text-body-md text-primary font-medium mb-1">
-                New tracks{' '}
-                <span data-testid="preview-new-tracks-count">
-                  {data.newTracksCount.toLocaleString()}
-                </span>{' '}
-                <span data-testid="preview-new-tracks-size" className="opacity-70">
-                  ({convertToMp3 ? '~' : ''}
-                  {formatBytes(data.newTracksBytes)})
+              <div className="text-body-md text-primary font-medium flex justify-between items-baseline mb-1">
+                <span>New tracks</span>
+                <span className="flex gap-2">
+                  <span data-testid="preview-new-tracks-count">
+                    {data.newTracksCount.toLocaleString()}
+                  </span>
+                  <span data-testid="preview-new-tracks-size" className="opacity-70">
+                    ({convertToMp3 ? '~' : ''}
+                    {formatBytes(data.newTracksBytes)})
+                  </span>
                 </span>
               </div>
               {data.newItems && data.newItems.length > 0 && (
@@ -115,14 +107,16 @@ export function SyncPreviewModal({
           {/* Updated tracks */}
           {showUpdated && (
             <div data-testid="preview-updated-tracks-section">
-              <div className="text-body-md text-warning font-medium mb-1">
-                Will update{' '}
-                <span data-testid="preview-updated-tracks-count">
-                  {data.updatedTracksCount.toLocaleString()}
-                </span>{' '}
-                <span data-testid="preview-updated-tracks-size" className="opacity-70">
-                  ({convertToMp3 ? '~' : ''}
-                  {formatBytes(data.updatedTracksBytes)})
+              <div className="text-body-md text-warning font-medium flex justify-between items-baseline mb-1">
+                <span>Will update</span>
+                <span className="flex gap-2">
+                  <span data-testid="preview-updated-tracks-count">
+                    {data.updatedTracksCount.toLocaleString()}
+                  </span>
+                  <span data-testid="preview-updated-tracks-size" className="opacity-70">
+                    ({convertToMp3 ? '~' : ''}
+                    {formatBytes(data.updatedTracksBytes)})
+                  </span>
                 </span>
               </div>
               {data.updatedItems && data.updatedItems.length > 0 && (
@@ -140,12 +134,14 @@ export function SyncPreviewModal({
           {/* Already synced */}
           {showAlreadySynced && (
             <div data-testid="preview-already-synced-section">
-              <div className="text-body-md text-success font-medium mb-1">
-                Already on device{' '}
-                <span className="font-medium">{data.alreadySyncedCount.toLocaleString()}</span>{' '}
-                <span className="opacity-70">
-                  ({convertToMp3 ? '~' : ''}
-                  {formatBytes(data.alreadySyncedBytes)})
+              <div className="text-body-md text-success font-medium flex justify-between items-baseline mb-1">
+                <span>Already on device</span>
+                <span className="flex gap-2">
+                  <span className="font-medium">{data.alreadySyncedCount.toLocaleString()}</span>
+                  <span className="opacity-70">
+                    ({convertToMp3 ? '~' : ''}
+                    {formatBytes(data.alreadySyncedBytes)})
+                  </span>
                 </span>
               </div>
               {data.alreadySyncedItems && data.alreadySyncedItems.length > 0 && (

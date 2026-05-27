@@ -184,12 +184,12 @@ describe('DeviceSyncPanel', () => {
       expect(screen.getByText('Cover art')).toBeInTheDocument();
     });
 
-    it('shows three cover art mode buttons: None, Embedded, Folder image', async () => {
+    it('shows three cover art mode buttons: None, Embed, Folder image', async () => {
       await renderPanelAndSettle();
       const coverArtSection = getCoverArtSection();
       const { getByRole } = within(coverArtSection);
       expect(getByRole('button', { name: 'None' })).toBeInTheDocument();
-      expect(getByRole('button', { name: 'Embedded' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'Embed' })).toBeInTheDocument();
       expect(getByRole('button', { name: 'Folder image' })).toBeInTheDocument();
     });
 
@@ -201,11 +201,11 @@ describe('DeviceSyncPanel', () => {
       expect(onCoverArtModeChange).toHaveBeenCalledWith('off');
     });
 
-    it('calls onCoverArtModeChange with "embed" when Embedded is clicked', async () => {
+    it('calls onCoverArtModeChange with "embed" when Embed is clicked', async () => {
       const onCoverArtModeChange = vi.fn();
       await renderPanelAndSettle({ coverArtMode: 'off', onCoverArtModeChange });
       const coverArtSection = getCoverArtSection();
-      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'Embedded' }));
+      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'Embed' }));
       expect(onCoverArtModeChange).toHaveBeenCalledWith('embed');
     });
 
@@ -237,7 +237,7 @@ describe('DeviceSyncPanel', () => {
       const coverArtSection = getCoverArtSection();
       const { getByRole } = within(coverArtSection);
       expect(getByRole('button', { name: 'None' })).toBeDisabled();
-      expect(getByRole('button', { name: 'Embedded' })).toBeDisabled();
+      expect(getByRole('button', { name: 'Embed' })).toBeDisabled();
       expect(getByRole('button', { name: 'Folder image' })).toBeDisabled();
     });
 
@@ -245,7 +245,7 @@ describe('DeviceSyncPanel', () => {
       await renderPanelAndSettle({ coverArtMode: 'embed' });
       const coverArtSection = getCoverArtSection();
       const { getByRole } = within(coverArtSection);
-      expect(getByRole('button', { name: 'Embedded' })).toHaveClass('bg-primary_container');
+      expect(getByRole('button', { name: 'Embed' })).toHaveClass('bg-primary_container');
       expect(getByRole('button', { name: 'None' })).toHaveClass('bg-surface_container_highest');
       expect(getByRole('button', { name: 'Folder image' })).toHaveClass(
         'bg-surface_container_highest',
@@ -484,12 +484,12 @@ describe('DeviceSyncPanel', () => {
       expect(screen.getByText('Cover art')).toBeInTheDocument();
     });
 
-    it('shows three cover art mode buttons: None, Embedded, Folder image', async () => {
+    it('shows three cover art mode buttons: None, Embed, Folder image', async () => {
       await renderPanelAndSettle();
       const coverArtSection = getCoverArtSection();
       const { getByRole } = within(coverArtSection);
       expect(getByRole('button', { name: 'None' })).toBeInTheDocument();
-      expect(getByRole('button', { name: 'Embedded' })).toBeInTheDocument();
+      expect(getByRole('button', { name: 'Embed' })).toBeInTheDocument();
       expect(getByRole('button', { name: 'Folder image' })).toBeInTheDocument();
     });
 
@@ -501,11 +501,11 @@ describe('DeviceSyncPanel', () => {
       expect(onCoverArtModeChange).toHaveBeenCalledWith('off');
     });
 
-    it('calls onCoverArtModeChange with "embed" when Embedded is clicked', async () => {
+    it('calls onCoverArtModeChange with "embed" when Embed is clicked', async () => {
       const onCoverArtModeChange = vi.fn();
       await renderPanelAndSettle({ coverArtMode: 'off', onCoverArtModeChange });
       const coverArtSection = getCoverArtSection();
-      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'Embedded' }));
+      await userEvent.click(within(coverArtSection).getByRole('button', { name: 'Embed' }));
       expect(onCoverArtModeChange).toHaveBeenCalledWith('embed');
     });
 
