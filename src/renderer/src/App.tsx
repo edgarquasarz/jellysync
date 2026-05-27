@@ -373,20 +373,29 @@ function AppConnected({
     setIsSelectingAll(true);
     try {
       // Fetch all items from library via pagination
-      await lib.selectAllWithCompleteSet(lib.activeLibrary, (allIds) => {
-        const items = allIds
-          .map((id) => {
-            const artists = lib.artists.find((a) => a.Id === id);
-            if (artists) return { Id: id };
-            const albums = lib.albums.find((a) => a.Id === id);
-            if (albums) return { Id: id };
-            const playlists = lib.playlists.find((p) => p.Id === id);
-            if (playlists) return { Id: id };
-            return null;
-          })
-          .filter((item): item is { Id: string } => item !== null);
-        deviceSelections.selectItems(items);
-      });
+      await lib.selectAllWithCompleteSet(
+        lib.activeLibrary,
+        (allIds) => {
+          const items = allIds
+            .map((id) => {
+              const artists = lib.artists.find((a) => a.Id === id);
+              if (artists) return { Id: id };
+              const albums = lib.albums.find((a) => a.Id === id);
+              if (albums) return { Id: id };
+              const playlists = lib.playlists.find((p) => p.Id === id);
+              if (playlists) return { Id: id };
+              return null;
+            })
+            .filter((item): item is { Id: string } => item !== null);
+          deviceSelections.selectItems(items);
+        },
+        (errors, selectedCount) => {
+          // Notify user of partial errors
+          lib.setError(
+            `Select all: ${selectedCount} items selected, ${errors.length} page(s) failed`,
+          );
+        },
+      );
     } finally {
       setIsSelectingAll(false);
     }

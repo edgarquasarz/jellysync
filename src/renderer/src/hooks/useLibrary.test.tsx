@@ -9,6 +9,14 @@ const mockConfig: JellyfinConfig = { url: 'https://jellyfin.test', apiKey: 'test
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+// Mock the window.api for logger
+const mockWindowApi = {
+  logError: vi.fn(),
+  logWarn: vi.fn(),
+  logInfo: vi.fn(),
+};
+Object.defineProperty(window, 'api', { value: mockWindowApi, writable: true });
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -187,6 +195,105 @@ describe('useLibrary', () => {
       expect(result.current.stats?.ArtistCount).toBe(42);
       expect(result.current.stats?.AlbumCount).toBe(120);
       expect(result.current.stats?.SongCount).toBe(3000);
+    });
+  });
+
+  describe('selectAllWithCompleteSet', () => {
+    it('fetches additional pages with dynamic page sizing', async () => {
+      mockFetch.mockClear();
+      let fetchCount = 0;
+
+      // Mock returns first page of 50 items with total of 100
+      mockFetch.mockImplementation(() => {
+        fetchCount++;
+        return Promise.resolve({
+          ok: true,
+          json: () => {
+            if (fetchCount === 1) {
+              // First page: 50 items, total 100
+              const items = Array.from({ length: 50 }, (_, i) => ({
+                Id: `artist-${i + 1}`,
+                Name: `Artist ${i + 1}`,
+                AlbumCount: 5,
+                ImageTags: {},
+              }));
+              return Promise.resolve({ Items: items, TotalRecordCount: 100 });
+            }
+            // Second page: remaining 50 items
+            const items = Array.from({ length: 50 }, (_, i) => ({
+              Id: `artist-${i + 51}`,
+              Name: `Artist ${i + 51}`,
+              AlbumCount: 3,
+              ImageTags: {},
+            }));
+            return Promise.resolve({ Items: items, TotalRecordCount: 100 });
+          },
+        });
+      });
+
+      const { result } = renderHook(() => useLibrary(mockConfig, 'user-1'));
+
+      await act(async () => {
+        await result.current.loadLibrary('https://jellyfin.test', 'test-key', 'user-1');
+      });
+
+      let selectedIds: string[] = [];
+      await act(async () => {
+        await result.current.selectAllWithCompleteSet('artists', (ids) => {
+          selectedIds = ids;
+        });
+      });
+
+      // Should have fetched all 100 items
+      expect(selectedIds).toHaveLength(100);
+      // Should have made 2 fetch calls (initial + additional page)
+      expect(fetchCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('calls onError with errors and selected count when some pages fail', async () => {
+      mockFetch.mockClear();
+      const onError = vi.fn();
+      let callCount = 0;
+
+      // Setup mock that fails on second page
+      mockFetch.mockImplementation(() => {
+        callCount++;
+        // First call succeeds
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                Items: [{ Id: 'artist-1', Name: 'Artist 1', AlbumCount: 5, ImageTags: {} }],
+                TotalRecordCount: 100,
+              }),
+          });
+        }
+        // Second call fails
+        return Promise.resolve({ ok: false, status: 500 });
+      });
+
+      const { result } = renderHook(() => useLibrary(mockConfig, 'user-1'));
+
+      await act(async () => {
+        await result.current.loadLibrary('https://jellyfin.test', 'test-key', 'user-1');
+      });
+
+      await act(async () => {
+        await result.current.selectAllWithCompleteSet(
+          'artists',
+          () => {},
+          (errors, count) => {
+            onError(errors, count);
+          },
+        );
+      });
+
+      // onError should have been called
+      expect(onError).toHaveBeenCalled();
+      const [errors, count] = onError.mock.calls[0];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(count).toBeGreaterThanOrEqual(1);
     });
   });
 });

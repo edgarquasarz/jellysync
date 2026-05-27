@@ -448,15 +448,20 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
       let totalCount = currentPagination.total;
       let hasMore: boolean = currentPagination.hasMore;
 
-      // Fetch remaining pages
+      // Fetch remaining pages with dynamic batch sizing
+      // AC requirement: ≤3 additional requests, max 1000 items per request
       while (hasMore) {
+        const remainingItems = totalCount - startIndex;
+        // Split remaining into 3 batches max, cap at 1000
+        const pageLimit = Math.min(Math.ceil(remainingItems / 3), 1000);
+
         let endpoint = '';
         if (type === 'artists')
-          endpoint = `/Artists?SortBy=Name&Limit=${PAGE_SIZE}&StartIndex=${startIndex}&Fields=AlbumCount,RunTimeTicks,ChildCount`;
+          endpoint = `/Artists?SortBy=Name&Limit=${pageLimit}&StartIndex=${startIndex}&Fields=AlbumCount,RunTimeTicks,ChildCount`;
         else if (type === 'albums')
-          endpoint = `/Items?IncludeItemTypes=MusicAlbum&Limit=${PAGE_SIZE}&StartIndex=${startIndex}&Recursive=true&Fields=RunTimeTicks,ChildCount&userId=${userId}`;
+          endpoint = `/Items?IncludeItemTypes=MusicAlbum&Limit=${pageLimit}&StartIndex=${startIndex}&Recursive=true&Fields=RunTimeTicks,ChildCount&userId=${userId}`;
         else
-          endpoint = `/Items?IncludeItemTypes=Playlist&Limit=${PAGE_SIZE}&StartIndex=${startIndex}&Recursive=true&Fields=RunTimeTicks,ChildCount&userId=${userId}`;
+          endpoint = `/Items?IncludeItemTypes=Playlist&Limit=${pageLimit}&StartIndex=${startIndex}&Recursive=true&Fields=RunTimeTicks,ChildCount&userId=${userId}`;
 
         try {
           const res = await fetch(buildUrl(baseUrl, endpoint), { headers });
@@ -518,7 +523,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
     async (
       type: LibraryTab,
       onSelectAllIds: (ids: string[]) => void,
-      onError?: (errors: string[]) => void,
+      onError?: (errors: string[], selectedCount: number) => void,
     ): Promise<{ cancelled: boolean }> => {
       if (!jellyfinConfig || !userId) return { cancelled: false };
 
@@ -532,7 +537,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
         }
         onSelectAllIds(result.ids);
         if (result.errors.length > 0) {
-          onError?.(result.errors);
+          onError?.(result.errors, result.ids.length);
         }
         return { cancelled: false };
       } finally {

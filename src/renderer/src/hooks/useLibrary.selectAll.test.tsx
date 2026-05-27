@@ -68,20 +68,23 @@ function createArtist(id: string, name: string): unknown {
 describe('useLibrary - selectAll with pagination', () => {
   describe('selectAllWithCompleteSet', () => {
     it('selects all items including unloaded pages and calls onSelectAllIds', async () => {
+      // Initial load: 2 items, total=5, remaining=3
+      // With dynamic batching: pageLimit = ceil(3/3) = 1
+      // So the second page will fetch 1 item at a time
       setupFetchMock({
         '/Artists?SortBy=Name&Limit=50&StartIndex=0': {
           items: [createArtist('artist-1', 'Artist 1'), createArtist('artist-2', 'Artist 2')],
           total: 5,
         },
-        '/Artists?SortBy=Name&Limit=50&StartIndex=2': {
+        '/Artists?SortBy=Name&Limit=1&StartIndex=2': {
           items: [createArtist('artist-3', 'Artist 3')],
           total: 5,
         },
-        '/Artists?SortBy=Name&Limit=50&StartIndex=3': {
+        '/Artists?SortBy=Name&Limit=1&StartIndex=3': {
           items: [createArtist('artist-4', 'Artist 4')],
           total: 5,
         },
-        '/Artists?SortBy=Name&Limit=50&StartIndex=4': {
+        '/Artists?SortBy=Name&Limit=1&StartIndex=4': {
           items: [createArtist('artist-5', 'Artist 5')],
           total: 5,
         },
@@ -110,16 +113,19 @@ describe('useLibrary - selectAll with pagination', () => {
     });
 
     it('shows loading state during fetch when items not fully loaded', async () => {
+      // Test setup: initial load returns 1 item, total=3
+      // With dynamic page sizing: remaining=2, pageLimit=1
+      // So we need 2 fetches to get all 3 items
       setupFetchMock({
         '/Artists?SortBy=Name&Limit=50&StartIndex=0': {
           items: [createArtist('artist-1', 'Artist 1')],
           total: 3,
         },
-        '/Artists?SortBy=Name&Limit=50&StartIndex=1': {
+        '/Artists?SortBy=Name&Limit=1&StartIndex=1': {
           items: [createArtist('artist-2', 'Artist 2')],
           total: 3,
         },
-        '/Artists?SortBy=Name&Limit=50&StartIndex=2': {
+        '/Artists?SortBy=Name&Limit=1&StartIndex=2': {
           items: [createArtist('artist-3', 'Artist 3')],
           total: 3,
         },
