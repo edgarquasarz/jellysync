@@ -411,6 +411,30 @@ export interface AudioConverter {
   ): Promise<{ success: boolean; error?: string; hadCover: boolean }>;
 }
 
+/**
+ * Move a file from src to dest, handling cross-device boundaries (EXDEV).
+ * `fs.renameSync` is atomic but fails with EXDEV when src and dest are on different
+ * devices (e.g. macOS temp dir → USB drive). Falls back to copy + unlink in that case.
+ */
+function moveFileSync(src: string, dest: string): void {
+  const fs = require('fs');
+  try {
+    fs.renameSync(src, dest);
+  } catch (err: unknown) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'EXDEV') {
+      // Cross-device rename — copy then remove source
+      fs.copyFileSync(src, dest);
+      try {
+        fs.unlinkSync(src);
+      } catch {
+        /* best-effort cleanup — dest already written, don't fail */
+      }
+    } else {
+      throw err;
+    }
+  }
+}
+
 export function createFFmpegConverter(logger?: SyncLogger): AudioConverter {
   const ffmpegPath = resolveFFmpegPath();
 
@@ -724,10 +748,10 @@ export function createFFmpegConverter(logger?: SyncLogger): AudioConverter {
               /* ignore */
             }
           if (code === 0 && useTempOutput) {
-            // Move temp file to final destination
+            // Move temp file to final destination (handles cross-device via copy+unlink)
             try {
               fs.unlinkSync(finalOutputPath);
-              fs.renameSync(tempOutputPath, finalOutputPath);
+              moveFileSync(tempOutputPath, finalOutputPath);
             } catch (renameErr) {
               logger?.error(
                 `[sync-files] tagFile failed to replace ${finalOutputPath}: ${renameErr}`,
@@ -872,7 +896,7 @@ export function createFFmpegConverter(logger?: SyncLogger): AudioConverter {
               if (!useTempOutput && outputPath !== tempOutputPath) {
                 fs.unlinkSync(outputPath);
               }
-              fs.renameSync(tempOutputPath, outputPath);
+              moveFileSync(tempOutputPath, outputPath);
             } catch (cleanupError) {
               resolve({ success: false, error: `Failed to finalize lyrics: ${cleanupError}` });
               return;
@@ -980,7 +1004,7 @@ export function createFFmpegConverter(logger?: SyncLogger): AudioConverter {
           if (useTempOutput) {
             if (code === 0) {
               try {
-                fs.renameSync(tempOutputPath, finalOutputPath);
+                moveFileSync(tempOutputPath, finalOutputPath);
               } catch (renameErr) {
                 try {
                   fs.unlinkSync(tempOutputPath);
