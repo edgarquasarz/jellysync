@@ -10,3 +10,4 @@ electron.vite.config.*.mjs
 .brv/
 .opencode/
 .eslintcache
+coverage/
