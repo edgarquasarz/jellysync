@@ -62,7 +62,7 @@ function SelectAllConfirmDialog({
             onClick={onConfirm}
             className="flex-1 py-2 rounded-lg bg-gradient-primary hover:bg-secondary_container text-body-md font-medium transition-colors"
           >
-Select All
+            Select All
           </button>
         </div>
       </div>
