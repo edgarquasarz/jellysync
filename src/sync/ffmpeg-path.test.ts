@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { rewriteAsarPath, resolveFFmpegPath } from './ffmpeg-path';
+import { rewriteAsarPath, resolveFFmpegPath, resolveFFprobePath } from './ffmpeg-path';
 
 describe('rewriteAsarPath', () => {
   it('returns path unchanged when not inside an asar archive', () => {
@@ -57,6 +57,19 @@ describe('resolveFFmpegPath', () => {
     const result = resolveFFmpegPath();
     // In dev the installer path won't contain app.asar, but this guard
     // ensures the rewrite is applied should it ever appear.
+    expect(result).not.toMatch(/app\.asar[/\\]node_modules/);
+  });
+});
+
+describe('resolveFFprobePath', () => {
+  it('returns a non-empty string', () => {
+    const result = resolveFFprobePath();
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('returns a path that does not contain app.asar/', () => {
+    const result = resolveFFprobePath();
     expect(result).not.toMatch(/app\.asar[/\\]node_modules/);
   });
 });

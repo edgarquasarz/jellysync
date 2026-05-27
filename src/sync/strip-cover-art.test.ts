@@ -62,7 +62,8 @@ describe('stripCoverArt (ORAIN-0476 fix)', () => {
   it('returns success=true for file without cover art (no-op succeeds)', async () => {
     const { EventEmitter } = require('events');
 
-    // ffmpeg -vn -c copy on a file without cover is a no-op that succeeds
+    // ffmpeg -vn -c copy on a file without cover art is a no-op that exits 0.
+    // We no longer verify cover absence — ffmpeg handles it gracefully.
     spawnMock.mockImplementation(() => {
       const proc = new EventEmitter() as any;
       proc.stdout = new EventEmitter();

@@ -1015,7 +1015,7 @@ export function createMockConverter(): AudioConverter {
     readFileMetadata: async () => ({}),
     isAvailable: async () => true,
     embedLyrics: async () => ({ success: true }),
-    stripCoverArt: async () => ({ success: true, hadCover: false }),
+    stripCoverArt: async () => ({ success: true }),
   };
 }
 

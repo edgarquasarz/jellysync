@@ -41,8 +41,8 @@ const SYSTEM_FFPROBE_CANDIDATES = [
  * 1. System paths (macOS/Linux)
  * 2. 'ffprobe' — rely on PATH as last resort
  *
- * Note: @ffmpeg-installer/ffmpeg bundles ffmpeg but NOT ffprobe.
- * Production packaged apps need ffprobe available on the system PATH.
+ * @ffmpeg-installer/ffmpeg only includes ffmpeg, not ffprobe.
+ * Packaged apps need ffprobe available on the system PATH.
  */
 export function resolveFFprobePath(): string {
   try {
