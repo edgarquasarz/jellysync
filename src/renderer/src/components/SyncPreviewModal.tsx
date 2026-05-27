@@ -1,4 +1,4 @@
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { PreviewData, Bitrate, ItemPreview } from '../appTypes';
 import { formatBytes, formatDuration } from '../utils/format';
 
@@ -46,9 +46,6 @@ export function SyncPreviewModal({
         <h2 className="text-headline-md mb-4 flex items-center gap-2 shrink-0">
           <Check className="w-5 h-5 text-primary" />
           Sync Preview
-          {data.isRefining && (
-            <Loader2 className="w-4 h-4 animate-spin text-on_surface_variant ml-1" />
-          )}
         </h2>
 
         {/* Summary stats */}

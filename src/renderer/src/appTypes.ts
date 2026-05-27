@@ -132,7 +132,6 @@ export interface PreviewData {
   alreadySyncedBytes: number;
   willRemoveCount: number;
   willRemoveBytes: number;
-  isRefining?: boolean;
   // Per-item breakdown for sync preview modal
   removedItems?: ItemPreview[];
   newItems?: ItemPreview[];
