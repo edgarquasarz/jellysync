@@ -9,3 +9,4 @@ electron.vite.config.*.mjs
 .claude/
 .brv/
 .opencode/
+.eslintcache
