@@ -15,11 +15,6 @@ function formatItemRow(item: ItemPreview, convertToMp3: boolean): string {
   return `${item.name}  ${item.trackCount} track${item.trackCount !== 1 ? 's' : ''} (${convertToMp3 ? '~' : ''}${formatBytes(item.sizeBytes)} · ${formatDuration(item.durationSeconds)})`;
 }
 
-/** Format the Total row: "Total  N (size · duration)" */
-function formatTotalRow(data: PreviewData, convertToMp3: boolean): string {
-  return `Total  ${data.trackCount} (${convertToMp3 ? '~' : ''}${formatBytes(data.totalBytes)} · ${formatDuration(data.totalDurationSeconds)})`;
-}
-
 export function SyncPreviewModal({
   data,
   convertToMp3,
@@ -31,7 +26,7 @@ export function SyncPreviewModal({
   const showUpdated = data.updatedTracksCount > 0;
   const showAlreadySynced = data.alreadySyncedCount > 0;
   const showRemove = data.willRemoveCount > 0;
-  const showTotal = showNew || showUpdated || showAlreadySynced;
+  const showTotal = showNew || showUpdated || showAlreadySynced || showRemove;
 
   return (
     <div
@@ -53,17 +48,26 @@ export function SyncPreviewModal({
           {/* Will remove */}
           {showRemove && (
             <div data-testid="preview-will-remove-section">
-              <div className="text-body-md text-error font-medium mb-1">
-                Will remove{' '}
-                <span data-testid="preview-will-remove-count">
-                  {data.willRemoveCount.toLocaleString()}
-                </span>{' '}
-                track{data.willRemoveCount !== 1 ? 's' : ''}
-                {data.willRemoveBytes > 0 && (
-                  <span data-testid="preview-will-remove-size" className="opacity-70 ml-1">
-                    (−{formatBytes(data.willRemoveBytes)})
-                  </span>
-                )}
+              <div className="text-body-md text-error font-medium flex justify-between items-baseline mb-1">
+                <span>
+                  Will remove{' '}
+                  <span data-testid="preview-will-remove-count">
+                    {data.willRemoveCount.toLocaleString()}
+                  </span>{' '}
+                  track{data.willRemoveCount !== 1 ? 's' : ''}
+                </span>
+                <span className="flex gap-2">
+                  {data.willRemoveDurationSeconds !== undefined && (
+                    <span data-testid="preview-will-remove-duration" className="opacity-70">
+                      −{formatDuration(data.willRemoveDurationSeconds)}
+                    </span>
+                  )}
+                  {data.willRemoveBytes > 0 && (
+                    <span data-testid="preview-will-remove-size" className="opacity-70">
+                      −{formatBytes(data.willRemoveBytes)}
+                    </span>
+                  )}
+                </span>
               </div>
               {data.removedItems && data.removedItems.length > 0 && (
                 <div className="ml-2 space-y-1">
@@ -86,6 +90,11 @@ export function SyncPreviewModal({
                   <span data-testid="preview-new-tracks-count">
                     {data.newTracksCount.toLocaleString()}
                   </span>
+                  {data.newTracksDurationSeconds !== undefined && (
+                    <span className="opacity-70">
+                      {formatDuration(data.newTracksDurationSeconds)}
+                    </span>
+                  )}
                   <span data-testid="preview-new-tracks-size" className="opacity-70">
                     ({convertToMp3 ? '~' : ''}
                     {formatBytes(data.newTracksBytes)})
@@ -113,6 +122,11 @@ export function SyncPreviewModal({
                   <span data-testid="preview-updated-tracks-count">
                     {data.updatedTracksCount.toLocaleString()}
                   </span>
+                  {data.updatedTracksDurationSeconds !== undefined && (
+                    <span className="opacity-70">
+                      {formatDuration(data.updatedTracksDurationSeconds)}
+                    </span>
+                  )}
                   <span data-testid="preview-updated-tracks-size" className="opacity-70">
                     ({convertToMp3 ? '~' : ''}
                     {formatBytes(data.updatedTracksBytes)})
@@ -138,6 +152,11 @@ export function SyncPreviewModal({
                 <span>Already on device</span>
                 <span className="flex gap-2">
                   <span className="font-medium">{data.alreadySyncedCount.toLocaleString()}</span>
+                  {data.alreadySyncedDurationSeconds !== undefined && (
+                    <span className="opacity-70">
+                      {formatDuration(data.alreadySyncedDurationSeconds)}
+                    </span>
+                  )}
                   <span className="opacity-70">
                     ({convertToMp3 ? '~' : ''}
                     {formatBytes(data.alreadySyncedBytes)})
@@ -162,7 +181,21 @@ export function SyncPreviewModal({
               className="text-body-md text-on_surface_variant pt-2 border-t border-outline_variant"
               data-testid="preview-total-row"
             >
-              {formatTotalRow(data, convertToMp3)}
+              <div className="flex justify-between items-baseline">
+                <span>Total</span>
+                <span className="flex gap-2">
+                  {data.totalDurationSeconds > 0 && (
+                    <span className="opacity-70">{formatDuration(data.totalDurationSeconds)}</span>
+                  )}
+                  <span className="opacity-70">
+                    ({convertToMp3 ? '~' : ''}
+                    {formatBytes(data.totalBytes)})
+                  </span>
+                </span>
+                {data.trackCount > 0 && (
+                  <span className="font-medium ml-2">{data.trackCount.toLocaleString()}</span>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -126,12 +126,16 @@ export interface PreviewData {
   formatBreakdown: Record<string, number>;
   newTracksCount: number;
   newTracksBytes: number;
+  newTracksDurationSeconds?: number;
   updatedTracksCount: number;
   updatedTracksBytes: number;
+  updatedTracksDurationSeconds?: number;
   alreadySyncedCount: number;
   alreadySyncedBytes: number;
+  alreadySyncedDurationSeconds?: number;
   willRemoveCount: number;
   willRemoveBytes: number;
+  willRemoveDurationSeconds?: number;
   // Per-item breakdown for sync preview modal
   removedItems?: ItemPreview[];
   newItems?: ItemPreview[];

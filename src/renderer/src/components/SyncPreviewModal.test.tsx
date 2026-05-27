@@ -48,12 +48,16 @@ const samplePreviewDataNewTracks: PreviewData = {
   formatBreakdown: { flac: 3_000_000_000, mp3: 2_000_000_000 },
   newTracksCount: 120,
   newTracksBytes: 4_000_000_000,
+  newTracksDurationSeconds: 10800, // 3 hours
   updatedTracksCount: 5,
   updatedTracksBytes: 400_000_000,
+  updatedTracksDurationSeconds: 900, // 15 minutes
   alreadySyncedCount: 25,
   alreadySyncedBytes: 600_000_000,
+  alreadySyncedDurationSeconds: 6300, // 1h 45m
   willRemoveCount: 47,
   willRemoveBytes: 800_000_000,
+  willRemoveDurationSeconds: 4200, // 1h 10m
 };
 
 const samplePreviewDataNoUpdates: PreviewData = {
@@ -63,12 +67,16 @@ const samplePreviewDataNoUpdates: PreviewData = {
   formatBreakdown: { flac: 3_000_000_000, mp3: 2_000_000_000 },
   newTracksCount: 150,
   newTracksBytes: 5_000_000_000,
+  newTracksDurationSeconds: 9000,
   updatedTracksCount: 0,
   updatedTracksBytes: 0,
+  updatedTracksDurationSeconds: 0,
   alreadySyncedCount: 0,
   alreadySyncedBytes: 0,
+  alreadySyncedDurationSeconds: 0,
   willRemoveCount: 0,
   willRemoveBytes: 0,
+  willRemoveDurationSeconds: 0,
 };
 
 // Extended data with per-item breakdown
@@ -208,6 +216,81 @@ describe('SyncPreviewModal', () => {
     expect(text).toContain(formatBytes(samplePreviewDataWithItems.totalBytes));
     // Total row contains duration
     expect(text).toContain(formatDuration(samplePreviewDataWithItems.totalDurationSeconds));
+  });
+
+  // AC3: Section headers show duration before size
+  it('shows new tracks section header with duration and size in correct order', () => {
+    render(<SyncPreviewModal {...defaultProps} data={samplePreviewDataNewTracks} />);
+    const section = screen.getByTestId('preview-new-tracks-section');
+    // Duration should appear before size in the header
+    const headerText = section.querySelector('.flex.justify-between')?.textContent || '';
+    expect(headerText).toContain('120');
+    expect(headerText).toContain(formatDuration(10800)); // newTracksDurationSeconds
+    expect(headerText).toContain(formatBytes(samplePreviewDataNewTracks.newTracksBytes));
+  });
+
+  it('shows updated tracks section header with duration and size in correct order', () => {
+    render(<SyncPreviewModal {...defaultProps} data={samplePreviewDataNewTracks} />);
+    const section = screen.getByTestId('preview-updated-tracks-section');
+    const headerText = section.querySelector('.flex.justify-between')?.textContent || '';
+    expect(headerText).toContain('5');
+    expect(headerText).toContain(formatDuration(900)); // updatedTracksDurationSeconds
+    expect(headerText).toContain(formatBytes(samplePreviewDataNewTracks.updatedTracksBytes));
+  });
+
+  it('shows already synced section header with duration and size in correct order', () => {
+    render(<SyncPreviewModal {...defaultProps} data={samplePreviewDataNewTracks} />);
+    const section = screen.getByTestId('preview-already-synced-section');
+    const headerText = section.querySelector('.flex.justify-between')?.textContent || '';
+    expect(headerText).toContain('25');
+    expect(headerText).toContain(formatDuration(6300)); // alreadySyncedDurationSeconds
+    expect(headerText).toContain(formatBytes(samplePreviewDataNewTracks.alreadySyncedBytes));
+  });
+
+  // AC3: Will remove row uses flex layout with negative values
+  it('shows will remove row with flex layout and negative values', () => {
+    render(<SyncPreviewModal {...defaultProps} data={samplePreviewDataNewTracks} />);
+    const section = screen.getByTestId('preview-will-remove-section');
+    // Should use flex layout, not plain text
+    const rowElement = section.querySelector('.flex.justify-between');
+    expect(rowElement).toBeInTheDocument();
+    // Should show negative duration with minus sign
+    const durationSpan = section.querySelector('[data-testid="preview-will-remove-duration"]');
+    expect(durationSpan).toBeInTheDocument();
+    expect(durationSpan?.textContent).toContain('−');
+  });
+
+  // AC4: Total row uses flex layout
+  it('uses flex justify-between layout for total row', () => {
+    render(<SyncPreviewModal {...defaultProps} data={samplePreviewDataNewTracks} />);
+    const totalRow = screen.getByTestId('preview-total-row');
+    // Should use flex layout, not plain string
+    const flexContainer = totalRow.querySelector('.flex.justify-between');
+    expect(flexContainer).toBeInTheDocument();
+  });
+
+  // showTotal is true when only willRemoveCount > 0
+  it('shows total row when only willRemoveCount > 0', () => {
+    const deleteOnlyData: PreviewData = {
+      trackCount: 0,
+      totalBytes: 0,
+      totalDurationSeconds: 0,
+      formatBreakdown: {},
+      newTracksCount: 0,
+      newTracksBytes: 0,
+      newTracksDurationSeconds: 0,
+      updatedTracksCount: 0,
+      updatedTracksBytes: 0,
+      updatedTracksDurationSeconds: 0,
+      alreadySyncedCount: 0,
+      alreadySyncedBytes: 0,
+      alreadySyncedDurationSeconds: 0,
+      willRemoveCount: 47,
+      willRemoveBytes: 800_000_000,
+      willRemoveDurationSeconds: 4200,
+    };
+    render(<SyncPreviewModal {...defaultProps} data={deleteOnlyData} />);
+    expect(screen.getByTestId('preview-total-row')).toBeInTheDocument();
   });
 
   // 4. confirm calls onConfirm, cancel calls onCancel

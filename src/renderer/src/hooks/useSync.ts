@@ -295,9 +295,26 @@ export function useSync({
       return;
     }
 
-    // Delete-only: skip preview and go straight to sync
+    // Delete-only: show preview with will-remove info, then sync
     if (selectedTracks.size === 0) {
-      void executeSyncNow();
+      const willRemoveBytes = registry.countRemoveBytes(toDeleteIds, syncFolder);
+      const willRemoveDurationSeconds = registry.calculateDuration(new Set(toDeleteIds));
+      setPreviewData({
+        trackCount: 0,
+        totalBytes: 0,
+        totalDurationSeconds: 0,
+        formatBreakdown: {},
+        newTracksCount: 0,
+        newTracksBytes: 0,
+        updatedTracksCount: 0,
+        updatedTracksBytes: 0,
+        alreadySyncedCount: 0,
+        alreadySyncedBytes: 0,
+        willRemoveCount: toDeleteIds.length,
+        willRemoveBytes,
+        willRemoveDurationSeconds,
+      });
+      setShowPreview(true);
       return;
     }
 
@@ -372,12 +389,16 @@ export function useSync({
       formatBreakdown: {},
       newTracksCount,
       newTracksBytes,
+      newTracksDurationSeconds: registry.calculateDuration(newItemSet),
       updatedTracksCount,
       updatedTracksBytes,
+      updatedTracksDurationSeconds: registry.calculateDuration(updatedItemSet),
       alreadySyncedCount: alreadySyncedTracksCount,
       alreadySyncedBytes,
+      alreadySyncedDurationSeconds: registry.calculateDuration(alreadySyncedItemSet),
       willRemoveCount,
       willRemoveBytes,
+      willRemoveDurationSeconds: registry.calculateDuration(new Set(toDeleteIds)),
     });
     setShowPreview(true);
   };
