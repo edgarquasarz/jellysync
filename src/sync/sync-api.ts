@@ -217,15 +217,25 @@ class SyncApiImpl implements SyncApi {
   }
 
   async getArtistTracks(artistId: string): Promise<TrackInfo[]> {
+    this.logger?.debug(`[BATCH] getArtistTracks START artistId=${artistId}`);
+    const startTime = Date.now();
+
     // First get albums for this artist, then batch-fetch tracks for all albums at once
     const albumsEndpoint = `/Users/${this.userId}/Items?AlbumArtistIds=${artistId}&includeItemTypes=MusicAlbum&Recursive=true&Fields=Path,MediaSources`;
+    this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → fetching albums endpoint=${albumsEndpoint}`);
     const albumsData = await this.request<{ Items: JellyfinAlbumItem[] }>(albumsEndpoint);
 
     const albumIds = (albumsData.Items ?? []).map((a) => a.Id);
-    if (albumIds.length === 0) return [];
+    if (albumIds.length === 0) {
+      this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → 0 albums, took ${Date.now() - startTime}ms`);
+      return [];
+    }
+
+    this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → found ${albumIds.length} albums: ${albumIds.slice(0, 5).join(',')}...`);
 
     // Batch fetch tracks for all albums in one call using albumIds endpoint
     const albumIdsParam = albumIds.slice(0, 50).join(',');
+    this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → fetching tracks batch (albumIdsParam=${albumIdsParam.slice(0, 100)}...)`);
     const tracksData = await this.request<{
       Items: JellyfinTrackItem[];
       TotalRecordCount?: number;
@@ -233,10 +243,13 @@ class SyncApiImpl implements SyncApi {
       `/Users/${this.userId}/Items?albumIds=${albumIdsParam}&includeItemTypes=Audio&Recursive=true&Fields=Path,MediaSources,AlbumId,Genres,Artists,AlbumArtist,Album&Limit=1000`,
     );
 
+    this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → first page: ${tracksData.Items?.length ?? 0} tracks, totalRecordCount=${tracksData.TotalRecordCount ?? 'N/A'}`);
+
     // Handle pagination if there are more tracks than returned
     let allTracks = tracksData.Items ?? [];
     if (tracksData.TotalRecordCount && tracksData.TotalRecordCount > allTracks.length) {
       const pages = Math.ceil(tracksData.TotalRecordCount / 1000);
+      this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → paginating ${pages - 1} extra pages`);
       const pageFetches = [];
       for (let page = 1; page < pages; page++) {
         pageFetches.push(
@@ -249,7 +262,11 @@ class SyncApiImpl implements SyncApi {
       for (const page of extraPages) {
         allTracks = allTracks.concat(page.Items ?? []);
       }
+      this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → pagination complete: total tracks=${allTracks.length}`);
     }
+
+    const elapsed = Date.now() - startTime;
+    this.logger?.debug(`[BATCH] getArtistTracks ${artistId} → DONE ${allTracks.length} tracks in ${elapsed}ms`);
 
     // Build album metadata map from the first response (albums endpoint has Name/ProductionYear)
     const albumMeta = new Map<string, { Name?: string; ProductionYear?: number }>();
@@ -266,6 +283,9 @@ class SyncApiImpl implements SyncApi {
   }
 
   async getAlbumTracks(albumId: string): Promise<TrackInfo[]> {
+    const startTime = Date.now();
+    this.logger?.debug(`[BATCH] getAlbumTracks START albumId=${albumId}`);
+
     const [albumData, tracksData] = await Promise.all([
       this.request<{ Name?: string; ProductionYear?: number }>(
         `/Users/${this.userId}/Items/${albumId}`,
@@ -275,34 +295,47 @@ class SyncApiImpl implements SyncApi {
       ),
     ]);
 
-    this.logger?.debug(
-      `getAlbumTracks albumId=${albumId} → albumName="${albumData.Name}" tracks=${tracksData.Items?.length ?? 0}`,
-    );
-
-    return (tracksData.Items ?? [])
+    const tracks = (tracksData.Items ?? [])
       .filter((item) => item.MediaSources?.[0]?.Path)
       .map((item) => this.trackItemToInfo(item, albumData.ProductionYear, albumData.Name));
+
+    this.logger?.debug(
+      `[BATCH] getAlbumTracks ${albumId} → albumName="${albumData.Name}" tracks=${tracks.length} in ${Date.now() - startTime}ms`,
+    );
+
+    return tracks;
   }
 
   async getPlaylistTracks(playlistId: string): Promise<TrackInfo[]> {
+    const startTime = Date.now();
+    this.logger?.debug(`[BATCH] getPlaylistTracks START playlistId=${playlistId}`);
+
     const data = await this.request<{ Items: JellyfinTrackItem[] }>(
       `/Playlists/${playlistId}/Items?UserId=${this.userId}&Fields=Path,MediaSources,AlbumId,ParentId,Genres,Artists,AlbumArtist,Album`,
     );
 
-    return (data.Items ?? [])
+    const tracks = (data.Items ?? [])
       .filter((item) => item.MediaSources?.[0]?.Path)
       .map((item) => this.trackItemToInfo(item));
+
+    this.logger?.debug(`[BATCH] getPlaylistTracks ${playlistId} → ${tracks.length} tracks in ${Date.now() - startTime}ms`);
+
+    return tracks;
   }
 
   async getTracksForItems(
     itemIds: string[],
     itemTypes: Map<string, ItemType>,
   ): Promise<{ tracks: TrackInfo[]; errors: string[] }> {
+    const startTime = Date.now();
+    this.logger?.debug(`[BATCH] getTracksForItems START items=${itemIds.length} (${Array.from(itemTypes.entries()).slice(0, 3).map(([id, t]) => `${t}:${id}`).join(',')}${itemIds.length > 3 ? '...' : ''})`);
+
     // Fetch all items in parallel, capped at API_CONCURRENCY to avoid server flooding
     const results = await Promise.allSettled(
       itemIds.map((itemId) =>
         this.limiter.run(async () => {
           const itemType = itemTypes.get(itemId);
+          this.logger?.debug(`[BATCH] getTracksForItems → fetching ${itemType} ${itemId}`);
           if (!itemType) throw new Error(`Unknown item type for ID: ${itemId}`);
           switch (itemType) {
             case 'artist':
@@ -320,23 +353,30 @@ class SyncApiImpl implements SyncApi {
 
     const tracks: TrackInfo[] = [];
     const errors: string[] = [];
+    let fulfilled = 0;
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const itemId = itemIds[i];
       const itemType = itemTypes.get(itemId) ?? 'unknown';
       if (result.status === 'fulfilled') {
+        fulfilled++;
         // Tag every track with its parent item ID so callers can group by parent
         const taggedTracks = result.value.map((t) => ({ ...t, parentItemId: itemId }));
+        this.logger?.debug(`[BATCH] getTracksForItems ${itemType} ${itemId} → ${result.value.length} tracks`);
         tracks.push(...taggedTracks);
       } else {
         const err = result.reason;
-        errors.push(
+        const msg =
           err instanceof ApiError
             ? `Failed to fetch ${itemType} ${itemId}: ${err.message}`
-            : `Error processing ${itemType} ${itemId}`,
-        );
+            : `Error processing ${itemType} ${itemId}`;
+        this.logger?.debug(`[BATCH] getTracksForItems ${itemType} ${itemId} → ERROR: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(msg);
       }
     }
+
+    this.logger?.debug(`[BATCH] getTracksForItems DONE → ${tracks.length} total tracks, ${errors.length} errors in ${Date.now() - startTime}ms`);
+
     return { tracks, errors };
   }
 
@@ -520,10 +560,6 @@ class SyncApiImpl implements SyncApi {
   ): TrackInfo {
     const source = item.MediaSources?.[0];
     const resolvedAlbum = item.Album ?? item.AlbumName ?? albumName;
-
-    this.logger?.debug(
-      `trackItemToInfo track="${item.Name}" → item.Album="${item.Album ?? '(empty)'}" item.AlbumName="${item.AlbumName ?? '(empty)'}" albumName="${albumName ?? '(empty)'}" resolved="${resolvedAlbum}"`,
-    );
 
     // Parse RunTimeTicks: 1 tick = 100 nanoseconds = 10,000,000 ticks per second
     const durationSeconds = item.RunTimeTicks

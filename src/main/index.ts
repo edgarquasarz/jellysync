@@ -890,7 +890,17 @@ ipcMain.handle(
         destinationPath,
         options: diffOptions,
       } = options;
-      const syncCore = createSyncCore({ serverUrl: serverUrl.replace(/\/$/, ''), apiKey, userId });
+      const syncCore = createSyncCore(
+        { serverUrl: serverUrl.replace(/\/$/, ''), apiKey, userId },
+        {
+          logger: {
+            info: (msg) => log.info('[batch]', msg),
+            warn: (msg) => log.warn('[batch]', msg),
+            error: (msg) => log.error('[batch]', msg),
+            debug: (msg) => log.debug('[batch]', msg),
+          },
+        },
+      );
       const itemTypesMap = new Map(Object.entries(itemTypes));
       const result = await syncCore.analyzeDiff(
         itemIds,
@@ -978,7 +988,17 @@ ipcMain.handle(
   ) => {
     try {
       const { serverUrl, apiKey, userId, itemId, itemType } = options;
-      const api = createApiClient({ baseUrl: serverUrl.replace(/\/$/, ''), apiKey, userId });
+      const api = createApiClient({
+        baseUrl: serverUrl.replace(/\/$/, ''),
+        apiKey,
+        userId,
+        logger: {
+          info: (msg) => log.info('[batch]', msg),
+          warn: (msg) => log.warn('[batch]', msg),
+          error: (msg) => log.error('[batch]', msg),
+          debug: (msg) => log.debug('[batch]', msg),
+        },
+      });
       const itemTypesMap = new Map([[itemId, itemType]]);
       const { tracks, errors } = await api.getTracksForItems([itemId], itemTypesMap);
       return { tracks, errors };
@@ -1004,7 +1024,17 @@ ipcMain.handle(
   ) => {
     try {
       const { serverUrl, apiKey, userId, itemIds, itemTypes } = options;
-      const api = createApiClient({ baseUrl: serverUrl.replace(/\/$/, ''), apiKey, userId });
+      const api = createApiClient({
+        baseUrl: serverUrl.replace(/\/$/, ''),
+        apiKey,
+        userId,
+        logger: {
+          info: (msg) => log.info('[batch]', msg),
+          warn: (msg) => log.warn('[batch]', msg),
+          error: (msg) => log.error('[batch]', msg),
+          debug: (msg) => log.debug('[batch]', msg),
+        },
+      });
       const itemTypesMap = new Map(Object.entries(itemTypes)) as Map<
         string,
         'artist' | 'album' | 'playlist'
