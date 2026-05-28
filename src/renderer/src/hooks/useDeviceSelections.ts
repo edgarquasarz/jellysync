@@ -148,10 +148,9 @@ export function useDeviceSelections() {
         });
       });
 
-      // Load device synced tracks from DB (for size calculations)
-      void registry.loadDeviceSyncedTracks(path).then(() => {
-        scheduleSyncedMusicRecalc(path);
-      });
+      // Load device synced tracks from DB — must complete before uncached check to avoid
+      // re-fetching already-synced items on fresh app start (race condition ORAIN-0483)
+      await registry.loadDeviceSyncedTracks(path);
 
       // Populate tick estimates from library data (already loaded, no HTTP calls needed).
       // Item ticks are stored in appTypes and used by calculateSize for instant estimation.
@@ -287,16 +286,15 @@ export function useDeviceSelections() {
 
   // Refresh synced items for a device after sync completes
   const updateSyncedItems = useCallback(
-    (path: string, items: SyncedItemInfo[]) => {
+    async (path: string, items: SyncedItemInfo[]) => {
       setDeviceStates((prev) => {
         const state = prev.get(path) ?? EMPTY;
         const syncedItems = new Set(items.map((i) => i.id));
         return new Map(prev).set(path, { ...state, syncedItems, syncedItemsInfo: items });
       });
       // Force-reload device tracks from DB since sync changed them
-      void registry.loadDeviceSyncedTracks(path, true).then(() => {
-        scheduleSyncedMusicRecalc(path);
-      });
+      await registry.loadDeviceSyncedTracks(path, true);
+      scheduleSyncedMusicRecalc(path);
     },
     [registry, scheduleSyncedMusicRecalc],
   );
