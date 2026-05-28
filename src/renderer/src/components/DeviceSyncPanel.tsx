@@ -59,6 +59,7 @@ interface DeviceSyncPanelProps {
   previewData: PreviewData | null;
   syncedMusicBytes?: number;
   estimatedSizeBytes?: number | null;
+  isTickEstimate?: boolean;
   isLoadingSize?: boolean;
   coverArtMode: CoverArtMode;
   lyricsMode: LyricsMode;
@@ -109,6 +110,7 @@ export function DeviceSyncPanel({
   previewData,
   syncedMusicBytes,
   estimatedSizeBytes,
+  isTickEstimate,
   isLoadingSize,
   coverArtMode,
   lyricsMode,
@@ -222,6 +224,9 @@ export function DeviceSyncPanel({
     isOverCapacity || freeBarPct < 5 ? 'bg-error' : freeBarPct < 10 ? 'bg-warning' : 'bg-success';
   const isAudioLoading = !!isLoadingSize;
   const audioDisplayBytes = estimatedSizeBytes ?? syncedMusicBytes;
+  // Show "~" prefix when size is from tick-based estimation (not real track sizes)
+  const showTildePrefix =
+    isTickEstimate && !isAudioLoading && typeof audioDisplayBytes === 'number';
   const Icon = isUsbDevice ? HardDrive : Folder;
   const isFat32 = filesystemType === 'fat32';
   const fsLabel: Record<string, string> = {
@@ -344,12 +349,12 @@ export function DeviceSyncPanel({
                   />
                   <span className={isAudioLoading ? 'opacity-40' : ''}>
                     {typeof audioDisplayBytes === 'number'
-                      ? `${convertToMp3 ? '~' : ''}${formatBytes(audioDisplayBytes as number)}`
+                      ? `${showTildePrefix ? '~' : ''}${formatBytes(audioDisplayBytes as number)}`
                       : isAudioLoading
                         ? '—'
                         : '0 B'}{' '}
                     Audio
-                    {convertToMp3 && typeof audioDisplayBytes === 'number' ? ' (estimated)' : ''}
+                    {showTildePrefix && !convertToMp3 ? ' (estimated)' : ''}
                   </span>
                 </span>
                 <span className="flex items-center gap-1">

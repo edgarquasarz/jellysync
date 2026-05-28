@@ -160,10 +160,34 @@ const api = {
       album?: string;
       artists?: string[];
       albumArtist?: string;
+      parentItemId?: string;
       durationSeconds?: number;
     }>;
     errors: string[];
   }> => ipcRenderer.invoke('sync:getTracksForItem', options),
+
+  getTracksForItems: (options: {
+    serverUrl: string;
+    apiKey: string;
+    userId: string;
+    itemIds: string[];
+    itemTypes: Record<string, 'artist' | 'album' | 'playlist'>;
+  }): Promise<{
+    tracks: Array<{
+      id: string;
+      name: string;
+      path: string;
+      size?: number;
+      format: string;
+      bitrate?: number;
+      album?: string;
+      artists?: string[];
+      albumArtist?: string;
+      parentItemId?: string;
+      durationSeconds?: number;
+    }>;
+    errors: string[];
+  }> => ipcRenderer.invoke('sync:getTracksForItems', options),
 
   getDeviceSyncInfo: (
     mountPoint: string,

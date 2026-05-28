@@ -217,14 +217,52 @@ class SyncApiImpl implements SyncApi {
   }
 
   async getArtistTracks(artistId: string): Promise<TrackInfo[]> {
-    // First get albums, then fetch all album tracks in parallel (avoids N+1 serial calls)
+    // First get albums for this artist, then batch-fetch tracks for all albums at once
     const albumsEndpoint = `/Users/${this.userId}/Items?AlbumArtistIds=${artistId}&includeItemTypes=MusicAlbum&Recursive=true&Fields=Path,MediaSources`;
     const albumsData = await this.request<{ Items: JellyfinAlbumItem[] }>(albumsEndpoint);
 
-    const albumTrackArrays = await Promise.all(
-      (albumsData.Items ?? []).map((album) => this.getAlbumTracks(album.Id)),
+    const albumIds = (albumsData.Items ?? []).map((a) => a.Id);
+    if (albumIds.length === 0) return [];
+
+    // Batch fetch tracks for all albums in one call using albumIds endpoint
+    const albumIdsParam = albumIds.slice(0, 50).join(',');
+    const tracksData = await this.request<{
+      Items: JellyfinTrackItem[];
+      TotalRecordCount?: number;
+    }>(
+      `/Users/${this.userId}/Items?albumIds=${albumIdsParam}&includeItemTypes=Audio&Recursive=true&Fields=Path,MediaSources,AlbumId,Genres,Artists,AlbumArtist,Album&Limit=1000`,
     );
-    return albumTrackArrays.flat();
+
+    // Handle pagination if there are more tracks than returned
+    let allTracks = tracksData.Items ?? [];
+    if (tracksData.TotalRecordCount && tracksData.TotalRecordCount > allTracks.length) {
+      const pages = Math.ceil(tracksData.TotalRecordCount / 1000);
+      const pageFetches = [];
+      for (let page = 1; page < pages; page++) {
+        pageFetches.push(
+          this.request<{ Items: JellyfinTrackItem[] }>(
+            `/Users/${this.userId}/Items?albumIds=${albumIdsParam}&includeItemTypes=Audio&Recursive=true&Fields=Path,MediaSources,AlbumId,Genres,Artists,AlbumArtist,Album&Limit=1000&StartIndex=${page * 1000}`,
+          ),
+        );
+      }
+      const extraPages = await Promise.all(pageFetches);
+      for (const page of extraPages) {
+        allTracks = allTracks.concat(page.Items ?? []);
+      }
+    }
+
+    // Build album metadata map from the first response (albums endpoint has Name/ProductionYear)
+    const albumMeta = new Map<string, { Name?: string; ProductionYear?: number }>();
+    for (const album of albumsData.Items ?? []) {
+      albumMeta.set(album.Id, { Name: album.Name, ProductionYear: album.ProductionYear });
+    }
+
+    return allTracks
+      .filter((item) => item.MediaSources?.[0]?.Path)
+      .map((item) => {
+        const meta = albumMeta.get(item.AlbumId ?? '');
+        return this.trackItemToInfo(item, meta?.ProductionYear, meta?.Name);
+      });
   }
 
   async getAlbumTracks(albumId: string): Promise<TrackInfo[]> {

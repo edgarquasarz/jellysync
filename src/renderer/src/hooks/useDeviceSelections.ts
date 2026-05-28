@@ -25,30 +25,6 @@ const EMPTY: DeviceState = {
   isActivatingDevice: false,
 };
 
-/**
- * Maximum number of concurrent Jellyfin API requests when fetching track data.
- * Prevents server saturation when many items are selected at once (e.g. select-all).
- */
-const FETCH_CONCURRENCY = 5;
-
-/**
- * Runs an array of async tasks with a fixed concurrency limit.
- * Unlike Promise.all, at most `concurrency` tasks run simultaneously.
- */
-async function runWithConcurrency<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number,
-): Promise<void> {
-  let index = 0;
-  async function worker() {
-    while (index < tasks.length) {
-      const i = index++;
-      await tasks[i]();
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
-}
-
 /** Build a cache key from path+options to detect unchanged re-activations */
 function buildActivationKey(
   path: string,
@@ -80,18 +56,20 @@ export function useDeviceSelections() {
   const activatingRef = useRef<Set<string>>(new Set());
   // Store last activation options so revalidateDevice can reuse them
   const lastOptionsRef = useRef<Parameters<typeof activateDevice>[1] | null>(null);
+  // Track previous convertToMp3 value to detect true→false transitions (launch background fetch)
+  const prevConvertToMp3Ref = useRef<boolean | null>(null);
 
   const activeState = activeDevicePath ? (deviceStates.get(activeDevicePath) ?? EMPTY) : EMPTY;
 
   // Compute estimated size from registry (derived, not stored)
-  // registryVersion is bumped when ensureItemTracks resolves to trigger re-computation
-  const estimatedSizeBytes = useMemo(() => {
+  // Returns { total, isTickEstimate } to avoid storing isTickEstimate separately
+  const estimatedSizeResult = useMemo(() => {
     void registryVersion; // reactive dep: re-runs when tracks finish loading
-    if (!activeDevicePath) return null;
+    if (!activeDevicePath) return { total: null, isTickEstimate: false };
     const state = deviceStates.get(activeDevicePath);
-    if (!state) return null;
+    if (!state) return { total: null, isTickEstimate: false };
     const lastOpts = lastOptionsRef.current;
-    if (!lastOpts) return null;
+    if (!lastOpts) return { total: null, isTickEstimate: false };
     return registry.calculateSize(
       state.selectedItems,
       activeDevicePath,
@@ -99,6 +77,8 @@ export function useDeviceSelections() {
       lastOpts.bitrate,
     );
   }, [activeDevicePath, deviceStates, registry, registryVersion]);
+  const estimatedSizeBytes = estimatedSizeResult.total;
+  const isTickEstimate = estimatedSizeResult.isTickEstimate;
 
   // Schedule recalc of syncedMusicBytes after device load
   const scheduleSyncedMusicRecalc = useCallback(
@@ -131,10 +111,14 @@ export function useDeviceSelections() {
         convertToMp3: boolean;
         bitrate: '128k' | '192k' | '320k';
         coverArtMode?: 'off' | 'embed' | 'companion';
+        /** RunTimeTicks per item id — available from library fetch, no extra HTTP calls */
+        itemTicks?: Record<string, number>;
       },
     ) => {
       // Store options so revalidateDevice can reuse them
       lastOptionsRef.current = options ?? null;
+      // Sync convertToMp3 ref so true→false transition is detected correctly
+      prevConvertToMp3Ref.current = options?.convertToMp3 ?? null;
 
       // Skip expensive re-analysis when re-activating the same path with identical options
       const key = buildActivationKey(path, options);
@@ -169,162 +153,134 @@ export function useDeviceSelections() {
         scheduleSyncedMusicRecalc(path);
       });
 
-      // Pre-check synchronously (before any await) which items need track fetching.
-      // This starts the loading indicator immediately, not after the getSyncedItems/analyzeDiff awaits.
-      const eagerToFetch = options
-        ? options.itemIds.filter(
-            (id) => options.itemTypes[id] && registry.getItemTrackIds(id).length === 0,
-          )
-        : [];
-      let sizeLoadingIncremented = false;
-      if (eagerToFetch.length > 0) {
-        setSizeLoadingCount((c) => c + 1);
-        sizeLoadingIncremented = true;
+      // Populate tick estimates from library data (already loaded, no HTTP calls needed).
+      // Item ticks are stored in appTypes and used by calculateSize for instant estimation.
+      if (options?.itemTicks) {
+        const ticksArray: Array<{
+          id: string;
+          ticks: number;
+          type: 'artist' | 'album' | 'playlist';
+        }> = Object.entries(options.itemTicks).map(([id, ticks]) => ({
+          id,
+          ticks,
+          type: (options.itemTypes[id] ?? 'album') as 'artist' | 'album' | 'playlist',
+        }));
+        registry.setItemTicks(ticksArray);
       }
 
-      try {
-        // Step 1: get already-synced items from local DB (no Jellyfin calls)
-        const items = await window.api.getSyncedItems(path);
-        const syncedIds = new Set(items.map((i: { id: string }) => i.id));
+      // Get already-synced items from local DB (no Jellyfin calls)
+      const items = await window.api.getSyncedItems(path);
+      const syncedIds = new Set(items.map((i: { id: string }) => i.id));
 
-        // Step 2: only call analyzeDiff for items already on device (Bug A fix)
-        // In fresh install syncedIds is empty → 0 Jellyfin calls
-        const idsToAnalyze = options?.itemIds.filter((id) => syncedIds.has(id)) ?? [];
+      // Only call analyzeDiff for items already on device (Bug A fix).
+      // In fresh install syncedIds is empty → 0 Jellyfin calls.
+      const idsToAnalyze = options?.itemIds.filter((id) => syncedIds.has(id)) ?? [];
 
-        const outOfSyncResult = await (idsToAnalyze.length > 0 && options
-          ? window.api
-              .analyzeDiff({
-                serverUrl: options.serverUrl,
-                apiKey: options.apiKey,
-                userId: options.userId,
-                itemIds: idsToAnalyze,
-                itemTypes: options.itemTypes,
-                destinationPath: path,
-                options: {
-                  convertToMp3: options.convertToMp3,
-                  bitrate: options.bitrate,
-                  coverArtMode: options.coverArtMode ?? 'embed',
-                },
-              })
-              .then(
-                (result: {
-                  success: boolean;
-                  items: Array<{
+      const outOfSyncResult = await (idsToAnalyze.length > 0 && options
+        ? window.api
+            .analyzeDiff({
+              serverUrl: options.serverUrl,
+              apiKey: options.apiKey,
+              userId: options.userId,
+              itemIds: idsToAnalyze,
+              itemTypes: options.itemTypes,
+              destinationPath: path,
+              options: {
+                convertToMp3: options.convertToMp3,
+                bitrate: options.bitrate,
+                coverArtMode: options.coverArtMode ?? 'embed',
+              },
+            })
+            .then(
+              (result: {
+                success: boolean;
+                items: Array<{
+                  itemId: string;
+                  summary: { metadataChanged: number; pathChanged: number };
+                  subItems?: Array<{
                     itemId: string;
-                    summary: { metadataChanged: number; pathChanged: number };
-                    subItems?: Array<{
-                      itemId: string;
-                      summary: { newTracks: number; metadataChanged: number; pathChanged: number };
-                    }>;
+                    summary: { newTracks: number; metadataChanged: number; pathChanged: number };
                   }>;
-                }) => {
-                  if (!result.success) return null;
-                  const outOfSyncIds = new Set<string>();
-                  for (const item of result.items) {
-                    if (item.summary.metadataChanged > 0 || item.summary.pathChanged > 0) {
-                      outOfSyncIds.add(item.itemId);
-                    }
-                    // Also mark specific sub-items (albums within artist) as out-of-sync
-                    if (item.subItems) {
-                      for (const sub of item.subItems) {
-                        if (
-                          sub.summary.metadataChanged > 0 ||
-                          sub.summary.pathChanged > 0 ||
-                          sub.summary.newTracks > 0
-                        ) {
-                          outOfSyncIds.add(sub.itemId);
-                        }
+                }>;
+              }) => {
+                if (!result.success) return null;
+                const outOfSyncIds = new Set<string>();
+                for (const item of result.items) {
+                  if (item.summary.metadataChanged > 0 || item.summary.pathChanged > 0) {
+                    outOfSyncIds.add(item.itemId);
+                  }
+                  if (item.subItems) {
+                    for (const sub of item.subItems) {
+                      if (
+                        sub.summary.metadataChanged > 0 ||
+                        sub.summary.pathChanged > 0 ||
+                        sub.summary.newTracks > 0
+                      ) {
+                        outOfSyncIds.add(sub.itemId);
                       }
                     }
                   }
-                  return outOfSyncIds;
-                },
-              )
-              .catch(() => null)
-          : Promise.resolve(null));
+                }
+                return outOfSyncIds;
+              },
+            )
+            .catch(() => null)
+        : Promise.resolve(null));
 
-        const syncedSet = new Set(items.map((i: { id: string }) => i.id));
-        const resolvedOutOfSync = outOfSyncResult ?? new Set<string>();
-        setDeviceStates((prev) => {
-          const existing = prev.get(path);
-          // Only init selectedItems if this is the first load
-          const selectedItems =
-            existing?.syncedItems.size === 0 && existing.selectedItems.size === 0
-              ? new Set(syncedSet)
-              : (existing?.selectedItems ?? new Set(syncedSet));
-          return new Map(prev).set(path, {
-            selectedItems,
-            syncedItems: syncedSet,
-            syncedItemsInfo: items,
-            outOfSyncItems: resolvedOutOfSync,
-            // Preserve existing syncedMusicBytes — scheduleSyncedMusicRecalc will update it
-            syncedMusicBytes: existing?.syncedMusicBytes ?? null,
-            isActivatingDevice: false,
-          });
+      const syncedSet = new Set(items.map((i: { id: string }) => i.id));
+      const resolvedOutOfSync = outOfSyncResult ?? new Set<string>();
+      setDeviceStates((prev) => {
+        const existing = prev.get(path);
+        // Only init selectedItems if this is the first load
+        const selectedItems =
+          existing?.syncedItems.size === 0 && existing.selectedItems.size === 0
+            ? new Set(syncedSet)
+            : (existing?.selectedItems ?? new Set(syncedSet));
+        return new Map(prev).set(path, {
+          selectedItems,
+          syncedItems: syncedSet,
+          syncedItemsInfo: items,
+          outOfSyncItems: resolvedOutOfSync,
+          syncedMusicBytes: existing?.syncedMusicBytes ?? null,
+          isActivatingDevice: false,
         });
-        // Eagerly fetch tracks for synced items not yet in registry
-        // (handles v0.2.x→v0.3.0 upgrade: synced_tracks was empty, so these auto-selected
-        //  items need their track data fetched for size calculations and sync preview)
-        if (options) {
-          const syncedToFetch = items.filter(
-            (item: SyncedItemInfo) => registry.getItemTrackIds(item.id).length === 0,
-          );
-          if (syncedToFetch.length > 0) {
-            setSizeLoadingCount((c) => c + 1);
-            void runWithConcurrency(
-              syncedToFetch.map((item: SyncedItemInfo) => () =>
-                registry.ensureItemTracks(item.id, item.type, {
-                  serverUrl: options.serverUrl,
-                  apiKey: options.apiKey,
-                  userId: options.userId,
-                }),
-              ),
-              FETCH_CONCURRENCY,
-            )
-              .then(() => bumpRegistryVersion())
-              .finally(() => setSizeLoadingCount((c) => c - 1));
-          }
+      });
+
+      // Recompute syncedMusicBytes after activation (re-activation may have new tracks)
+      scheduleSyncedMusicRecalc(path);
+
+      // Launch background batch fetch for uncached items when convertToMp3=false.
+      // When convertToMp3=true, estimation is always tick-based (no fetch needed).
+      // Estimation is already showing ~X GB from ticks immediately.
+      if (options && !options.convertToMp3) {
+        const uncachedIds = options.itemIds.filter(
+          (id) => options.itemTypes[id] && registry.getItemTrackIds(id).length === 0,
+        );
+        if (uncachedIds.length > 0) {
+          // Mark loading state — button stays disabled while background fetch runs
+          setSizeLoadingCount((c) => c + 1);
+          void registry
+            .fetchTracksForItems(uncachedIds, path, {
+              serverUrl: options.serverUrl,
+              apiKey: options.apiKey,
+              userId: options.userId,
+            })
+            .then((success) => {
+              if (success) {
+                bumpRegistryVersion();
+              }
+              // If fetch failed, button will be enabled with tick estimate (prefix ~)
+            })
+            .finally(() => setSizeLoadingCount((c) => c - 1));
         }
-        // Recompute syncedMusicBytes after activation (re-activation may have new tracks)
-        scheduleSyncedMusicRecalc(path);
-        // Eagerly fetch tracks for any selected item not yet in registry
-        // (covers items newly added in library view whose type wasn't in lastOpts at toggle time)
-        if (sizeLoadingIncremented) {
-          // Re-check: concurrent calls may have populated some items during the awaits above
-          const stillToFetch = eagerToFetch.filter(
-            (id) => registry.getItemTrackIds(id).length === 0,
-          );
-          sizeLoadingIncremented = false; // prevent finally from also decrementing
-          if (stillToFetch.length > 0) {
-            void runWithConcurrency(
-              stillToFetch.map((id) => () =>
-                registry.ensureItemTracks(id, options!.itemTypes[id], {
-                  serverUrl: options!.serverUrl,
-                  apiKey: options!.apiKey,
-                  userId: options!.userId,
-                }),
-              ),
-              FETCH_CONCURRENCY,
-            )
-              .then(() => bumpRegistryVersion())
-              .finally(() => setSizeLoadingCount((c) => c - 1));
-          } else {
-            setSizeLoadingCount((c) => c - 1); // nothing left to fetch, release immediately
-          }
-        }
-      } catch {
-        /* ignore */
-      } finally {
-        if (sizeLoadingIncremented) {
-          setSizeLoadingCount((c) => c - 1); // cleanup on error path
-        }
-        activatingRef.current.delete(path);
-        setDeviceStates((prev) => {
-          const state = prev.get(path);
-          if (!state) return prev;
-          return new Map(prev).set(path, { ...state, isActivatingDevice: false });
-        });
       }
+
+      activatingRef.current.delete(path);
+      setDeviceStates((prev) => {
+        const state = prev.get(path);
+        if (!state) return prev;
+        return new Map(prev).set(path, { ...state, isActivatingDevice: false });
+      });
     },
     [registry, scheduleSyncedMusicRecalc],
   );
@@ -368,12 +324,6 @@ export function useDeviceSelections() {
   const toggleItem = useCallback(
     (id: string) => {
       if (!activeDevicePath) return;
-      // Note: do NOT call invalidateCache() here — it nulls lastActivationKeyRef and causes
-      // skeleton on every library→sync navigation. The activation key captures selection state
-      // naturally; a changed selection produces a different key at handleDestinationClick time.
-
-      const lastOpts = lastOptionsRef.current;
-      const itemType = lastOpts?.itemTypes[id];
 
       setDeviceStates((prev) => {
         const state = prev.get(activeDevicePath) ?? EMPTY;
@@ -383,26 +333,16 @@ export function useDeviceSelections() {
         return new Map(prev).set(activeDevicePath, { ...state, selectedItems: next });
       });
 
-      // Fetch tracks for this item if needed (for size calculation)
-      if (lastOpts && itemType) {
-        setSizeLoadingCount((c) => c + 1);
-        void registry
-          .ensureItemTracks(id, itemType, {
-            serverUrl: lastOpts.serverUrl,
-            apiKey: lastOpts.apiKey,
-            userId: lastOpts.userId,
-          })
-          .then(() => bumpRegistryVersion())
-          .finally(() => setSizeLoadingCount((c) => c - 1));
-      }
+      // Estimation is now instant from RunTimeTicks — no ensureItemTracks needed.
+      // Background fetch will refine if convertToMp3=false.
+      bumpRegistryVersion();
     },
-    [activeDevicePath, registry],
+    [activeDevicePath],
   );
 
   const selectItems = useCallback(
     (items: Array<{ Id: string }>) => {
       if (!activeDevicePath) return;
-      const lastOpts = lastOptionsRef.current;
 
       setDeviceStates((prev) => {
         const state = prev.get(activeDevicePath) ?? EMPTY;
@@ -411,29 +351,11 @@ export function useDeviceSelections() {
         return new Map(prev).set(activeDevicePath, { ...state, selectedItems: next });
       });
 
-      // Fetch tracks for these items if needed (for size calculation).
-      // Use concurrency limit to avoid saturating Jellyfin with simultaneous requests
-      // when many items are selected at once (e.g. select-all with 5000+ artists).
-      if (lastOpts) {
-        const toFetch = items.filter((item) => lastOpts.itemTypes[item.Id]);
-        if (toFetch.length > 0) {
-          setSizeLoadingCount((c) => c + 1);
-          void runWithConcurrency(
-            toFetch.map((item) => () =>
-              registry.ensureItemTracks(item.Id, lastOpts.itemTypes[item.Id], {
-                serverUrl: lastOpts.serverUrl,
-                apiKey: lastOpts.apiKey,
-                userId: lastOpts.userId,
-              }),
-            ),
-            FETCH_CONCURRENCY,
-          )
-            .then(() => bumpRegistryVersion())
-            .finally(() => setSizeLoadingCount((c) => c - 1));
-        }
-      }
+      // Estimation is now instant from RunTimeTicks — no ensureItemTracks needed.
+      // Background fetch will refine if convertToMp3=false.
+      bumpRegistryVersion();
     },
-    [activeDevicePath, registry],
+    [activeDevicePath],
   );
 
   const clearSelection = useCallback(() => {
@@ -495,6 +417,7 @@ export function useDeviceSelections() {
     syncedItemsInfo: activeState.syncedItemsInfo,
     outOfSyncItems: activeState.outOfSyncItems,
     estimatedSizeBytes,
+    isTickEstimate,
     isLoadingSize: sizeLoadingCount > 0,
     syncedMusicBytes: activeState.syncedMusicBytes,
     isActivatingDevice: activeState.isActivatingDevice,
@@ -522,8 +445,36 @@ export function useDeviceSelections() {
           };
         }
         bumpRegistryVersion();
+
+        // AC: when convertToMp3 changes from true→false, launch background batch fetch
+        // for uncached items and show ~X GB immediately from ticks.
+        if (
+          prevConvertToMp3Ref.current === true &&
+          convertToMp3 === false &&
+          activeDevicePath &&
+          lastOptionsRef.current
+        ) {
+          const opts = lastOptionsRef.current;
+          const uncachedIds = opts.itemIds.filter(
+            (id) => opts.itemTypes[id] && registry.getItemTrackIds(id).length === 0,
+          );
+          if (uncachedIds.length > 0) {
+            setSizeLoadingCount((c) => c + 1);
+            void registry
+              .fetchTracksForItems(uncachedIds, activeDevicePath, {
+                serverUrl: opts.serverUrl,
+                apiKey: opts.apiKey,
+                userId: opts.userId,
+              })
+              .then((success) => {
+                if (success) bumpRegistryVersion();
+              })
+              .finally(() => setSizeLoadingCount((c) => c - 1));
+          }
+        }
+        prevConvertToMp3Ref.current = convertToMp3;
       },
-      [],
+      [activeDevicePath, registry],
     ),
   };
 }

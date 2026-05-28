@@ -6,7 +6,10 @@ import { renderHook, act } from '@testing-library/react';
 const mockRegistry = {
   loadDeviceSyncedTracks: vi.fn().mockResolvedValue(undefined),
   ensureItemTracks: vi.fn().mockResolvedValue(undefined),
-  calculateSize: vi.fn().mockReturnValue(null),
+  setItemTicks: vi.fn(),
+  setItemTypes: vi.fn(),
+  fetchTracksForItems: vi.fn().mockResolvedValue(true),
+  calculateSize: vi.fn().mockReturnValue({ total: null, isTickEstimate: false }),
   countNewTracks: vi.fn().mockReturnValue(0),
   getSyncedMusicBytes: vi.fn().mockReturnValue(0),
   invalidateAll: vi.fn(),
@@ -14,23 +17,15 @@ const mockRegistry = {
   invalidateDevice: vi.fn(),
   isDeviceLoading: vi.fn().mockReturnValue(false),
   getItemTrackIds: vi.fn().mockReturnValue([]),
+  isBackgroundFetchingDevice: vi.fn().mockReturnValue(false),
+  setTickEstimate: vi.fn(),
+  isTickEstimateActive: vi.fn().mockReturnValue(false),
 };
 
 vi.mock('./useTrackRegistry', () => ({
   getTrackRegistry: () => mockRegistry,
   createTrackRegistry: () => mockRegistry,
 }));
-
-const mockApi = {
-  getSyncedItems: vi.fn().mockResolvedValue([]),
-  getSyncedTracks: vi.fn().mockResolvedValue([]),
-  getTracksForItem: vi.fn().mockResolvedValue({ tracks: [], errors: [] }),
-  analyzeDiff: vi.fn().mockResolvedValue({
-    success: true,
-    items: [],
-    totals: { newTracks: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: 0 },
-  }),
-};
 
 const defaultOptions = {
   serverUrl: 'https://jellyfin.test',
@@ -47,20 +42,38 @@ const defaultOptions = {
   coverArtMode: 'embed' as const,
 };
 
+const mockApi = {
+  getSyncedItems: vi.fn().mockResolvedValue([]),
+  getSyncedTracks: vi.fn().mockResolvedValue([]),
+  getTracksForItem: vi.fn().mockResolvedValue({ tracks: [], errors: [] }),
+  getTracksForItems: vi.fn().mockResolvedValue({ tracks: [], errors: [] }),
+  analyzeDiff: vi.fn().mockResolvedValue({
+    success: true,
+    items: [],
+    totals: { newTracks: 0, metadataChanged: 0, removed: 0, pathChanged: 0, unchanged: 0 },
+  }),
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   Object.defineProperty(window, 'api', { value: mockApi, writable: true });
   // Reset mock registry state
   mockRegistry.loadDeviceSyncedTracks.mockResolvedValue(undefined);
   mockRegistry.ensureItemTracks.mockResolvedValue(undefined);
-  mockRegistry.calculateSize.mockReturnValue(null);
+  mockRegistry.setItemTicks.mockClear();
+  mockRegistry.setItemTypes.mockClear();
+  mockRegistry.fetchTracksForItems.mockResolvedValue(true);
+  mockRegistry.calculateSize.mockReturnValue({ total: null, isTickEstimate: false });
   mockRegistry.countNewTracks.mockReturnValue(0);
   mockRegistry.getSyncedMusicBytes.mockReturnValue(0);
   mockRegistry.getItemTrackIds.mockReturnValue([]);
+  mockRegistry.isBackgroundFetchingDevice.mockReturnValue(false);
+  mockRegistry.setTickEstimate.mockClear();
+  mockRegistry.isTickEstimateActive.mockReturnValue(false);
 });
 
 afterEach(() => {
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 // Dynamic import to ensure mocks are set up before module loads

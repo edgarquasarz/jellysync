@@ -256,6 +256,12 @@ function AppConnected({
       convertToMp3: savedConvert,
       bitrate: savedBitrate,
       coverArtMode: savedCover,
+      // RunTimeTicks from library fetch — enables instant tick-based size estimation
+      itemTicks: {
+        ...Object.fromEntries(extArtists.map((a) => [a.Id, a.RunTimeTicks ?? 0])),
+        ...Object.fromEntries(extAlbums.map((a) => [a.Id, a.RunTimeTicks ?? 0])),
+        ...Object.fromEntries(extPlaylists.map((p) => [p.Id, p.RunTimeTicks ?? 0])),
+      },
     });
   };
 
@@ -498,6 +504,7 @@ function AppConnected({
                 previewData={sync.previewData}
                 syncedMusicBytes={deviceSelections.syncedMusicBytes ?? undefined}
                 estimatedSizeBytes={deviceSelections.estimatedSizeBytes}
+                isTickEstimate={deviceSelections.isTickEstimate}
                 isLoadingSize={deviceSelections.isLoadingSize}
                 onToggleItem={deviceSelections.toggleItem}
                 onToggleConvert={() => {

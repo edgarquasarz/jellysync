@@ -357,11 +357,11 @@ export function useSync({
     const updatedItemSet = new Set(updatedItemIds);
     const alreadySyncedItemSet = new Set(alreadySyncedItemIds);
     const newTracksBytes =
-      registry.calculateSize(newItemSet, syncFolder, convertToMp3, bitrate) ?? 0;
+      registry.calculateSize(newItemSet, syncFolder, convertToMp3, bitrate).total ?? 0;
     const updatedTracksBytes =
-      registry.calculateSize(updatedItemSet, syncFolder, convertToMp3, bitrate) ?? 0;
+      registry.calculateSize(updatedItemSet, syncFolder, convertToMp3, bitrate).total ?? 0;
     const alreadySyncedBytes =
-      registry.calculateSize(alreadySyncedItemSet, syncFolder, convertToMp3, bitrate) ?? 0;
+      registry.calculateSize(alreadySyncedItemSet, syncFolder, convertToMp3, bitrate).total ?? 0;
     const willRemoveCount = toDeleteIds.length;
     const willRemoveBytes = registry.countRemoveBytes(toDeleteIds, syncFolder);
 

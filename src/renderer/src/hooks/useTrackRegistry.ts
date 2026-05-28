@@ -3,6 +3,7 @@
  *
  * Avoids repeated Jellyfin API calls by caching track info per item.
  * Global cache across devices, per-device synced track state.
+ * Tick-based estimation for immediate UI without HTTP calls.
  */
 
 export interface TrackInfo {
@@ -38,11 +39,39 @@ interface TrackRegistryState {
   isLoadingDevice: Map<string, boolean>;
   // Generation counter for library refresh invalidation
   generation: number;
+  // RunTimeTicks per item (from library fetch — no extra HTTP calls)
+  itemTicks: Map<string, number>;
+  // Item types by id (for batch fetch)
+  itemTypes: Map<string, 'artist' | 'album' | 'playlist'>;
+  // Whether background fetch is in-flight for a given device+selection key
+  isBackgroundFetching: Map<string, boolean>;
+  // AbortController for cancelling in-flight background fetches
+  backgroundAbortControllers: Map<string, AbortController>;
+  // Whether size estimate is from ticks (vs real track sizes)
+  isTickEstimate: Map<string, boolean>;
 }
 
 const LOSSLESS_FORMATS = new Set(['flac', 'wav', 'aiff', 'alac', 'wv', 'ape']);
 const FALLBACK_LOSSLESS_BPS = 900000; // ~900kbps for lossless
 const FALLBACK_COMPRESSED_BPS = 192000; // ~192kbps for compressed audio
+
+/**
+ * Estimation constant: bytes per tick for lossless (≈500 kbps).
+ * 1 tick = 100 nanoseconds = 10_000_000 ticks per second.
+ * 500 kbps = 62_500 bytes/s → 62_500 / 10_000_000 = 0.00625 bytes/tick.
+ */
+export const BYTES_PER_TICK_LOSSLESS = 0.00625;
+
+/**
+ * Estimation constants: bytes per tick for MP3 conversion.
+ * 1 tick = 100 nanoseconds = 10_000_000 ticks per second.
+ * MP3 bytes/second = bitrate_bps / 8.
+ */
+export const BYTES_PER_TICK_MP3: Record<string, number> = {
+  '128k': 0.0016, // 128_000 / 8 / 10_000_000 = 0.0016
+  '192k': 0.0024, // 192_000 / 8 / 10_000_000 = 0.0024
+  '320k': 0.004, // 320_000 / 8 / 10_000_000 = 0.004
+};
 
 function estimateMp3Size(
   originalBytes: number,
@@ -61,6 +90,21 @@ function estimateMp3Size(
   return Math.round(originalBytes * (target / source));
 }
 
+/**
+ * Estimate size from RunTimeTicks when track data is not cached.
+ * Used for immediate UI feedback before background fetch completes.
+ */
+function estimateSizeFromTicks(ticks: number, convertToMp3: boolean, bitrate?: string): number {
+  if (!ticks || ticks <= 0) return 0;
+  if (convertToMp3) {
+    const bytesPerTick = bitrate
+      ? (BYTES_PER_TICK_MP3[bitrate] ?? BYTES_PER_TICK_MP3['192k'])
+      : BYTES_PER_TICK_MP3['192k'];
+    return Math.round(ticks * bytesPerTick);
+  }
+  return Math.round(ticks * BYTES_PER_TICK_LOSSLESS);
+}
+
 export function createTrackRegistry() {
   const state: TrackRegistryState = {
     trackMap: new Map(),
@@ -68,6 +112,11 @@ export function createTrackRegistry() {
     deviceSyncedTracks: new Map(),
     isLoadingDevice: new Map(),
     generation: 0,
+    itemTicks: new Map(),
+    itemTypes: new Map(),
+    isBackgroundFetching: new Map(),
+    backgroundAbortControllers: new Map(),
+    isTickEstimate: new Map(),
   };
 
   // Pending fetches to dedupe concurrent requests for the same item
@@ -107,6 +156,28 @@ export function createTrackRegistry() {
       }
     } finally {
       state.isLoadingDevice.set(devicePath, false);
+    }
+  };
+
+  /**
+   * Store RunTimeTicks for items (already available from library fetch — no extra HTTP calls).
+   * Also store item type for batch fetch lookup.
+   */
+  const setItemTicks = (
+    items: Array<{ id: string; ticks: number; type: 'artist' | 'album' | 'playlist' }>,
+  ) => {
+    for (const item of items) {
+      state.itemTicks.set(item.id, item.ticks);
+      state.itemTypes.set(item.id, item.type);
+    }
+  };
+
+  /**
+   * Store item types for batch fetch lookup.
+   */
+  const setItemTypes = (items: Array<{ id: string; type: 'artist' | 'album' | 'playlist' }>) => {
+    for (const item of items) {
+      state.itemTypes.set(item.id, item.type);
     }
   };
 
@@ -167,41 +238,157 @@ export function createTrackRegistry() {
   }
 
   /**
-   * Calculate total size for selected items on a device
+   * Background batch fetch for tracks using Jellyfin batch endpoints.
+   * Uses albumIds / AlbumArtistIds with Limit=1000 + pagination.
+   * Cancels previous fetch if selection changes.
+   * @returns true if fetch succeeded, false if cancelled or failed.
+   */
+  const fetchTracksForItems = async (
+    itemIds: string[],
+    devicePath: string,
+    jellyfinConfig: { serverUrl: string; apiKey: string; userId: string },
+  ): Promise<boolean> => {
+    const selectionKey = `${devicePath}:${[...itemIds].sort().join(',')}`;
+
+    // Cancel any in-flight fetch for this device
+    const prevController = state.backgroundAbortControllers.get(devicePath);
+    if (prevController) {
+      prevController.abort();
+    }
+
+    const controller = new AbortController();
+    state.backgroundAbortControllers.set(devicePath, controller);
+    state.isBackgroundFetching.set(devicePath, true);
+
+    try {
+      const itemTypesRecord = Object.fromEntries(state.itemTypes.entries()) as Record<
+        string,
+        'artist' | 'album' | 'playlist'
+      >;
+      const result = await window.api.getTracksForItems({
+        serverUrl: jellyfinConfig.serverUrl,
+        apiKey: jellyfinConfig.apiKey,
+        userId: jellyfinConfig.userId,
+        itemIds,
+        itemTypes: itemTypesRecord,
+      });
+
+      if (controller.signal.aborted) return false;
+
+      if (result.errors.length > 0) {
+        console.warn('getTracksForItems batch errors:', result.errors);
+      }
+
+      for (const track of result.tracks) {
+        if (controller.signal.aborted) return false;
+        state.trackMap.set(track.id, track);
+      }
+
+      // Group tracks by parent item (parentItemId = artist/playlist id, albumId = album id)
+      const itemTrackGroups = new Map<string, string[]>();
+      for (const track of result.tracks) {
+        const parentId = track.parentItemId ?? '';
+        if (!parentId) continue;
+        const group = itemTrackGroups.get(parentId) ?? [];
+        group.push(track.id);
+        itemTrackGroups.set(parentId, group);
+      }
+
+      for (const [itemId, trackIds] of itemTrackGroups) {
+        if (controller.signal.aborted) return false;
+        state.itemTracks.set(itemId, trackIds);
+      }
+
+      state.isTickEstimate.delete(selectionKey);
+      return true;
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return false;
+      console.warn('fetchTracksForItems failed:', err);
+      // On failure, leave tick estimate; button will be enabled
+      return false;
+    } finally {
+      if (!controller.signal.aborted) {
+        state.isBackgroundFetching.delete(devicePath);
+        state.backgroundAbortControllers.delete(devicePath);
+      }
+    }
+  };
+
+  /**
+   * Mark that size for a selection is based on ticks (not real track sizes).
+   * Used to show "~" prefix in UI.
+   */
+  const setTickEstimate = (devicePath: string, selectedItems: Set<string>, estimated: boolean) => {
+    const selectionKey = `${devicePath}:${[...selectedItems].sort().join(',')}`;
+    if (estimated) {
+      state.isTickEstimate.set(selectionKey, true);
+    } else {
+      state.isTickEstimate.delete(selectionKey);
+    }
+  };
+
+  /**
+   * Check if size estimate is from ticks for a given device+selection.
+   */
+  const isTickEstimateActive = (devicePath: string, selectedItems: Set<string>): boolean => {
+    const selectionKey = `${devicePath}:${[...selectedItems].sort().join(',')}`;
+    return state.isTickEstimate.has(selectionKey);
+  };
+
+  /**
+   * Check if background fetch is in progress for a device.
+   */
+  const isBackgroundFetchingDevice = (devicePath: string): boolean => {
+    return state.isBackgroundFetching.get(devicePath) ?? false;
+  };
+
+  /**
+   * Calculate total size for selected items on a device.
+   * Uses tick-based estimation for uncached items (immediate, no HTTP calls).
+   * When convertToMp3=true, never fetches — always estimates.
    */
   const calculateSize = (
     selectedItems: Set<string>,
     devicePath: string,
     convertToMp3: boolean,
     bitrate?: string,
-  ): number | null => {
+  ): { total: number | null; isTickEstimate: boolean } => {
     const syncedTracks = state.deviceSyncedTracks.get(devicePath);
-    if (!syncedTracks) return null; // device not loaded yet
+    if (!syncedTracks) return { total: null, isTickEstimate: false };
 
     let total = 0;
+    let usedTicks = false;
+
     for (const itemId of selectedItems) {
       const trackIds = state.itemTracks.get(itemId);
-      if (!trackIds) continue; // item not loaded yet
 
-      for (const trackId of trackIds) {
-        const synced = syncedTracks.get(trackId);
-        const info = state.trackMap.get(trackId);
-
-        if (synced) {
-          // Already synced - estimate if converting to MP3
+      if (trackIds && trackIds.length > 0) {
+        // Tracks cached — use real sizes
+        for (const trackId of trackIds) {
+          const synced = syncedTracks.get(trackId);
           const info = state.trackMap.get(trackId);
-          total += convertToMp3
-            ? estimateMp3Size(synced.fileSize, info?.bitrate, bitrate, info?.format)
-            : synced.fileSize;
-        } else if (info?.size) {
-          // Not synced yet - use server size
-          total += convertToMp3
-            ? estimateMp3Size(info.size, info.bitrate, bitrate, info?.format)
-            : info.size;
+
+          if (synced) {
+            // Already synced - estimate if converting to MP3
+            total += convertToMp3
+              ? estimateMp3Size(synced.fileSize, info?.bitrate, bitrate, info?.format)
+              : synced.fileSize;
+          } else if (info?.size) {
+            // Not synced yet - use server size
+            total += convertToMp3
+              ? estimateMp3Size(info.size, info.bitrate, bitrate, info?.format)
+              : info.size;
+          }
         }
+      } else {
+        // No cached tracks — use tick-based estimation
+        const ticks = state.itemTicks.get(itemId) ?? 0;
+        total += estimateSizeFromTicks(ticks, convertToMp3, bitrate);
+        if (ticks > 0) usedTicks = true;
       }
     }
-    return total;
+
+    return { total: total > 0 ? total : null, isTickEstimate: usedTicks };
   };
 
   /**
@@ -260,7 +447,16 @@ export function createTrackRegistry() {
     state.generation++;
     state.itemTracks.clear();
     state.trackMap.clear();
-    // Note: deviceSyncedTracks is NOT cleared - it contains DB data that's still valid
+    state.itemTicks.clear();
+    state.itemTypes.clear();
+    state.isBackgroundFetching.clear();
+    // Abort any in-flight background fetches
+    for (const controller of state.backgroundAbortControllers.values()) {
+      controller.abort();
+    }
+    state.backgroundAbortControllers.clear();
+    state.isTickEstimate.clear();
+    // Note: deviceSyncedTracks is NOT cleared — it contains DB data that's still valid
     pendingFetches.clear();
   };
 
@@ -278,6 +474,13 @@ export function createTrackRegistry() {
   const invalidateDevice = (devicePath: string) => {
     state.deviceSyncedTracks.delete(devicePath);
     state.isLoadingDevice.delete(devicePath);
+    // Abort any background fetch for this device
+    const controller = state.backgroundAbortControllers.get(devicePath);
+    if (controller) {
+      controller.abort();
+      state.backgroundAbortControllers.delete(devicePath);
+    }
+    state.isBackgroundFetching.delete(devicePath);
   };
 
   /**
@@ -341,6 +544,9 @@ export function createTrackRegistry() {
   return {
     loadDeviceSyncedTracks,
     ensureItemTracks,
+    setItemTicks,
+    setItemTypes,
+    fetchTracksForItems,
     calculateSize,
     countNewTracks,
     countRemoveBytes,
@@ -351,6 +557,9 @@ export function createTrackRegistry() {
     isDeviceLoading,
     getItemTrackIds,
     hasFlacOrM4a,
+    isBackgroundFetchingDevice,
+    setTickEstimate,
+    isTickEstimateActive,
     calculateDuration,
   };
 }

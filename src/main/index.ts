@@ -989,6 +989,35 @@ ipcMain.handle(
   },
 );
 
+// Get tracks for multiple items from Jellyfin (batch fetch for background refresh)
+ipcMain.handle(
+  'sync:getTracksForItems',
+  async (
+    _event,
+    options: {
+      serverUrl: string;
+      apiKey: string;
+      userId: string;
+      itemIds: string[];
+      itemTypes: Record<string, 'artist' | 'album' | 'playlist'>;
+    },
+  ) => {
+    try {
+      const { serverUrl, apiKey, userId, itemIds, itemTypes } = options;
+      const api = createApiClient({ baseUrl: serverUrl.replace(/\/$/, ''), apiKey, userId });
+      const itemTypesMap = new Map(Object.entries(itemTypes)) as Map<
+        string,
+        'artist' | 'album' | 'playlist'
+      >;
+      const { tracks, errors } = await api.getTracksForItems(itemIds, itemTypesMap);
+      return { tracks, errors };
+    } catch (error) {
+      log.error('sync:getTracksForItems error:', error);
+      return { tracks: [], errors: [error instanceof Error ? error.message : String(error)] };
+    }
+  },
+);
+
 // ─── Sync history (SQLite) ─────────────────────────────────────────────────
 ipcMain.handle('sync:getDeviceInfo', (_event, mountPoint: string) => {
   try {
