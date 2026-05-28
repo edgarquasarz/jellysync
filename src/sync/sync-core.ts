@@ -1181,6 +1181,11 @@ class SyncCoreImpl {
   /**
    * Analyze diff between server tracks and device's synced tracks.
    * Used to show "out of sync" status in UI before confirming sync.
+   *
+   * @param preloadedTracks - Optional Map<itemId, TrackInfo[]> from shared cache.
+   *   When provided, the method skips the internal api.getTracksForItems call,
+   *   using the pre-loaded tracks instead. Eliminates redundant fetches when
+   *   the caller (main process) has already populated the cache.
    */
   async analyzeDiff(
     itemIds: string[],
@@ -1191,6 +1196,7 @@ class SyncCoreImpl {
       bitrate: '128k' | '192k' | '320k';
       convertToMp3: boolean;
     },
+    preloadedTracks?: Map<string, TrackInfo[]>,
   ): Promise<SyncDiffResult> {
     // Resolve options to get filesystemType for path sanitization
     const resolvedOptions = resolveSyncOptions({
@@ -1208,11 +1214,25 @@ class SyncCoreImpl {
       syncedMap.set(t.trackId, t);
     }
 
-    // Fetch all tracks in a single batched call — no N+1
-    const { tracks: allServerTracks, errors: fetchErrors } = await this.deps.api.getTracksForItems(
-      Array.from(itemIds),
-      itemTypes,
-    );
+    // AC-4: Use preloadedTracks when available; otherwise fetch from API
+    let allServerTracks: TrackInfo[];
+    let fetchErrors: string[];
+
+    if (preloadedTracks && preloadedTracks.size > 0) {
+      // Merge all preloaded tracks into a single array, grouped by parentItemId
+      allServerTracks = [];
+      for (const [itemId, tracks] of preloadedTracks) {
+        for (const track of tracks) {
+          allServerTracks.push({ ...track, parentItemId: itemId });
+        }
+      }
+      fetchErrors = [];
+    } else {
+      // Fetch all tracks in a single batched call — no N+1
+      const result = await this.deps.api.getTracksForItems(Array.from(itemIds), itemTypes);
+      allServerTracks = result.tracks;
+      fetchErrors = result.errors;
+    }
 
     // Group tracks by parentItemId for efficient diff per item
     const tracksByItem = new Map<string, TrackInfo[]>();
@@ -2111,8 +2131,8 @@ export function createSyncCore(config: SyncConfig, deps?: Partial<SyncDependenci
     removeItems: (itemIds, itemTypes, destinationPath) =>
       core.removeItems(itemIds, itemTypes, destinationPath),
     testConnection: () => core.testConnection(),
-    analyzeDiff: (itemIds, itemTypes, destinationPath, options) =>
-      core.analyzeDiff(itemIds, itemTypes, destinationPath, options),
+    analyzeDiff: (itemIds, itemTypes, destinationPath, options, preloadedTracks) =>
+      core.analyzeDiff(itemIds, itemTypes, destinationPath, options, preloadedTracks),
   };
 }
 
@@ -2143,6 +2163,7 @@ export interface SyncCore {
       bitrate: '128k' | '192k' | '320k';
       convertToMp3: boolean;
     },
+    preloadedTracks?: Map<string, TrackInfo[]>,
   ): Promise<SyncDiffResult>;
 }
 

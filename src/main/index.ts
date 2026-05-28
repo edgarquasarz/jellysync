@@ -6,7 +6,44 @@ import * as fs from 'fs';
 import * as os from 'os';
 
 // Import new sync module
-import { createSyncCore, createApiClient, type CoverArtMode } from '../sync';
+import { createSyncCore, createApiClient, type CoverArtMode, type TrackInfo } from '../sync';
+
+// ─── Module-level track cache (ORAIN-0484) ─────────────────────────────────
+// Shared between sync:getTracksForItems and sync:analyzeDiff handlers.
+// Key format: `${serverUrl}:${userId}:${itemId}` — per-itemId, not per-combination.
+// TTL: 1 hour with lazy eviction on read.
+// Invalidation: entries removed after successful sync:start2.
+const TRACK_CACHE_TTL_MS = 3_600_000; // 1 hour
+const _trackCache = new Map<string, { tracks: TrackInfo[]; fetchedAt: number }>();
+
+// ─── Cache helpers (exported for testability) ──────────────────────────────
+/** Build cache key from serverUrl, userId, and itemId */
+function _buildTrackCacheKey(serverUrl: string, userId: string, itemId: string): string {
+  return `${serverUrl}:${userId}:${itemId}`;
+}
+
+/** Get tracks from cache if present and not expired; returns undefined otherwise */
+function _getFromTrackCache(key: string): TrackInfo[] | undefined {
+  const entry = _trackCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.fetchedAt > TRACK_CACHE_TTL_MS) {
+    _trackCache.delete(key); // lazy eviction
+    return undefined;
+  }
+  return entry.tracks;
+}
+
+/** Store tracks in cache with current timestamp */
+function _setInTrackCache(key: string, tracks: TrackInfo[]): void {
+  _trackCache.set(key, { tracks, fetchedAt: Date.now() });
+}
+
+/** Invalidate cache entries for given itemIds */
+function _invalidateTrackCache(serverUrl: string, userId: string, itemIds: string[]): void {
+  for (const itemId of itemIds) {
+    _trackCache.delete(_buildTrackCacheKey(serverUrl, userId, itemId));
+  }
+}
 
 // Import database
 import {
@@ -842,6 +879,12 @@ ipcMain.handle('sync:start2', async (_event, options) => {
       log.warn('Failed to record sync history:', dbErr);
     }
 
+    // AC-5: Invalidate cache entries for synced itemIds after successful sync.
+    // Ensures next analyzeDiff sees fresh data from Jellyfin.
+    if (result.success && itemIds.length > 0) {
+      _invalidateTrackCache(serverUrl.replace(/\/$/, ''), userId, itemIds);
+    }
+
     return {
       success: result.success,
       tracksCopied: result.tracksCopied,
@@ -862,6 +905,8 @@ ipcMain.handle('sync:start2', async (_event, options) => {
     };
   }
 });
+
+// AC-4: analyzeDiff uses same cache instance — pre-load tracks before calling analyzeDiff
 ipcMain.handle(
   'sync:analyzeDiff',
   async (
@@ -890,8 +935,59 @@ ipcMain.handle(
         destinationPath,
         options: diffOptions,
       } = options;
+      const normalizedUrl = serverUrl.replace(/\/$/, '');
+
+      // AC-4: Pre-load tracks from cache for all itemIds
+      const preloadedTracks = new Map<string, TrackInfo[]>();
+      const cacheMisses: string[] = [];
+
+      for (const itemId of itemIds) {
+        const cacheKey = _buildTrackCacheKey(normalizedUrl, userId, itemId);
+        const cached = _getFromTrackCache(cacheKey);
+        if (cached) {
+          preloadedTracks.set(itemId, cached);
+        } else {
+          cacheMisses.push(itemId);
+        }
+      }
+
+      // Fetch cache misses from Jellyfin and store in cache
+      if (cacheMisses.length > 0) {
+        const api = createApiClient({
+          baseUrl: normalizedUrl,
+          apiKey,
+          userId,
+          logger: {
+            info: (msg) => log.info('[batch]', msg),
+            warn: (msg) => log.warn('[batch]', msg),
+            error: (msg) => log.error('[batch]', msg),
+            debug: (msg) => log.debug('[batch]', msg),
+          },
+        });
+        const cacheMissTypesMap = new Map(
+          cacheMisses.map((id) => [id, itemTypes[id] ?? 'album']),
+        ) as Map<string, 'artist' | 'album' | 'playlist'>;
+        const { tracks: fetchedTracks } = await api.getTracksForItems(
+          cacheMisses,
+          cacheMissTypesMap,
+        );
+
+        // Store in cache and add to preloadedTracks
+        const tracksByItem = new Map<string, TrackInfo[]>();
+        for (const track of fetchedTracks) {
+          const parentId = track.parentItemId ?? '';
+          if (!tracksByItem.has(parentId)) tracksByItem.set(parentId, []);
+          tracksByItem.get(parentId)!.push(track);
+        }
+        for (const [itemId, tracks] of tracksByItem) {
+          const cacheKey = _buildTrackCacheKey(normalizedUrl, userId, itemId);
+          _setInTrackCache(cacheKey, tracks);
+          preloadedTracks.set(itemId, tracks);
+        }
+      }
+
       const syncCore = createSyncCore(
-        { serverUrl: serverUrl.replace(/\/$/, ''), apiKey, userId },
+        { serverUrl: normalizedUrl, apiKey, userId },
         {
           logger: {
             info: (msg) => log.info('[batch]', msg),
@@ -907,6 +1003,7 @@ ipcMain.handle(
         itemTypesMap,
         destinationPath,
         diffOptions,
+        preloadedTracks,
       );
       return { success: true, ...result };
     } catch (error) {
@@ -1010,6 +1107,7 @@ ipcMain.handle(
 );
 
 // Get tracks for multiple items from Jellyfin (batch fetch for background refresh)
+// AC-3: Uses shared _trackCache — cache hit returns immediately, cache miss fetches and stores
 ipcMain.handle(
   'sync:getTracksForItems',
   async (
@@ -1024,23 +1122,67 @@ ipcMain.handle(
   ) => {
     try {
       const { serverUrl, apiKey, userId, itemIds, itemTypes } = options;
-      const api = createApiClient({
-        baseUrl: serverUrl.replace(/\/$/, ''),
-        apiKey,
-        userId,
-        logger: {
-          info: (msg) => log.info('[batch]', msg),
-          warn: (msg) => log.warn('[batch]', msg),
-          error: (msg) => log.error('[batch]', msg),
-          debug: (msg) => log.debug('[batch]', msg),
-        },
-      });
+      const normalizedUrl = serverUrl.replace(/\/$/, '');
       const itemTypesMap = new Map(Object.entries(itemTypes)) as Map<
         string,
         'artist' | 'album' | 'playlist'
       >;
-      const { tracks, errors } = await api.getTracksForItems(itemIds, itemTypesMap);
-      return { tracks, errors };
+
+      // Check cache for each itemId; collect cache misses
+      const cachedResults: TrackInfo[] = [];
+      const cacheMisses: string[] = [];
+
+      for (const itemId of itemIds) {
+        const cacheKey = _buildTrackCacheKey(normalizedUrl, userId, itemId);
+        const cached = _getFromTrackCache(cacheKey);
+        if (cached) {
+          // Mark parentItemId so tracks are correctly grouped in results
+          cachedResults.push(...cached.map((t) => ({ ...t, parentItemId: itemId })));
+        } else {
+          cacheMisses.push(itemId);
+        }
+      }
+
+      // Fetch cache misses from Jellyfin and store in cache
+      if (cacheMisses.length > 0) {
+        const api = createApiClient({
+          baseUrl: normalizedUrl,
+          apiKey,
+          userId,
+          logger: {
+            info: (msg) => log.info('[batch]', msg),
+            warn: (msg) => log.warn('[batch]', msg),
+            error: (msg) => log.error('[batch]', msg),
+            debug: (msg) => log.debug('[batch]', msg),
+          },
+        });
+
+        const cacheMissTypesMap = new Map(
+          cacheMisses.map((id) => [id, itemTypesMap.get(id) ?? 'album']),
+        ) as Map<string, 'artist' | 'album' | 'playlist'>;
+        const { tracks: fetchedTracks, errors } = await api.getTracksForItems(
+          cacheMisses,
+          cacheMissTypesMap,
+        );
+
+        // Store fetched tracks in cache (grouped by itemId)
+        const tracksByItem = new Map<string, TrackInfo[]>();
+        for (const track of fetchedTracks) {
+          const parentId = track.parentItemId ?? '';
+          if (!tracksByItem.has(parentId)) tracksByItem.set(parentId, []);
+          tracksByItem.get(parentId)!.push(track);
+        }
+        for (const [itemId, tracks] of tracksByItem) {
+          const cacheKey = _buildTrackCacheKey(normalizedUrl, userId, itemId);
+          _setInTrackCache(cacheKey, tracks);
+        }
+
+        // Merge cached + fetched results
+        cachedResults.push(...fetchedTracks);
+        return { tracks: cachedResults, errors };
+      }
+
+      return { tracks: cachedResults, errors: [] };
     } catch (error) {
       log.error('sync:getTracksForItems error:', error);
       return { tracks: [], errors: [error instanceof Error ? error.message : String(error)] };
