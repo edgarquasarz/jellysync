@@ -22,4 +22,4 @@ Toggle **Anonymous usage statistics** off in the About screen. When disabled, no
 
 ## Questions?
 
-Contact us at [hello@oriaflow.dev](mailto:hello@oriaflow.dev) or open an issue on [GitHub](https://github.com/tresnola-labs/jellytunes/issues).
+Contact us at [hi@orainlabs.dev](mailto:hi@orainlabs.dev) or open an issue on [GitHub](https://github.com/tresnola-labs/jellytunes/issues).
