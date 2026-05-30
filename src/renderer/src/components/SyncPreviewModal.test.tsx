@@ -156,7 +156,6 @@ describe('SyncPreviewModal', () => {
     expect(text).not.toMatch(/\(\d/);
   });
 
-
   it('hides duration in section header when duration is 0', () => {
     const data = { ...samplePreviewDataNewTracks, alreadySyncedDurationSeconds: 0 };
     render(<SyncPreviewModal {...defaultProps} data={data} />);
@@ -164,7 +163,6 @@ describe('SyncPreviewModal', () => {
     const header = section.querySelector('.flex.justify-between');
     expect(header?.textContent).not.toContain('0:00');
   });
-
 
   // 4. Total row uses same three-column layout
 
@@ -177,7 +175,6 @@ describe('SyncPreviewModal', () => {
     expect(text).toContain(formatDuration(samplePreviewDataWithItems.totalDurationSeconds));
     expect(text).toContain(formatBytes(samplePreviewDataWithItems.totalBytes));
   });
-
 
   it('shows total row when only willRemoveCount > 0', () => {
     const deleteOnlyData: PreviewData = {
@@ -210,7 +207,6 @@ describe('SyncPreviewModal', () => {
     expect(section.textContent).toContain('Will remove');
     expect(section.textContent).toContain('47 tracks');
   });
-
 
   it('shows "Will remove 1 track" with singular for single track', () => {
     const singleItem: PreviewData = {
@@ -307,6 +303,4 @@ describe('SyncPreviewModal', () => {
     expect(text).not.toContain('~');
     expect(text).toContain('4.0 GB');
   });
-
-
 });
