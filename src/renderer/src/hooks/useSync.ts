@@ -7,6 +7,7 @@ import type {
   Bitrate,
   SyncProgressInfo,
   PreviewData,
+  ItemPreview,
   CoverArtMode,
   LyricsMode,
 } from '../appTypes';
@@ -365,21 +366,79 @@ export function useSync({
     const willRemoveCount = toDeleteIds.length;
     const willRemoveBytes = registry.countRemoveBytes(toDeleteIds, syncFolder);
 
-    // Deduplicated track counts by category
-    // Use itemTrackMap (deduplicated) if available, otherwise 0.
-    // If itemTrackMap has no entry for an item, all its tracks were already
-    // counted via earlier items — they don't contribute to this category's unique total.
+    const getItemName = (id: string): string =>
+      artists.find((a) => a.Id === id)?.Name ??
+      albums.find((a) => a.Id === id)?.Name ??
+      playlists.find((p) => p.Id === id)?.Name ??
+      id;
+
+    const getItemTrackCount = (id: string): number => {
+      // 1. Registry (tracks fetched from Jellyfin via background fetch)
+      const fromRegistry = registry.getItemTrackIds(id).length;
+      if (fromRegistry > 0) return fromRegistry;
+      // 2. deviceSyncedTracks — works for album-type items (tracks stored under albumId in DB)
+      const fromDevice = registry.countSyncedItemTracks(id, syncFolder);
+      if (fromDevice > 0) return fromDevice;
+      // 3. ChildCount from library data (track count for albums/playlists)
+      const album = albums.find((a) => a.Id === id);
+      if (album?.ChildCount) return album.ChildCount;
+      const playlist = playlists.find((p) => p.Id === id);
+      if (playlist?.ChildCount) return playlist.ChildCount;
+      // 4. For artists: sum ChildCount across their albums (background fetch skipped when convertToMp3=true)
+      const artist = artists.find((a) => a.Id === id);
+      if (artist) {
+        const total = albums
+          .filter((a) => a.AlbumArtist === artist.Name)
+          .reduce((sum, a) => sum + (a.ChildCount ?? 0), 0);
+        if (total > 0) return total;
+      }
+      return 0;
+    };
+
+    // Deduplicated track counts by category.
+    // Prefer itemTrackMap (deduplication-aware) when available; fall back to
+    // getItemTrackCount (ChildCount / registry) for items not yet fetched
+    // (e.g. brand-new items when convertToMp3=true skips background fetch).
     const newTracksCount = newItemIds.reduce(
-      (sum, id) => sum + (itemTrackMap.get(id)?.size ?? 0),
+      (sum, id) => sum + (itemTrackMap.get(id)?.size ?? getItemTrackCount(id)),
       0,
     );
     const updatedTracksCount = updatedItemIds.reduce(
-      (sum, id) => sum + (itemTrackMap.get(id)?.size ?? 0),
+      (sum, id) => sum + (itemTrackMap.get(id)?.size ?? getItemTrackCount(id)),
       0,
     );
     const alreadySyncedTracksCount = alreadySyncedItemIds.reduce(
-      (sum, id) => sum + (itemTrackMap.get(id)?.size ?? 0),
+      (sum, id) => sum + (itemTrackMap.get(id)?.size ?? getItemTrackCount(id)),
       0,
+    );
+
+    const buildItemPreviews = (
+      ids: string[],
+      getSizeBytes: (id: string) => number,
+    ): ItemPreview[] =>
+      ids.map((id) => ({
+        id,
+        name: getItemName(id),
+        trackCount: getItemTrackCount(id),
+        sizeBytes: getSizeBytes(id),
+        durationSeconds: registry.calculateDuration(new Set([id])),
+      }));
+
+    const newItems = buildItemPreviews(
+      newItemIds,
+      (id) => registry.calculateSize(new Set([id]), syncFolder, convertToMp3, bitrate).total ?? 0,
+    );
+    const updatedItems = buildItemPreviews(
+      updatedItemIds,
+      (id) => registry.calculateSize(new Set([id]), syncFolder, convertToMp3, bitrate).total ?? 0,
+    );
+    const alreadySyncedItems = buildItemPreviews(
+      alreadySyncedItemIds,
+      (id) => registry.calculateSize(new Set([id]), syncFolder, convertToMp3, bitrate).total ?? 0,
+    );
+    const removedItems = buildItemPreviews(
+      toDeleteIds,
+      (id) => registry.countRemoveBytes([id], syncFolder),
     );
 
     setPreviewData({
@@ -399,6 +458,10 @@ export function useSync({
       willRemoveCount,
       willRemoveBytes,
       willRemoveDurationSeconds: registry.calculateDuration(new Set(toDeleteIds)),
+      newItems,
+      updatedItems,
+      alreadySyncedItems,
+      removedItems,
     });
     setShowPreview(true);
   };
