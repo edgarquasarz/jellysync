@@ -148,7 +148,7 @@ const api = {
     apiKey: string;
     userId: string;
     itemId: string;
-    itemType: 'artist' | 'album' | 'playlist';
+    itemType: 'artist' | 'album' | 'playlist' | 'albumArtist';
   }): Promise<{
     tracks: Array<{
       id: string;

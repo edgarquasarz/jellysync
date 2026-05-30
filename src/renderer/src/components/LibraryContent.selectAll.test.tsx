@@ -332,6 +332,7 @@ describe('LibraryContent - Select All with stats fallback', () => {
           SongCount: 5000,
           PlaylistCount: 20,
           ItemCount: 6000,
+          AlbumArtistCount: 50,
         }}
         onSelectAll={onSelectAll}
         searchQuery=""

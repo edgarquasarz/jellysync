@@ -10,10 +10,10 @@ import {
 import { logger } from '../utils/logger';
 
 interface SearchResults {
-  artists: Array<{ Id: string; Name: string }>;
-  albumArtists: Array<{ Id: string; Name: string }>;
-  albums: Array<{ Id: string; Name: string }>;
-  playlists: Array<{ Id: string; Name: string }>;
+  artists: Array<{ Id: string; Name: string; AlbumCount?: number; ChildCount?: number }>;
+  albumArtists: Array<{ Id: string; Name: string; AlbumCount?: number; ChildCount?: number }>;
+  albums: Array<{ Id: string; Name: string; AlbumArtist?: string; ChildCount?: number }>;
+  playlists: Array<{ Id: string; Name: string; ChildCount?: number }>;
 }
 
 interface SearchQueries {

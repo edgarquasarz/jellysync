@@ -1107,7 +1107,7 @@ ipcMain.handle(
       apiKey: string;
       userId: string;
       itemId: string;
-      itemType: 'artist' | 'album' | 'playlist';
+      itemType: 'artist' | 'album' | 'playlist' | 'albumArtist';
     },
   ) => {
     try {
@@ -1186,7 +1186,7 @@ ipcMain.handle(
 
         const cacheMissTypesMap = new Map(
           cacheMisses.map((id) => [id, itemTypesMap.get(id) ?? 'album']),
-        ) as Map<string, 'artist' | 'album' | 'playlist'>;
+        ) as Map<string, 'artist' | 'album' | 'playlist' | 'albumArtist'>;
         const { tracks: fetchedTracks, errors } = await api.getTracksForItems(
           cacheMisses,
           cacheMissTypesMap,
@@ -1330,7 +1330,7 @@ ipcMain.handle(
       const allIds = syncedItems.map((i) => i.id);
       const itemTypesMap = new Map(syncedItems.map((i) => [i.id, i.type])) as Map<
         string,
-        'artist' | 'album' | 'playlist'
+        'artist' | 'album' | 'playlist' | 'albumArtist'
       >;
       const result = await core.removeItems(allIds, itemTypesMap, destinationPath);
       log.info(`clearDestination: removed ${result.removed} files, ${result.errors.length} errors`);

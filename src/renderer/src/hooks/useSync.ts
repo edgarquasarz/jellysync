@@ -410,6 +410,14 @@ export function useSync({
           .reduce((sum, a) => sum + (a.ChildCount ?? 0), 0);
         if (total > 0) return total;
       }
+      // 5. For album artists: sum ChildCount across their albums
+      const albumArtist = albumArtists.find((a) => a.Id === id);
+      if (albumArtist) {
+        const total = albums
+          .filter((a) => a.AlbumArtist === albumArtist.Name)
+          .reduce((sum, a) => sum + (a.ChildCount ?? 0), 0);
+        if (total > 0) return total;
+      }
       return 0;
     };
 

@@ -71,6 +71,7 @@ export interface LibraryStats {
   SongCount: number;
   PlaylistCount: number;
   ItemCount: number;
+  AlbumArtistCount: number;
 }
 
 export interface JellyfinUser {

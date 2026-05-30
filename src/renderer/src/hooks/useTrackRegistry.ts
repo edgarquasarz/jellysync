@@ -195,7 +195,7 @@ export function createTrackRegistry() {
    */
   const ensureItemTracks = async (
     itemId: string,
-    itemType: 'artist' | 'album' | 'playlist',
+    itemType: 'artist' | 'album' | 'playlist' | 'albumArtist',
     jellyfinConfig: { serverUrl: string; apiKey: string; userId: string },
   ): Promise<void> => {
     // Already have this item's tracks?
@@ -216,7 +216,7 @@ export function createTrackRegistry() {
 
   async function _fetchAndStore(
     itemId: string,
-    itemType: 'artist' | 'album' | 'playlist',
+    itemType: 'artist' | 'album' | 'playlist' | 'albumArtist',
     jellyfinConfig: { serverUrl: string; apiKey: string; userId: string },
     generation: number,
   ): Promise<void> {

@@ -75,6 +75,7 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
           SongCount: data.ChildCount ?? data.TotalCount ?? 0,
           PlaylistCount: data.PlaylistCount ?? 0,
           ItemCount: data.ItemCount ?? 0,
+          AlbumArtistCount: data.AlbumArtistCount ?? 0,
         });
       } else {
         setStats(null);
