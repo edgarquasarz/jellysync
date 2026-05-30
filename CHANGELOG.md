@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.4.0] — 2026-05-30
+
+### Added
+
+- **Lyrics sync** — full lyrics support: download `.lrc` sidecar files or embed lyrics directly into tracks. Handles Jellyfin 10.9+ JSON lyrics format and cleans up orphaned LRC files on mode change. Warns when embed mode is selected for FLAC/M4A tracks.
+- **Cover art mode selector** — choose between embedded and companion file modes per device; setting is persisted across sessions.
+- **Sync preview: three-column layout** — redesigned preview modal with fixed-width columns, total row, and per-category track/size/duration breakdown.
+- **Sync preview: selection summary** — shows total tracks, combined duration, and estimated size before syncing.
+- **Tick-based size estimation + batch track fetch** — track registry estimates file sizes during selection using tick-based sampling; album tracks are batch-fetched to reduce Jellyfin round-trips.
+- **Shared `getTracksForItems` cache** in main process — prevents redundant fetches across concurrent requests.
+- **`MAX_UNCACHED_FETCH_COUNT` threshold guard** — aborts selection when uncached track fetches would exceed the configured limit; item types are registered before selection to prevent guard bypass.
+- **Select All: pagination and error handling** — dynamic page sizing, freeze on `totalCount` to prevent infinite loops, throttled concurrent fetches to avoid Jellyfin 500 errors, error notification, and tab-change cancellation.
+- **Per-tab search state** — each library tab (Artists / Albums / Playlists) keeps an independent search query that persists when switching tabs.
+- **Lazy image loading via `IntersectionObserver`** — library cover art loads on demand as rows enter the viewport.
+- **Filter controls always visible** — filter/sort controls remain visible with a disabled state when they are not applicable, instead of being hidden.
+- **`SyncSuccessModal`** replaces native `alert()` in all sync completion flows.
+
+### Fixed
+
+- Fixed stale `cover.jpg` and `.lrc` files not cleaned up when switching cover art mode or removing an item from selection.
+- Fixed false "out of sync" detection when `coverArtMode` changes between activations.
+- Fixed missing dot in LRC orphan path detection in `sync-core.ts`.
+- Fixed sync v2 tech debt: disk-full hangs, ghost rows in `synced_tracks`, and concurrent temp file collisions.
+- Fixed Select All race condition on large libraries; added visual feedback during bulk selection.
+- Fixed Select All pagination infinite loop caused by a changing `totalCount`; now uses max page size and freezes the count.
+- Fixed `EXDEV` error when moving temp files across device boundaries during sync (sync-files).
+- Fixed race condition when companion cover directories were modified during sync loop — directories are now snapshotted before the loop begins.
+- Fixed `willRemoveCount` in sync preview reflecting item count instead of track count.
+- Fixed storage bar showing stale `~` prefix for artists with no indexed albums.
+- Fixed storage bar not showing `~` while track sizes are still loading.
+- Fixed library cover art disappearing on `onLoad` event.
+- Fixed `dirPath` extraction in `sync-core.ts` using `lastIndexOf` instead of `path.dirname()`.
+- Fixed lyrics not being processed for unchanged files when `lyricsMode` changes between syncs.
+- Fixed non-404 lyrics fetch errors logged at error level on pre-10.9 servers; demoted to warn.
+- Fixed sync preview per-category counts defaulting to `undefined`; now fall back to `0`. `formatDuration` now floors seconds correctly.
+- Fixed UI regression: `setSyncSuccessData()` modal calls were accidentally removed.
+- Fixed selection label showing cumulative count across all tabs instead of the active tab only.
+- Fixed LoginScreen labels that were inadvertently translated to Spanish.
+- Fixed cover art safety issues: temp file handling, error propagation, and `writeCompanionCover`.
+- Fixed `syncedTracks` not being awaited before the uncached fetch threshold check.
+- Fixed tick-based size estimation being too high (~500 kbps → ~280 kbps); suppressed unreliable track counts when size is tick-estimated.
+
+### Changed
+
+- Sync preview modal: removed per-item breakdown rows; shows aggregated totals only.
+- Selection header layout: controls on the left, selection label on the right.
+- Lyrics toggle order standardized to `off → embed → lrc`.
+- Artist subtitles no longer show album count.
+- Album subtitles no longer show `undefined` when track count is unavailable.
+
+### Internal
+
+- ESLint + Prettier activated across `src/` and `tests/`; security plugin rules enabled.
+- Pre-commit hooks migrated from Husky to `.hooks`; includes typecheck and lint-staged.
+- CI workflows unified into a single `checks` job; Windows smoke test removed.
+- Vitest unit and sync tests switched to `node` environment for faster execution.
+- Album track fetches in `getTracksForItems` are now batched rather than sequential.
+- Stale cover path deduplication switched to `Set` for O(n) complexity.
+- `formatBytes` extracted to `utils/format.ts`.
+
 ## [0.3.2] — 2026-04-27
 
 ### Changed
