@@ -756,10 +756,7 @@ class SyncCoreImpl {
           this.serverRootPath || null,
           options.lyricsMode ?? 'off',
         );
-        const outputDir = syncedRecord.destinationPath.substring(
-          0,
-          syncedRecord.destinationPath.lastIndexOf('/'),
-        );
+        const outputDir = path.dirname(syncedRecord.destinationPath);
         if (coverArtMode === 'companion') {
           const coverBuffer = await this.getCoverArtBuffer(track.id, track.albumId, coverArtMode);
           if (coverBuffer) await this.writeCompanionCover(outputDir, coverBuffer);
