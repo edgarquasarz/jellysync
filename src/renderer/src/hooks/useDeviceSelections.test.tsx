@@ -18,9 +18,6 @@ const mockRegistry = {
   isDeviceLoading: vi.fn().mockReturnValue(false),
   getItemTrackIds: vi.fn().mockReturnValue([]),
   getItemType: vi.fn().mockReturnValue('artist'),
-  isBackgroundFetchingDevice: vi.fn().mockReturnValue(false),
-  setTickEstimate: vi.fn(),
-  isTickEstimateActive: vi.fn().mockReturnValue(false),
   hasItemTracks: vi.fn().mockReturnValue(false),
   countRemoveTracks: vi.fn().mockReturnValue(0),
 };
@@ -72,9 +69,6 @@ beforeEach(() => {
   mockRegistry.getSyncedMusicBytes.mockReturnValue(0);
   mockRegistry.getItemTrackIds.mockReturnValue([]);
   mockRegistry.getItemType.mockReturnValue('artist');
-  mockRegistry.isBackgroundFetchingDevice.mockReturnValue(false);
-  mockRegistry.setTickEstimate.mockClear();
-  mockRegistry.isTickEstimateActive.mockReturnValue(false);
 });
 
 afterEach(() => {

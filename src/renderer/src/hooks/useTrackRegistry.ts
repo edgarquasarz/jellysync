@@ -49,8 +49,6 @@ interface TrackRegistryState {
   isBackgroundFetching: Map<string, boolean>;
   // AbortController for cancelling in-flight background fetches
   backgroundAbortControllers: Map<string, AbortController>;
-  // Whether size estimate is from ticks (vs real track sizes)
-  isTickEstimate: Map<string, boolean>;
 }
 
 const LOSSLESS_FORMATS = new Set(['flac', 'wav', 'aiff', 'alac', 'wv', 'ape']);
@@ -120,7 +118,6 @@ export function createTrackRegistry() {
     itemTypes: new Map(),
     isBackgroundFetching: new Map(),
     backgroundAbortControllers: new Map(),
-    isTickEstimate: new Map(),
   };
 
   // Pending fetches to dedupe concurrent requests for the same item
@@ -254,8 +251,6 @@ export function createTrackRegistry() {
     devicePath: string,
     jellyfinConfig: { serverUrl: string; apiKey: string; userId: string },
   ): Promise<boolean> => {
-    const selectionKey = `${devicePath}:${[...itemIds].sort().join(',')}`;
-
     // Cancel any in-flight fetch for this device
     const prevController = state.backgroundAbortControllers.get(devicePath);
     if (prevController) {
@@ -310,12 +305,16 @@ export function createTrackRegistry() {
         if (!state.itemTracks.has(itemId)) state.itemTracks.set(itemId, []);
       }
 
-      state.isTickEstimate.delete(selectionKey);
       return true;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return false;
+<<<<<<< HEAD
       logger.warn(`fetchTracksForItems failed: ${err}`);
       // On failure, leave tick estimate; button will be enabled
+=======
+      console.warn('fetchTracksForItems failed:', err);
+      // On failure, button will be enabled
+>>>>>>> 873eb3b (refactor: remove dead functions from useTrackRegistry [ORAIN-0479])
       return false;
     } finally {
       if (!controller.signal.aborted) {
@@ -323,34 +322,6 @@ export function createTrackRegistry() {
         state.backgroundAbortControllers.delete(devicePath);
       }
     }
-  };
-
-  /**
-   * Mark that size for a selection is based on ticks (not real track sizes).
-   * Used to show "~" prefix in UI.
-   */
-  const setTickEstimate = (devicePath: string, selectedItems: Set<string>, estimated: boolean) => {
-    const selectionKey = `${devicePath}:${[...selectedItems].sort().join(',')}`;
-    if (estimated) {
-      state.isTickEstimate.set(selectionKey, true);
-    } else {
-      state.isTickEstimate.delete(selectionKey);
-    }
-  };
-
-  /**
-   * Check if size estimate is from ticks for a given device+selection.
-   */
-  const isTickEstimateActive = (devicePath: string, selectedItems: Set<string>): boolean => {
-    const selectionKey = `${devicePath}:${[...selectedItems].sort().join(',')}`;
-    return state.isTickEstimate.has(selectionKey);
-  };
-
-  /**
-   * Check if background fetch is in progress for a device.
-   */
-  const isBackgroundFetchingDevice = (devicePath: string): boolean => {
-    return state.isBackgroundFetching.get(devicePath) ?? false;
   };
 
   /**
@@ -491,7 +462,6 @@ export function createTrackRegistry() {
       controller.abort();
     }
     state.backgroundAbortControllers.clear();
-    state.isTickEstimate.clear();
     // Note: deviceSyncedTracks is NOT cleared — it contains DB data that's still valid
     pendingFetches.clear();
   };
@@ -623,9 +593,6 @@ export function createTrackRegistry() {
     hasItemTracks,
     getItemType,
     hasFlacOrM4a,
-    isBackgroundFetchingDevice,
-    setTickEstimate,
-    isTickEstimateActive,
     calculateDuration,
   };
 }
