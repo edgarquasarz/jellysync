@@ -7,6 +7,20 @@ import { logger } from '@/utils/logger';
  *  Users can deselect items below this threshold to trigger a real fetch. */
 export const MAX_UNCACHED_FETCH_COUNT = 50;
 
+/** Check if uncached fetch should be skipped due to exceeding threshold.
+ *  Emits a console.warn when threshold is exceeded.
+ *  @returns true if fetch should be skipped, false if it should proceed */
+export function shouldSkipUncachedFetch(uncachedIds: string[]): boolean {
+  if (uncachedIds.length === 0) return true;
+  if (uncachedIds.length > MAX_UNCACHED_FETCH_COUNT) {
+    console.warn(
+      `[useDeviceSelections] Skipping fetch: ${uncachedIds.length} uncached items exceed threshold of ${MAX_UNCACHED_FETCH_COUNT}`,
+    );
+    return true;
+  }
+  return false;
+}
+
 export interface SyncedItemInfo {
   id: string;
   name: string;
@@ -266,10 +280,8 @@ export function useDeviceSelections() {
         if (uncachedIds.length > 0) {
           // Threshold guard: skip fetch if too many uncached items to prevent HTTP flood.
           // When skipped, button stays enabled immediately with tick-based estimate (prefix ~).
-          if (uncachedIds.length > MAX_UNCACHED_FETCH_COUNT) {
-            logger.warn(
-              `[useDeviceSelections] Skipping fetch: ${uncachedIds.length} uncached items exceed threshold of ${MAX_UNCACHED_FETCH_COUNT}`,
-            );
+          if (shouldSkipUncachedFetch(uncachedIds)) {
+            // Skip: warning already emitted by helper
           } else {
             // Mark loading state — button stays disabled while background fetch runs
             setSizeLoadingCount((c) => c + 1);
@@ -355,16 +367,7 @@ export function useDeviceSelections() {
         const uncachedIds = [...selectedIds].filter(
           (id) => registry.getItemType(id) && !registry.hasItemTracks(id),
         );
-        if (uncachedIds.length === 0) return;
-
-        // Threshold guard: skip fetch if too many uncached items to prevent HTTP flood.
-        // When skipped, button stays enabled immediately with tick-based estimate (prefix ~).
-        if (uncachedIds.length > MAX_UNCACHED_FETCH_COUNT) {
-          logger.warn(
-            `[useDeviceSelections] Skipping fetch: ${uncachedIds.length} uncached items exceed threshold of ${MAX_UNCACHED_FETCH_COUNT}`,
-          );
-          return;
-        }
+        if (shouldSkipUncachedFetch(uncachedIds)) return;
 
         // Mark loading state — sync button stays disabled until real track data is cached
         setSizeLoadingCount((c) => c + 1);
@@ -546,17 +549,7 @@ export function useDeviceSelections() {
           const uncachedIds = opts.itemIds.filter(
             (id) => opts.itemTypes[id] && registry.getItemTrackIds(id).length === 0,
           );
-          if (uncachedIds.length === 0) return;
-
-          // Threshold guard: skip fetch if too many uncached items to prevent HTTP flood.
-          if (uncachedIds.length > MAX_UNCACHED_FETCH_COUNT) {
-            console.warn(
-              `[useDeviceSelections] Skipping fetch: ${uncachedIds.length} uncached items exceed threshold of ${MAX_UNCACHED_FETCH_COUNT}`,
-            );
-            return;
-          }
-
-          if (uncachedIds.length > 0) {
+          if (uncachedIds.length > 0 && !shouldSkipUncachedFetch(uncachedIds)) {
             setSizeLoadingCount((c) => c + 1);
             void registry
               .fetchTracksForItems(uncachedIds, activeDevicePath, {

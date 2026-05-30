@@ -32,22 +32,7 @@ vi.mock('./useTrackRegistry', () => ({
   getTrackRegistry: () => mockRegistry,
 }));
 
-import { MAX_UNCACHED_FETCH_COUNT } from './useDeviceSelections';
-
-// Helper to simulate debounced fetch with threshold check (mirrors implementation logic)
-const simulateFetchWithThreshold = (
-  uncachedIds: string[],
-): { shouldFetch: boolean; warning?: string } => {
-  if (uncachedIds.length === 0) {
-    return { shouldFetch: false };
-  }
-  if (uncachedIds.length > MAX_UNCACHED_FETCH_COUNT) {
-    const warning = `[useDeviceSelections] Skipping fetch: ${uncachedIds.length} uncached items exceed threshold of ${MAX_UNCACHED_FETCH_COUNT}`;
-    console.warn(warning);
-    return { shouldFetch: false, warning };
-  }
-  return { shouldFetch: true };
-};
+import { MAX_UNCACHED_FETCH_COUNT, shouldSkipUncachedFetch } from './useDeviceSelections';
 
 describe('MAX_UNCACHED_FETCH_COUNT threshold guard', () => {
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
@@ -69,20 +54,15 @@ describe('MAX_UNCACHED_FETCH_COUNT threshold guard', () => {
     });
   });
 
-  describe('fetchSelectedUncachedTracks threshold', () => {
-    it('(a) selecting 51 items skips fetch and does not increment sizeLoadingCount', () => {
+  describe('shouldSkipUncachedFetch helper', () => {
+    it('(a) selecting 51 items skips fetch and emits warning', () => {
       // Simulate 51 uncached item IDs (above threshold of 50)
       const uncachedIds = Array.from({ length: 51 }, (_, i) => `item-${i}`);
 
-      const result = simulateFetchWithThreshold(uncachedIds);
+      const shouldSkip = shouldSkipUncachedFetch(uncachedIds);
 
       // Should skip fetch
-      expect(result.shouldFetch).toBe(false);
-
-      // Should emit warning
-      expect(result.warning).toBe(
-        '[useDeviceSelections] Skipping fetch: 51 uncached items exceed threshold of 50',
-      );
+      expect(shouldSkip).toBe(true);
 
       // Console.warn should have been called
       expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -93,25 +73,24 @@ describe('MAX_UNCACHED_FETCH_COUNT threshold guard', () => {
       expect(mockRegistry.fetchTracksForItems).not.toHaveBeenCalled();
     });
 
-    it('(b) selecting 49 items triggers fetch normally', () => {
+    it('(b) selecting 49 items allows fetch to proceed', () => {
       // Simulate 49 uncached item IDs (below threshold of 50)
       const uncachedIds = Array.from({ length: 49 }, (_, i) => `item-${i}`);
 
-      const result = simulateFetchWithThreshold(uncachedIds);
+      const shouldSkip = shouldSkipUncachedFetch(uncachedIds);
 
-      // Should proceed with fetch
-      expect(result.shouldFetch).toBe(true);
+      // Should NOT skip fetch
+      expect(shouldSkip).toBe(false);
 
       // No warning should be emitted
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
 
-    it('(c) selecting 51 then deselecting to 45 triggers fetch on debounce', () => {
+    it('(c) selecting 51 then deselecting to 45 allows fetch on second call', () => {
       // First selection: 51 items (above threshold)
-      const uncachedIds51 = Array.from({ length: 51 }, (_, i) => `item-${i}`);
-      let result = simulateFetchWithThreshold(uncachedIds51);
+      let shouldSkip = shouldSkipUncachedFetch(Array.from({ length: 51 }, (_, i) => `item-${i}`));
 
-      expect(result.shouldFetch).toBe(false);
+      expect(shouldSkip).toBe(true);
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         '[useDeviceSelections] Skipping fetch: 51 uncached items exceed threshold of 50',
       );
@@ -120,31 +99,27 @@ describe('MAX_UNCACHED_FETCH_COUNT threshold guard', () => {
       consoleWarnSpy.mockClear();
 
       // Deselect 6 items → 45 items (below threshold)
-      const uncachedIds45 = Array.from({ length: 45 }, (_, i) => `item-${i}`);
-      result = simulateFetchWithThreshold(uncachedIds45);
+      shouldSkip = shouldSkipUncachedFetch(Array.from({ length: 45 }, (_, i) => `item-${i}`));
 
-      // Should now trigger fetch
-      expect(result.shouldFetch).toBe(true);
+      // Should now allow fetch
+      expect(shouldSkip).toBe(false);
 
       // No warning about exceeding threshold
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
-  });
 
-  describe('edge cases', () => {
-    it('exactly 50 items triggers fetch (threshold is exclusive)', () => {
+    it('exactly 50 items allows fetch (threshold is exclusive)', () => {
       const uncachedIds = Array.from({ length: 50 }, (_, i) => `item-${i}`);
-      const result = simulateFetchWithThreshold(uncachedIds);
+      const shouldSkip = shouldSkipUncachedFetch(uncachedIds);
 
-      expect(result.shouldFetch).toBe(true);
+      expect(shouldSkip).toBe(false);
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
 
-    it('empty array returns early without warning', () => {
-      const result = simulateFetchWithThreshold([]);
+    it('empty array returns true without warning', () => {
+      const shouldSkip = shouldSkipUncachedFetch([]);
 
-      expect(result.shouldFetch).toBe(false);
-      expect(result.warning).toBeUndefined();
+      expect(shouldSkip).toBe(true);
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
   });
