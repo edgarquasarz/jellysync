@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage } from 'electron';
+import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage, Menu } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { spawnSync } from 'child_process';
@@ -543,7 +543,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: process.platform === 'win32',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       // sandbox: false required for native modules (better-sqlite3, @ffmpeg-installer/ffmpeg)
@@ -553,6 +553,31 @@ function createWindow(): void {
       nodeIntegration: false,
     },
   });
+
+  // Platform-specific menu configuration
+  if (process.platform === 'darwin') {
+    // macOS: minimal menu with only essential shortcuts (Cmd+Q, text editing)
+    const template: Electron.MenuItemConstructorOptions[] = [
+      {
+        label: app.name,
+        submenu: [{ role: 'quit' }],
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  }
+
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
     log.info('Window ready');
