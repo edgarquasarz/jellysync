@@ -186,7 +186,9 @@ export function createTrackRegistry() {
   };
 
   /**
-   * Fetch tracks for an item from Jellyfin if not already cached
+   * @deprecated Use {@link fetchTracksForItems} instead. This function is no longer
+   * called from the renderer after ORAIN-0478 — background fetch now uses
+   * fetchTracksForItems exclusively.
    */
   const ensureItemTracks = async (
     itemId: string,
