@@ -10,27 +10,20 @@ interface SyncPreviewModalProps {
   onConfirm: () => void;
 }
 
-/** Three-column layout: tracks · duration · size — all values vertically aligned */
+/** Three-column layout: tracks · duration · size — fixed widths keep columns vertically aligned */
 function ThreeColumns({ tracks, duration, size }: {
   tracks: string;
   duration: string;
   size: string;
 }): JSX.Element {
   return (
-    <span className="flex gap-2 items-baseline">
-      <span className="font-medium">{tracks}</span>
-      {duration && (
-        <>
-          <span className="opacity-30" aria-hidden="true">·</span>
-          <span className="opacity-70">{duration}</span>
-        </>
-      )}
-      {size && (
-        <>
-          <span className="opacity-30" aria-hidden="true">·</span>
-          <span className="opacity-70">{size}</span>
-        </>
-      )}
+    <span
+      className="inline-grid items-baseline tabular-nums gap-x-3"
+      style={{ gridTemplateColumns: '7rem 4.5rem 4rem' }}
+    >
+      <span className="font-medium text-right">{tracks}</span>
+      <span className="opacity-70 text-right">{duration}</span>
+      <span className="opacity-70 text-right">{size}</span>
     </span>
   );
 }
