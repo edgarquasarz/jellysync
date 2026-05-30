@@ -28,20 +28,18 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@900f2210b1d28bbbd0bd22d17926b9e224e8f231
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@0355742c943ddb13ca8a6b700f824231caa91e75
         with:
           node-version: '20'
           cache: 'pnpm'
 
       - name: Setup Python
         if: matrix.os == 'macos-latest' || matrix.os == 'windows-latest'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@c8813ba1bc76ebf779b911ad8ffccbf2e449cb48
         with:
           python-version: '3.11'
 
@@ -68,7 +66,7 @@ jobs:
           npm_config_app_version: ${{ env.DEV_VERSION }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: jellytunes-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
