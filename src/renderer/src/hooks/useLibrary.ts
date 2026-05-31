@@ -697,6 +697,14 @@ export function useLibrary(jellyfinConfig: JellyfinConfig | null, userId: string
           // Guard: if the server returns no items, stop — advancing startIndex by 0
           // would cause an infinite loop when totalCount > actual available items.
           if (normalized.length === 0) break;
+
+          // Guard: if the server returns fewer items than requested, we have reached
+          // the end of available data regardless of TotalRecordCount. This guards
+          // against servers that ignore the Limit parameter and always return a fixed
+          // page size (e.g., PAGE_SIZE=50 instead of the requested 1000 items).
+          if (normalized.length < pageLimit) {
+            hasMore = false;
+          }
           // Genres use Name as key, all other types use Id
           normalized.forEach((item) => {
             const id = 'Id' in item ? item.Id : (item as Genre).Name;
